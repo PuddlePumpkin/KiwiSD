@@ -38,7 +38,7 @@ imagePrompt = ""
 activeMessage = 0
 mode = -1
 overprocessImage=None
-overprocess=False
+overprocessbool=False
 #----------------------------------
 #Normal Generate Function
 #----------------------------------
@@ -48,6 +48,7 @@ def WdGenerate(prompttext):
     global mode
     global pipe
     global overprocessImage
+    global imagePrompt
     prompt = prompttext
     if (curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png"):
         if (mode != 3):
@@ -63,12 +64,13 @@ def WdGenerate(prompttext):
     with autocast("cuda"):
         def dummy_checker(images, **kwargs): return images, False
         pipe.safety_checker = dummy_checker
-        image = pipe(prompt, init_image = init_image, strength=1, guidance_scale=guideVar, num_inference_steps=infSteps).images[0]
+        image = pipe(prompt, guidance_scale=guideVar, num_inference_steps=infSteps).images[0]
     countStr = str(filecount()+1)
     while os.path.exists("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png"):
         countStr = int(countStr)+1
     metadata = PngInfo()
     metadata.add_text("Prompt", prompttext)
+    imagePrompt=prompttext
     metadata.add_text("Guidance Scale", str(guideVar))
     metadata.add_text("Inference Steps", str(infSteps))
     overprocessImage = image
@@ -86,7 +88,7 @@ def WdGenerateImage(prompttext):
     global mode
     global pipe
     global overprocessImage
-    global overprocess
+    global overprocessbool
     prompt = prompttext
     if (curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png"):
         if (mode != 1):
@@ -97,17 +99,19 @@ def WdGenerateImage(prompttext):
             pipe = StableDiffusionImg2ImgPipeline.from_pretrained('hakurei/waifu-diffusion',torch_dtype=torch.float16, revision="fp16").to('cuda')
             mode = 0
     print("Generating: " + prompttext)
-    if(not overprocess):
+    if(overprocessbool):
+        init_image = overprocessImage
+        overprocessbool=False
+        print("Got process image from overprocessImage")
+    else:
         response = requests.get(url)
         init_image = Image.open(BytesIO(response.content)).convert("RGB")
         init_image = init_image.resize((512, 512))
-    else:
-        init_image = overprocessImage
-        overprocess=False
+        print("Got image from url:" + url)
     with autocast("cuda"):
         def dummy_checker(images, **kwargs): return images, False
         pipe.safety_checker = dummy_checker
-        image = pipe(prompt, init_image = init_image, strength=0.75, guidance_scale=guideVar, num_inference_steps=infSteps).images[0]
+        image = pipe(prompt, init_image = init_image, strength=(1-strength), guidance_scale=guideVar, num_inference_steps=infSteps).images[0]
     countStr = str(filecount()+1)
     while os.path.exists("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png"):
         countStr = int(countStr)+1
@@ -145,7 +149,6 @@ async def message_received(event):
     global awaitingUserId
     global awaitingImage
     global url
-    global prevPrompt
     global imagePrompt
     global pipe
     global mode
@@ -186,7 +189,7 @@ async def ping(ctx: lightbulb.SlashContext) -> None:
 #----------------------------------
 @bot.command
 @lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ")
-@lightbulb.option("strength", "Strength of the input input image (Default:0.75)", required = False,type = float)
+@lightbulb.option("strength", "Strength of the input input image (Default:0.25)", required = False,type = float)
 @lightbulb.command("process", "runs diffusion on an input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def process(ctx: lightbulb.SlashContext) -> None:
@@ -196,6 +199,7 @@ async def process(ctx: lightbulb.SlashContext) -> None:
     global imagePrompt
     global activeMessage
     global curmodel
+    global prevPrompt
     awaitingUserId = ctx.author.id
     embed = hikari.Embed(title="Please send your input image...",colour=hikari.Colour(0xff7e85),).set_footer(text = str(ctx.options.prompt), icon = curmodel)
     responseProxy = await ctx.respond(embed)
@@ -209,6 +213,7 @@ async def process(ctx: lightbulb.SlashContext) -> None:
             strength = 0.75
     except:
         pass
+    prevPrompt = str(ctx.options.prompt)
     imagePrompt = str(ctx.options.prompt)
 
 #----------------------------------
@@ -253,7 +258,7 @@ async def reprocess(ctx: lightbulb.SlashContext) -> None:
 @bot.command
 @lightbulb.option("prompt", "(Optional) A detailed description of desired output. Uses last prompt if empty. ",required = False)
 @lightbulb.option("strength", "(Optional) Strength of the input input image (Default:0.75)", required = False,type = float, default=0.75, max_value=1, min_value=0)
-@lightbulb.command("overprocess", "re-runs diffusion on the RESULT of the previous image process")
+@lightbulb.command("overprocess", "re-runs diffusion on the RESULT of the previous diffusion")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def overprocess(ctx: lightbulb.SlashContext) -> None:
     global awaitingUserId
@@ -262,7 +267,7 @@ async def overprocess(ctx: lightbulb.SlashContext) -> None:
     global imagePrompt
     global activeMessage
     global curmodel
-    global overprocess
+    global overprocessbool
     titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
     try:
         if (float(ctx.options.strength)>0.0):
@@ -275,7 +280,7 @@ async def overprocess(ctx: lightbulb.SlashContext) -> None:
         imagePrompt = str(ctx.options.prompt)
     embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8),).set_footer(text = str(imagePrompt), icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
     await ctx.respond(embed)
-    overprocess=True
+    overprocessbool=True
     filepath = WdGenerateImage(imagePrompt)
     f = hikari.File(filepath)
     if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
@@ -292,7 +297,7 @@ async def overprocess(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("help", "get help and command info")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def help(ctx: lightbulb.SlashContext) -> None:
-    await ctx.respond("> **/generate**: Generates a image from a detailed description, or booru tags separated by commas\n> **/regenerate**: Re-generates last entered prompt\n> **/lastprompt**: Prints out last used prompt\n> **/setsteps**: sets step count, higher for better quality but slower processing.(default:50)\n> **/setguidance**: sets guidance scale, how much the image is influenced by the prompted tags.(default:6.5)\n> **/ping**: Checks connection\n> **/deletelast**: Deletes the last bot message in this channel, for deleting nsfw without admin perms.\n> **/switchmodel | /changemodel**: switches model between stable diffusion v1.5 or waifu diffusion v1.3\n> More tags usually results in better images, especially composition tags.\n> __[Composition Tags](https://danbooru.donmai.us/wiki_pages/tag_group:image_composition)__\n> __[Tag Groups](https://danbooru.donmai.us/wiki_pages/tag_groups)__\n> __[Waifu Diffusion 1.3 Release Notes](https://gist.github.com/harubaru/f727cedacae336d1f7877c4bbe2196e1)__")
+    await ctx.respond("**~~                                                                                    ~~ Generation ~~                                                                                        ~~**\n> **/generate**: Generates a image from a detailed description, or booru tags separated by commas\n> **/regenerate**: Re-generates last entered prompt\n> **/process**: Diffuses from an input image\n> **/reprocess**: Reproccesses last input image\n> **/overprocess**: Diffuses from last diffusion result\n**~~                                                                                       ~~ Settings ~~                                                                                           ~~**\n> **/setsteps**: sets step count, higher for better quality but slower processing.(default:50)\n> **/setguidance**: sets guidance scale, how much the image is influenced by the prompted tags.(default:6.5)\n> **/changemodel**: switches model between stable diffusion v1.5 or waifu diffusion v1.3\n**~~                                                                                         ~~ Other ~~                                                                                              ~~**\n> **/lastprompt**: Prints out last used prompt\n> **/deletelast**: Deletes the last bot message in this channel, for deleting nsfw without admin perms.\n> **/ping**: Checks connection\n**~~                                                                                           ~~ Tips ~~                                                                                               ~~**\n> More tags usually results in better images, especially composition tags.\n> __[Composition Tags](https://danbooru.donmai.us/wiki_pages/tag_group:image_composition)__\n> __[Tag Groups](https://danbooru.donmai.us/wiki_pages/tag_groups)__\n> __[Waifu Diffusion 1.3 Release Notes](https://gist.github.com/harubaru/f727cedacae336d1f7877c4bbe2196e1)__")
 
 #----------------------------------
 #Generate Command
