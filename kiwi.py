@@ -17,7 +17,8 @@ import random
 
 
 curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
-pipe = StableDiffusionPipeline.from_pretrained('hakurei/waifu-diffusion',torch_dtype=torch.float16, revision="fp16").to('cuda')
+#pipe = StableDiffusionPipeline.from_pretrained('hakurei/waifu-diffusion',torch_dtype=torch.float16, revision="fp16").to('cuda')
+pipe = None
 
 def filecount():
     return len([entry for entry in os.listdir("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results") if os.path.isfile(os.path.join("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results", entry))])
@@ -34,9 +35,9 @@ url = ""
 strength = 0.75
 imagePrompt = ""
 activeMessage = 0
-mode = 2
+mode = -1
 #----------------------------------
-#Normal Generate
+#Normal Generate Function
 #----------------------------------
 def WdGenerate(prompttext):
     global guideVar
@@ -70,7 +71,7 @@ def WdGenerate(prompttext):
     return "C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png"
 
 #----------------------------------
-#Image Generate
+#Image Generate Function
 #----------------------------------
 def WdGenerateImage(prompttext):
     global guideVar
@@ -106,12 +107,6 @@ def WdGenerateImage(prompttext):
     image.save("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png", pnginfo=metadata)
     return "C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png"
 
-#----------------------------------
-#Clamp
-#----------------------------------
-def clamp(minimum, x, maximum):
-    return max(minimum, min(x, maximum))
-
 #----------------------------------    
 # Instantiate a Bot instance
 #----------------------------------
@@ -131,7 +126,7 @@ async def ready_listener(_):
     await bot.rest.create_message(672892614613139471, "> **I'm awake running waifu diffusion v1.3! Type /help for help!**")
 
 #----------------------------------    
-# Bot Message Event
+# Bot Message Event (Process Command)
 #----------------------------------
 @bot.listen(hikari.GuildMessageCreateEvent)
 async def message_received(event):
@@ -180,7 +175,7 @@ async def ping(ctx: lightbulb.SlashContext) -> None:
 @bot.command
 @lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ")
 @lightbulb.option("strength", "Strength of the input input image (Default:0.75)", required = False,type = float)
-@lightbulb.command("process", "runs diffusion on the most previous image in the channel")
+@lightbulb.command("process", "runs diffusion on an input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def process(ctx: lightbulb.SlashContext) -> None:
     global awaitingUserId
@@ -205,6 +200,44 @@ async def process(ctx: lightbulb.SlashContext) -> None:
     imagePrompt = str(ctx.options.prompt)
 
 #----------------------------------
+#ReProcess Command
+#----------------------------------
+@bot.command
+@lightbulb.option("prompt", "(Optional) A detailed description of desired output. Uses last prompt if empty. ",required = False)
+@lightbulb.option("strength", "(Optional) Strength of the input input image (Default:0.75)", required = False,type = float, default=0.75, max_value=1, min_value=0)
+@lightbulb.command("reprocess", "re-runs diffusion on the previous image")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def reprocess(ctx: lightbulb.SlashContext) -> None:
+    global awaitingUserId
+    global awaitingImage
+    global strength
+    global imagePrompt
+    global activeMessage
+    global curmodel
+    titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
+    try:
+        if (float(ctx.options.strength)>0.0):
+            strength = float(ctx.options.strength)
+        else:
+            strength = 0.75
+    except:
+        pass
+    if ctx.options.prompt != None:
+        imagePrompt = str(ctx.options.prompt)
+    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8),).set_footer(text = str(imagePrompt), icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+    await ctx.respond(embed)
+    filepath = WdGenerateImage(imagePrompt)
+    f = hikari.File(filepath)
+    if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
+        embed.title = "Stable Diffusion v1.5 - Result:"
+    else:
+        embed.title = "Waifu Diffusion v1.3 - Result:"
+    embed.set_image(f)
+    await ctx.edit_last_response(embed)
+
+
+
+#----------------------------------
 #Help Command
 #----------------------------------
 @bot.command
@@ -223,11 +256,7 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 async def generate(ctx: lightbulb.SlashContext) -> None:
     global prevPrompt
     titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
-    embed = hikari.Embed(
-            title=random.choice(titles),
-            colour=hikari.Colour(0x56aaf8)
-            #timestamp=datetime.datetime.now().astimezone()
-            ).set_footer(text = ctx.options.prompt, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = ctx.options.prompt, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
     await ctx.respond(embed)
     prevPrompt = ctx.options.prompt
     filepath = WdGenerate(ctx.options.prompt)
@@ -267,14 +296,14 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
 #Set Guidance Command
 #----------------------------------
 @bot.command
-@lightbulb.option("value", "default: 6.5 (how much the result is influenced)")
+@lightbulb.option("value", "default: 6.5 (how much the result is influenced)",type=float, min_value=-100, max_value=100, default=6.5)
 @lightbulb.command("setguidance", "Sets the diffusion guidance scale (tag influence)(recommended between 6 and 9)")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def setguidance(ctx: lightbulb.SlashContext) -> None:
     global guideVar
     try:
-        await ctx.respond("> Set the guidance scale from **" + str(guideVar) + "** to **" + str(clamp(-100,float(ctx.options.value),100)) + "** (Default: **6.5**)")
-        guideVar = clamp(-100,float(ctx.options.value),100)
+        await ctx.respond("> Set the guidance scale from **" + str(guideVar) + "** to **" + str(float(ctx.options.value)) + "** (Default: **6.5**)")
+        guideVar = float(ctx.options.value)
     except ValueError:
         await ctx.respond("Failed to set guidance scale. Current Value: " + str(guideVar))
 
@@ -282,14 +311,14 @@ async def setguidance(ctx: lightbulb.SlashContext) -> None:
 #Set Steps Command
 #----------------------------------
 @bot.command
-@lightbulb.option("value", "default: 30 (how many inference steps to use)")
+@lightbulb.option("value", "default: 30 (how many inference steps to use)",type=int, min_value = 1, max_value = 100, default=30)
 @lightbulb.command("setsteps", "inf step count, effects image quality. (recommended between 25 and 75)")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def setsteps(ctx: lightbulb.SlashContext) -> None:
     global infSteps
     try:
-        await ctx.respond("> Set the step count from **" + str(infSteps) + "** to **" + str(clamp(1,int(ctx.options.value),100)) + "** (Default: **30**)")
-        infSteps = clamp(1,int(ctx.options.value),100)
+        await ctx.respond("> Set the step count from **" + str(infSteps) + "** to **" + str(int(ctx.options.value)) + "** (Default: **30**)")
+        infSteps = int(ctx.options.value)
     except ValueError:
         await ctx.respond("Failed to set step count. Current Value: " + str(infSteps))
 
