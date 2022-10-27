@@ -18,7 +18,7 @@ import random
 
 curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
 #pipe = StableDiffusionPipeline.from_pretrained('hakurei/waifu-diffusion',torch_dtype=torch.float16, revision="fp16").to('cuda')
-pipe = None
+
 
 def filecount():
     return len([entry for entry in os.listdir("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results") if os.path.isfile(os.path.join("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results", entry))])
@@ -26,6 +26,7 @@ def filecount():
 #----------------------------------
 #Globals
 #----------------------------------
+pipe = None
 guideVar = 6.5
 infSteps = 30
 prevPrompt = ""
@@ -36,6 +37,8 @@ strength = 0.75
 imagePrompt = ""
 activeMessage = 0
 mode = -1
+overprocessImage=None
+overprocess=False
 #----------------------------------
 #Normal Generate Function
 #----------------------------------
@@ -44,6 +47,7 @@ def WdGenerate(prompttext):
     global infSteps
     global mode
     global pipe
+    global overprocessImage
     prompt = prompttext
     if (curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png"):
         if (mode != 3):
@@ -67,6 +71,7 @@ def WdGenerate(prompttext):
     metadata.add_text("Prompt", prompttext)
     metadata.add_text("Guidance Scale", str(guideVar))
     metadata.add_text("Inference Steps", str(infSteps))
+    overprocessImage = image
     image.save("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png", pnginfo=metadata)
     return "C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png"
 
@@ -80,6 +85,8 @@ def WdGenerateImage(prompttext):
     global strength
     global mode
     global pipe
+    global overprocessImage
+    global overprocess
     prompt = prompttext
     if (curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png"):
         if (mode != 1):
@@ -90,9 +97,13 @@ def WdGenerateImage(prompttext):
             pipe = StableDiffusionImg2ImgPipeline.from_pretrained('hakurei/waifu-diffusion',torch_dtype=torch.float16, revision="fp16").to('cuda')
             mode = 0
     print("Generating: " + prompttext)
-    response = requests.get(url)
-    init_image = Image.open(BytesIO(response.content)).convert("RGB")
-    init_image = init_image.resize((512, 512))
+    if(not overprocess):
+        response = requests.get(url)
+        init_image = Image.open(BytesIO(response.content)).convert("RGB")
+        init_image = init_image.resize((512, 512))
+    else:
+        init_image = overprocessImage
+        overprocess=False
     with autocast("cuda"):
         def dummy_checker(images, **kwargs): return images, False
         pipe.safety_checker = dummy_checker
@@ -104,6 +115,7 @@ def WdGenerateImage(prompttext):
     metadata.add_text("Prompt", prompttext)
     metadata.add_text("Guidance Scale", str(guideVar))
     metadata.add_text("Inference Steps", str(infSteps))
+    overprocessImage = image
     image.save("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png", pnginfo=metadata)
     return "C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png"
 
@@ -235,7 +247,43 @@ async def reprocess(ctx: lightbulb.SlashContext) -> None:
     embed.set_image(f)
     await ctx.edit_last_response(embed)
 
-
+#----------------------------------
+#OverProcess Command
+#----------------------------------
+@bot.command
+@lightbulb.option("prompt", "(Optional) A detailed description of desired output. Uses last prompt if empty. ",required = False)
+@lightbulb.option("strength", "(Optional) Strength of the input input image (Default:0.75)", required = False,type = float, default=0.75, max_value=1, min_value=0)
+@lightbulb.command("overprocess", "re-runs diffusion on the RESULT of the previous image process")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def overprocess(ctx: lightbulb.SlashContext) -> None:
+    global awaitingUserId
+    global awaitingImage
+    global strength
+    global imagePrompt
+    global activeMessage
+    global curmodel
+    global overprocess
+    titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
+    try:
+        if (float(ctx.options.strength)>0.0):
+            strength = float(ctx.options.strength)
+        else:
+            strength = 0.75
+    except:
+        pass
+    if ctx.options.prompt != None:
+        imagePrompt = str(ctx.options.prompt)
+    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8),).set_footer(text = str(imagePrompt), icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+    await ctx.respond(embed)
+    overprocess=True
+    filepath = WdGenerateImage(imagePrompt)
+    f = hikari.File(filepath)
+    if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
+        embed.title = "Stable Diffusion v1.5 - Result:"
+    else:
+        embed.title = "Waifu Diffusion v1.3 - Result:"
+    embed.set_image(f)
+    await ctx.edit_last_response(embed)
 
 #----------------------------------
 #Help Command
