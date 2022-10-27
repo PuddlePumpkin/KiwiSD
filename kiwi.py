@@ -33,7 +33,7 @@ prevPrompt = ""
 awaitingImage = False
 awaitingUserId = 0
 url = ""
-strength = 0.75
+strength = 0.25
 imagePrompt = ""
 activeMessage = 0
 mode = -1
@@ -189,7 +189,7 @@ async def ping(ctx: lightbulb.SlashContext) -> None:
 #----------------------------------
 @bot.command
 @lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ")
-@lightbulb.option("strength", "Strength of the input input image (Default:0.25)", required = False,type = float)
+@lightbulb.option("strength", "Strength of the input image (Default:0.25)", required = False,type = float, default=0.25)
 @lightbulb.command("process", "runs diffusion on an input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def process(ctx: lightbulb.SlashContext) -> None:
@@ -205,14 +205,7 @@ async def process(ctx: lightbulb.SlashContext) -> None:
     responseProxy = await ctx.respond(embed)
     activeMessage = await responseProxy.message()
     awaitingImage = True
-    try:
-        #print (ctx.options.strength)
-        if (float(ctx.options.strength)>0.0):
-            strength = float(ctx.options.strength)
-        else:
-            strength = 0.75
-    except:
-        pass
+    strength = float(ctx.options.strength)
     prevPrompt = str(ctx.options.prompt)
     imagePrompt = str(ctx.options.prompt)
 
@@ -221,7 +214,7 @@ async def process(ctx: lightbulb.SlashContext) -> None:
 #----------------------------------
 @bot.command
 @lightbulb.option("prompt", "(Optional) A detailed description of desired output. Uses last prompt if empty. ",required = False)
-@lightbulb.option("strength", "(Optional) Strength of the input input image (Default:0.75)", required = False,type = float, default=0.75, max_value=1, min_value=0)
+@lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float, default=0.25, max_value=1, min_value=0)
 @lightbulb.command("reprocess", "re-runs diffusion on the previous image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def reprocess(ctx: lightbulb.SlashContext) -> None:
@@ -232,13 +225,7 @@ async def reprocess(ctx: lightbulb.SlashContext) -> None:
     global activeMessage
     global curmodel
     titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
-    try:
-        if (float(ctx.options.strength)>0.0):
-            strength = float(ctx.options.strength)
-        else:
-            strength = 0.75
-    except:
-        pass
+    strength = float(ctx.options.strength)
     if ctx.options.prompt != None:
         imagePrompt = str(ctx.options.prompt)
     embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8),).set_footer(text = str(imagePrompt), icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
@@ -257,7 +244,7 @@ async def reprocess(ctx: lightbulb.SlashContext) -> None:
 #----------------------------------
 @bot.command
 @lightbulb.option("prompt", "(Optional) A detailed description of desired output. Uses last prompt if empty. ",required = False)
-@lightbulb.option("strength", "(Optional) Strength of the input input image (Default:0.75)", required = False,type = float, default=0.75, max_value=1, min_value=0)
+@lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float, default=0.25, max_value=1, min_value=0)
 @lightbulb.command("overprocess", "re-runs diffusion on the RESULT of the previous diffusion")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def overprocess(ctx: lightbulb.SlashContext) -> None:
@@ -269,13 +256,7 @@ async def overprocess(ctx: lightbulb.SlashContext) -> None:
     global curmodel
     global overprocessbool
     titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
-    try:
-        if (float(ctx.options.strength)>0.0):
-            strength = float(ctx.options.strength)
-        else:
-            strength = 0.75
-    except:
-        pass
+    strength = float(ctx.options.strength)
     if ctx.options.prompt != None:
         imagePrompt = str(ctx.options.prompt)
     embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8),).set_footer(text = str(imagePrompt), icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
