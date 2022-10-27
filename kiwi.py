@@ -33,7 +33,7 @@ awaitingUserId = 0
 url = ""
 strength = 0.75
 imagePrompt = ""
-
+activeMessage = 0
 #----------------------------------
 #Normal Generate
 #----------------------------------
@@ -129,7 +129,7 @@ async def message_received(event):
                 awaitingImage = False
                 titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
                 embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = imagePrompt, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
-                await bot.rest.create_message(672892614613139471, embed)
+                editthis = await bot.rest.create_message(672892614613139471, embed)
                 filepath = WdGenerateImage(imagePrompt)
                 f = hikari.File(filepath)
                 if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
@@ -137,14 +137,7 @@ async def message_received(event):
                 else:
                     embed.title = "Waifu Diffusion v1.3 - Result:"
                 embed.set_image(f)
-                messages = (
-                await bot.rest.fetch_messages(672892614613139471).take_until(lambda m:  m.author.id == "1032466644070572032").limit(10))
-                if messages:
-                    for m in messages:
-                        print(m.author.id)
-                        if str(m.author.id) == "1032466644070572032":
-                            await bot.rest.edit_message(672892614613139471, m, embed)
-                        break
+                await bot.rest.edit_message(672892614613139471, editthis, embed)
 
 #----------------------------------
 #Ping Command
@@ -160,7 +153,7 @@ async def ping(ctx: lightbulb.SlashContext) -> None:
 #----------------------------------
 @bot.command
 @lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ")
-@lightbulb.option("stength", "Strength of the input input image (Default:.75)", required = False)
+@lightbulb.option("strength", "Strength of the input input image (Default:.75)", required = False,type = float)
 @lightbulb.command("process", "runs diffusion on the most previous image in the channel")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def process(ctx: lightbulb.SlashContext) -> None:
@@ -168,8 +161,9 @@ async def process(ctx: lightbulb.SlashContext) -> None:
     global awaitingImage
     global strength
     global imagePrompt
+    global activeMessage
     awaitingUserId = ctx.author.id
-    await ctx.respond("> Please send your input image: ")
+    activeMessage = await ctx.respond("> Please send your input image: ")
     awaitingImage = True
     try:
         print (ctx.options.strength)
