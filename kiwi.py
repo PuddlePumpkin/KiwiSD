@@ -6,6 +6,7 @@ import datetime
 import asyncio
 import os
 import gc
+from PIL.PngImagePlugin import PngInfo
 from torch import autocast
 from diffusers import StableDiffusionPipeline
 import random
@@ -21,6 +22,8 @@ guideVar = 6.5
 infSteps = 30
 prevPrompt = ""
 def WdGenerate(prompttext):
+    global guideVar
+    global infSteps
     prompt = prompttext
     print("Generating: " + prompttext)
     with autocast("cuda"):
@@ -30,7 +33,11 @@ def WdGenerate(prompttext):
     countStr = str(filecount()+1)
     while os.path.exists("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png"):
         countStr = int(countStr)+1
-    image.save("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png" )
+    metadata = PngInfo()
+    metadata.add_text("Prompt", prompttext)
+    metadata.add_text("Guidance Scale", str(guideVar))
+    metadata.add_text("Inference Steps", str(infSteps))
+    image.save("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png", pnginfo=metadata)
     return "C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png"
 def clamp(minimum, x, maximum):
     return max(minimum, min(x, maximum))
