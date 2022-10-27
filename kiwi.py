@@ -6,21 +6,37 @@ import datetime
 import asyncio
 import os
 import gc
+import requests
 from PIL.PngImagePlugin import PngInfo
+from PIL import Image
 from torch import autocast
 from diffusers import StableDiffusionPipeline
+from diffusers import StableDiffusionImg2ImgPipeline
+from io import BytesIO
 import random
 
 
 curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
-pipe = StableDiffusionPipeline.from_pretrained('hakurei/waifu-diffusion',torch_dtype=torch.float16, revision="fp16").to('cuda')
+pipe = StableDiffusionImg2ImgPipeline.from_pretrained('hakurei/waifu-diffusion',torch_dtype=torch.float16, revision="fp16").to('cuda')
 
 def filecount():
     return len([entry for entry in os.listdir("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results") if os.path.isfile(os.path.join("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results", entry))])
 
+#----------------------------------
+#Globals
+#----------------------------------
 guideVar = 6.5
 infSteps = 30
 prevPrompt = ""
+awaitingImage = False
+awaitingUserId = 0
+url = ""
+strength = 0.75
+imagePrompt = ""
+
+#----------------------------------
+#Normal Generate
+#----------------------------------
 def WdGenerate(prompttext):
     global guideVar
     global infSteps
@@ -39,9 +55,42 @@ def WdGenerate(prompttext):
     metadata.add_text("Inference Steps", str(infSteps))
     image.save("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png", pnginfo=metadata)
     return "C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png"
+
+#----------------------------------
+#Image Generate
+#----------------------------------
+def WdGenerateImage(prompttext):
+    global guideVar
+    global infSteps
+    global url
+    global strength
+    prompt = prompttext
+    print("Generating: " + prompttext)
+    response = requests.get(url)
+    init_image = Image.open(BytesIO(response.content)).convert("RGB")
+    with autocast("cuda"):
+        def dummy_checker(images, **kwargs): return images, False
+        pipe.safety_checker = dummy_checker
+        image = pipe(prompt, init_image = init_image, strength=0.75, guidance_scale=guideVar, num_inference_steps=infSteps).images[0]
+    countStr = str(filecount()+1)
+    while os.path.exists("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png"):
+        countStr = int(countStr)+1
+    metadata = PngInfo()
+    metadata.add_text("Prompt", prompttext)
+    metadata.add_text("Guidance Scale", str(guideVar))
+    metadata.add_text("Inference Steps", str(infSteps))
+    image.save("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png", pnginfo=metadata)
+    return "C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png"
+
+#----------------------------------
+#Clamp
+#----------------------------------
 def clamp(minimum, x, maximum):
     return max(minimum, min(x, maximum))
+
+#----------------------------------    
 # Instantiate a Bot instance
+#----------------------------------
 bot = lightbulb.BotApp(
     token="***REMOVED***",
     prefix="-",
@@ -49,9 +98,53 @@ bot = lightbulb.BotApp(
     intents=hikari.Intents.ALL,
     help_class=None
     )
+
+#----------------------------------    
+# Bot Ready Event
+#----------------------------------
 @bot.listen(hikari.ShardReadyEvent)
 async def ready_listener(_):
     await bot.rest.create_message(672892614613139471, "> **I'm awake running waifu diffusion v1.3! Type /help for help!**")
+
+#----------------------------------    
+# Bot Message Event
+#----------------------------------
+@bot.listen(hikari.GuildMessageCreateEvent)
+async def message_received(event):
+    global awaitingUserId
+    global awaitingImage
+    global url
+    global prevPrompt
+    global imagePrompt
+    if(awaitingImage):
+        if(event.author.id == awaitingUserId):
+            try:
+                url = event.message.attachments[0].url
+                await bot.rest.delete_message(672892614613139471,event.message)
+                foundURL=True
+            except:
+                print("Same user, but no attachment.")
+                foundURL=False
+            if(foundURL):
+                awaitingImage = False
+                titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
+                embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = imagePrompt, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+                await bot.rest.create_message(672892614613139471, embed)
+                filepath = WdGenerateImage(imagePrompt)
+                f = hikari.File(filepath)
+                if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
+                    embed.title = "Stable Diffusion v1.5 - Result:"
+                else:
+                    embed.title = "Waifu Diffusion v1.3 - Result:"
+                embed.set_image(f)
+                messages = (
+                await bot.rest.fetch_messages(672892614613139471).take_until(lambda m:  m.author.id == "1032466644070572032").limit(10))
+                if messages:
+                    for m in messages:
+                        print(m.author.id)
+                        if str(m.author.id) == "1032466644070572032":
+                            await bot.rest.edit_message(672892614613139471, m, embed)
+                        break
 
 #----------------------------------
 #Ping Command
@@ -61,6 +154,32 @@ async def ready_listener(_):
 @lightbulb.implements(lightbulb.SlashCommand)
 async def ping(ctx: lightbulb.SlashContext) -> None:
     await ctx.respond("Pong!")
+
+#----------------------------------
+#Generate from image
+#----------------------------------
+@bot.command
+@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ")
+@lightbulb.option("stength", "Strength of the input input image (Default:.75)", required = False)
+@lightbulb.command("process", "runs diffusion on the most previous image in the channel")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def process(ctx: lightbulb.SlashContext) -> None:
+    global awaitingUserId
+    global awaitingImage
+    global strength
+    global imagePrompt
+    awaitingUserId = ctx.author.id
+    await ctx.respond("> Please send your input image: ")
+    awaitingImage = True
+    try:
+        print (ctx.options.strength)
+        if (float(ctx.options.strength)>0.0):
+            strength = float(ctx.options.strength)
+        else:
+            strength = 0.75
+    except:
+        print("No strength")
+    imagePrompt = str(ctx.options.prompt)
 
 #----------------------------------
 #Help Command
@@ -83,7 +202,7 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
     titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
     embed = hikari.Embed(
             title=random.choice(titles),
-            colour=hikari.Colour(0x56aaf8),
+            colour=hikari.Colour(0x56aaf8)
             #timestamp=datetime.datetime.now().astimezone()
             ).set_footer(text = ctx.options.prompt, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
     await ctx.respond(embed)
