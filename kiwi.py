@@ -1,5 +1,6 @@
 import lightbulb
 import hikari
+from prompt_toolkit import prompt
 import torch
 import sys
 import datetime
@@ -180,8 +181,9 @@ async def metadata(ctx: lightbulb.SlashContext) -> None:
 @bot.command
 @lightbulb.option("image", "image to run diffusion on", required = True,type = hikari.Attachment)
 @lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = True)
-@lightbulb.option("negativeprompt", "prompts to not effect the result, separated by commas. ",required = False)
-@lightbulb.option("strength", "Strength of the input image (Default:0.25)", required = False,type = float, default=0.25)
+@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
+@lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float, default=0.25)
+@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False, default = 7,type = float, max_value=100, min_value=-100)
 @lightbulb.command("process", "runs diffusion on an input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def process(ctx: lightbulb.SlashContext) -> None:
@@ -190,20 +192,27 @@ async def process(ctx: lightbulb.SlashContext) -> None:
     global prevPrompt
     global prevNegPrompt
     global prevUrl
+    global guideVar
 
     #--Inputs
-    if ctx.options.strength != None:
-        prevStrength = float(ctx.options.strength)
-    if ctx.options.prompt != None:
-        prevPrompt = str(ctx.options.prompt)
-    if ctx.options.negativeprompt != None:
-        prevNegPrompt = str(ctx.options.negativeprompt)
+    prevStrength = float(ctx.options.strength)
+    prevPrompt = str(ctx.options.prompt)
+    prevNegPrompt = str(ctx.options.negativeprompt)
+    guideVar = float(ctx.options.guidescale)
     #--------
     
     prevUrl = ctx.options.image.url
     titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
-    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = prevPrompt, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+
+    #--Embed
+    footer = "Guidance Scale: " + str(guideVar) + "                        Strength: "+str(prevStrength)                   
+    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+    embed.add_field("Prompt:",prevPrompt)
+    if ctx.options.negativeprompt != None:
+        embed.add_field("Negative Prompt:",prevNegPrompt)
     await ctx.respond(embed)
+    #-------
+
     filepath = WdGenerateImage(prevPrompt,prevNegPrompt)
     f = hikari.File(filepath)
     if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
@@ -218,8 +227,9 @@ async def process(ctx: lightbulb.SlashContext) -> None:
 #----------------------------------
 @bot.command
 @lightbulb.option("prompt", "(Optional) A detailed description of desired output. Uses last prompt if empty. ",required = False)
-@lightbulb.option("negativeprompt", "prompts to not effect the result, separated by commas. ",required = False)
-@lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float, default=0.25, max_value=1, min_value=0)
+@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
+@lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float, max_value=1, min_value=0)
+@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, max_value=100, min_value=-100)
 @lightbulb.command("reprocess", "re-runs diffusion on the previous input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def reprocess(ctx: lightbulb.SlashContext) -> None:
@@ -227,6 +237,7 @@ async def reprocess(ctx: lightbulb.SlashContext) -> None:
     global curmodel
     global prevNegPrompt
     global prevPrompt
+    global guideVar
     titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
 
     #--Inputs
@@ -236,10 +247,21 @@ async def reprocess(ctx: lightbulb.SlashContext) -> None:
         prevPrompt = str(ctx.options.prompt)
     if ctx.options.negativeprompt != None:
         prevNegPrompt = str(ctx.options.negativeprompt)
+    if ctx.options.guidescale != None:
+        guideVar = float(ctx.options.guidescale)
     #--------
 
-    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8),).set_footer(text = str(prevPrompt), icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+    #--Embed
+    footer = "Guidance Scale: " + str(guideVar) + "                        Strength: "+str(prevStrength)                   
+    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+    embed.add_field("Prompt:",prevPrompt)
+    if ((prevNegPrompt != None) and (prevNegPrompt!= "None") and (prevNegPrompt!= "")):
+        embed.add_field("Negative Prompt:",prevNegPrompt)
+    else:
+        prevNegPrompt = ""
     await ctx.respond(embed)
+    #-------
+
     filepath = WdGenerateImage(prevPrompt,prevNegPrompt)
     f = hikari.File(filepath)
     if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
@@ -254,8 +276,9 @@ async def reprocess(ctx: lightbulb.SlashContext) -> None:
 #----------------------------------
 @bot.command
 @lightbulb.option("prompt", "(Optional) A detailed description of desired output. Uses last prompt if empty. ",required = False)
-@lightbulb.option("negativeprompt", "prompts to not effect the result, separated by commas. ",required = False)
-@lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float, default=0.25, max_value=1, min_value=0)
+@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
+@lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float, max_value=1, min_value=0)
+@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, max_value=100, min_value=-100)
 @lightbulb.command("overprocess", "re-runs diffusion on the RESULT of the previous diffusion")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def overprocess(ctx: lightbulb.SlashContext) -> None:
@@ -264,6 +287,7 @@ async def overprocess(ctx: lightbulb.SlashContext) -> None:
     global overprocessbool
     global prevPrompt
     global prevNegPrompt
+    global guideVar
     titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
 
     #--Inputs
@@ -273,10 +297,22 @@ async def overprocess(ctx: lightbulb.SlashContext) -> None:
         prevPrompt = str(ctx.options.prompt)
     if ctx.options.negativeprompt != None:
         prevNegPrompt = str(ctx.options.negativeprompt)
+    if ctx.options.guidescale != None:
+        guideVar = float(ctx.options.guidescale)
+        
     #--------
     
-    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8),).set_footer(text = str(prevPrompt), icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+    #--Embed
+    footer = "Guidance Scale: " + str(guideVar) + "                        Strength: "+str(prevStrength)                   
+    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+    embed.add_field("Prompt:",prevPrompt)
+    if ((prevNegPrompt != None) and (prevNegPrompt!= "None") and (prevNegPrompt!= "")):
+        embed.add_field("Negative Prompt:",prevNegPrompt)
+    else:
+        prevNegPrompt = ""
     await ctx.respond(embed)
+    #-------
+
     overprocessbool=True
     filepath = WdGenerateImage(prevPrompt,prevNegPrompt)
     f = hikari.File(filepath)
@@ -294,26 +330,41 @@ async def overprocess(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("help", "get help and command info")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def help(ctx: lightbulb.SlashContext) -> None:
-    await ctx.respond("**~~                                                                                    ~~ Generation ~~                                                                                        ~~**\n> **/generate**: Generates a image from a detailed description, or booru tags separated by commas\n> **/regenerate**: Re-generates last entered prompt\n> **/process**: Diffuses from an input image\n> **/reprocess**: Reproccesses last input image\n> **/overprocess**: Diffuses from last diffusion result\n**~~                                                                                       ~~ Settings ~~                                                                                           ~~**\n> **/setsteps**: sets step count, higher for better quality but slower processing.(default:50)\n> **/setguidance**: sets guidance scale, how much the image is influenced by the prompted tags.(default:6.5)\n> **/changemodel**: switches model between stable diffusion v1.5 or waifu diffusion v1.3\n**~~                                                                                         ~~ Other ~~                                                                                              ~~**\n> **/lastprompt**: Prints out last used prompt\n> **/deletelast**: Deletes the last bot message in this channel, for deleting nsfw without admin perms.\n> **/ping**: Checks connection\n**~~                                                                                           ~~ Tips ~~                                                                                               ~~**\n> More tags usually results in better images, especially composition tags.\n> __[Composition Tags](https://danbooru.donmai.us/wiki_pages/tag_group:image_composition)__\n> __[Tag Groups](https://danbooru.donmai.us/wiki_pages/tag_groups)__\n> __[Waifu Diffusion 1.3 Release Notes](https://gist.github.com/harubaru/f727cedacae336d1f7877c4bbe2196e1)__")
+    await ctx.respond("**~~                                                                                    ~~ Generation ~~                                                                                        ~~**\n> **/generate**: Generates a image from a detailed description, or booru tags separated by commas\n> **/regenerate**: Re-generates last entered prompt\n> **/process**: Diffuses from an input image\n> **/reprocess**: Reproccesses last input image\n> **/overprocess**: Diffuses from last diffusion result\n**~~                                                                                       ~~ Settings ~~                                                                                           ~~**\n **/changemodel**: switches model between stable diffusion v1.5 or waifu diffusion v1.3\n**~~                                                                                         ~~ Other ~~                                                                                              ~~**\n> **/deletelast**: Deletes the last bot message in this channel, for deleting nsfw without admin perms.\n> **/ping**: Checks connection\n**~~                                                                                           ~~ Tips ~~                                                                                               ~~**\n> More tags usually results in better images, especially composition tags.\n> __[Composition Tags](https://danbooru.donmai.us/wiki_pages/tag_group:image_composition)__\n> __[Tag Groups](https://danbooru.donmai.us/wiki_pages/tag_groups)__\n> __[Waifu Diffusion 1.3 Release Notes](https://gist.github.com/harubaru/f727cedacae336d1f7877c4bbe2196e1)__")
 
 #----------------------------------
 #Generate Command
 #----------------------------------
 @bot.command
 @lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ")
-@lightbulb.option("negativeprompt", "prompts to not effect the result, separated by commas. ",required = False)
+@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,type = int, default=30, max_value=100, min_value=1)
+@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, default=7, max_value=100, min_value=-100)
 @lightbulb.command("generate", "Generate a diffusion image from description or tags, separated by commas")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def generate(ctx: lightbulb.SlashContext) -> None:
     global prevPrompt
     global prevNegPrompt
+    global infSteps
+    global guideVar
     titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
-    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = ctx.options.prompt, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
-    await ctx.respond(embed)
-    if ctx.options.prompt != None:
-        prevPrompt = str(ctx.options.prompt)
+
+    #--Inputs
+    prevPrompt = str(ctx.options.prompt)
+    prevNegPrompt = str(ctx.options.negativeprompt)
+    infSteps = int(ctx.options.steps)
+    guideVar = float(ctx.options.guidescale)
+    #-------
+
+    #--Embed
+    footer = "Guidance Scale: " + str(guideVar) + "                 Inference Steps: "+str(infSteps)                   
+    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+    embed.add_field("Prompt:",prevPrompt)
     if ctx.options.negativeprompt != None:
-        prevNegPrompt = str(ctx.options.negativeprompt)
+        embed.add_field("Negative Prompt:",prevNegPrompt)
+    await ctx.respond(embed)
+    #-------
+
     filepath = WdGenerate(ctx.options.prompt,ctx.options.negativeprompt)
     f = hikari.File(filepath)
     if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
@@ -327,18 +378,41 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
 #Regenerate Command
 #----------------------------------
 @bot.command
+@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = False)
+@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,type = int, max_value=100, min_value=1)
+@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, max_value=100, min_value=-100)
 @lightbulb.command("regenerate", "regenerates last prompt")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def regenerate(ctx: lightbulb.SlashContext) -> None:
     global prevPrompt
     global prevNegPrompt
+    global infSteps
+    global guideVar
     titles = ["I'll try again!... <:scootcry:1033114138366443600>", "Sorry if I didnt do good enough... <:scootcry:1033114138366443600>", "I'll try my best to do better... <:scootcry:1033114138366443600>"]
-    embed = hikari.Embed(
-            title=random.choice(titles),
-            colour=hikari.Colour(0x56aaf8),
-            #timestamp=datetime.datetime.now().astimezone()
-            ).set_footer(text = prevPrompt, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+
+    #--Inputs
+    if ctx.options.prompt != None:
+        prevPrompt = float(ctx.options.strength)
+    if ctx.options.negativeprompt != None:
+        prevNegPrompt = str(ctx.options.negativeprompt)
+    if ctx.options.steps != None:
+        infSteps = int(ctx.options.steps)
+    if ctx.options.guidescale != None:
+        guideVar = float(ctx.options.guidescale)
+    #--------
+
+    #--Embed
+    footer = "Guidance Scale: " + str(guideVar) + "                 Inference Steps: "+str(infSteps)                   
+    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+    embed.add_field("Prompt:",prevPrompt)
+    if ((prevNegPrompt != None) and (prevNegPrompt!= "None") and (prevNegPrompt!= "")):
+        embed.add_field("Negative Prompt:",prevNegPrompt)
+    else:
+        prevNegPrompt = ""
     await ctx.respond(embed)
+    #-------
+
     filepath = WdGenerate(prevPrompt,prevNegPrompt)
     f = hikari.File(filepath)
     if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
@@ -347,36 +421,6 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
         embed.title = "Waifu Diffusion v1.3 - Result:"
     embed.set_image(f)
     await ctx.edit_last_response(embed)
-
-#----------------------------------
-#Set Guidance Command
-#----------------------------------
-@bot.command
-@lightbulb.option("value", "default: 6.5 (how much the result is influenced)",type=float, min_value=-100, max_value=100, default=6.5)
-@lightbulb.command("setguidance", "Sets the diffusion guidance scale (tag influence)(recommended between 6 and 9)")
-@lightbulb.implements(lightbulb.SlashCommand)
-async def setguidance(ctx: lightbulb.SlashContext) -> None:
-    global guideVar
-    try:
-        await ctx.respond("> Set the guidance scale from **" + str(guideVar) + "** to **" + str(float(ctx.options.value)) + "** (Default: **6.5**)")
-        guideVar = float(ctx.options.value)
-    except ValueError:
-        await ctx.respond("Failed to set guidance scale. Current Value: " + str(guideVar))
-
-#----------------------------------
-#Set Steps Command
-#----------------------------------
-@bot.command
-@lightbulb.option("value", "default: 30 (how many inference steps to use)",type=int, min_value = 1, max_value = 100, default=30)
-@lightbulb.command("setsteps", "inf step count, effects image quality. (recommended between 25 and 75)")
-@lightbulb.implements(lightbulb.SlashCommand)
-async def setsteps(ctx: lightbulb.SlashContext) -> None:
-    global infSteps
-    try:
-        await ctx.respond("> Set the step count from **" + str(infSteps) + "** to **" + str(int(ctx.options.value)) + "** (Default: **30**)")
-        infSteps = int(ctx.options.value)
-    except ValueError:
-        await ctx.respond("Failed to set step count. Current Value: " + str(infSteps))
 
 #----------------------------------
 #Delete Last Command
@@ -413,16 +457,6 @@ async def deletelast(ctx: lightbulb.SlashContext) -> None:
             #await ctx.respond(f"Could not find any message in the array!")
     else:
         await ctx.respond("Sorry >~< I couldnt find any messages I sent recently!")
-
-#----------------------------------
-#Last Prompt
-#----------------------------------
-@bot.command()
-@lightbulb.command("lastprompt", "print out the last prompt (used for /regenerate).")
-@lightbulb.implements(lightbulb.SlashCommand)
-async def lastprompt(ctx: lightbulb.SlashContext) -> None:
-    global prevPrompt
-    await ctx.respond("> **Last prompt used:** \n > " + prevPrompt)
 
 #----------------------------------
 #Change Model
