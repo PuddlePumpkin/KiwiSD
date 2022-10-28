@@ -31,15 +31,11 @@ guideVar = 6.5
 infSteps = 30
 prevPrompt = ""
 prevNegPrompt = ""
-awaitingImage = False
-awaitingUserId = 0
-url = ""
-strength = 0.25
-activeMessage = 0
+prevStrength = 0.25
+prevUrl = ""
 mode = -1
 overprocessImage=None
 overprocessbool=False
-awaitingMetaData = False
 #----------------------------------
 #Normal Generate Function
 #----------------------------------
@@ -84,8 +80,8 @@ def WdGenerate(prompttext,negativeprompttext):
 def WdGenerateImage(prompttext, negativeprompttext):
     global guideVar
     global infSteps
-    global url
-    global strength
+    global prevUrl
+    global prevStrength
     global mode
     global pipe
     global overprocessImage
@@ -105,22 +101,22 @@ def WdGenerateImage(prompttext, negativeprompttext):
         init_image = overprocessImage
         overprocessbool=False
     else:
-        print("Loading image from url: " + url)
-        response = requests.get(url)
+        print("Loading image from url: " + prevUrl)
+        response = requests.get(prevUrl)
         init_image = Image.open(BytesIO(response.content)).convert("RGB")
         init_image = init_image.resize((512, 512))
 
     with autocast("cuda"):
         def dummy_checker(images, **kwargs): return images, False
         pipe.safety_checker = dummy_checker
-        image = pipe(prompt, init_image = init_image, negative_prompt=negativeprompttext, strength=(1-strength), guidance_scale=guideVar, num_inference_steps=infSteps).images[0]
+        image = pipe(prompt, init_image = init_image, negative_prompt=negativeprompttext, strength=(1-prevStrength), guidance_scale=guideVar, num_inference_steps=infSteps).images[0]
     countStr = str(filecount()+1)
     while os.path.exists("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png"):
         countStr = int(countStr)+1
     metadata = PngInfo()
     metadata.add_text("Prompt", prompttext)
     metadata.add_text("Negative Prompt", negativeprompttext)
-    metadata.add_text("Img2Img Strength", str(strength))
+    metadata.add_text("Img2Img Strength", str(prevStrength))
     metadata.add_text("Guidance Scale", str(guideVar))
     overprocessImage = image
     image.save("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png", pnginfo=metadata)
@@ -144,64 +140,6 @@ bot = lightbulb.BotApp(
 async def ready_listener(_):
     await bot.rest.create_message(672892614613139471, "> **I'm awake running waifu diffusion v1.3! Type /help for help!**")
 
-#----------------------------------    
-# Bot Message Event (Process Command)
-#----------------------------------
-@bot.listen(hikari.GuildMessageCreateEvent)
-async def message_received(event):
-    global awaitingUserId
-    global awaitingImage
-    global url
-    global pipe
-    global mode
-    global prevPrompt
-    global prevNegPrompt
-    global awaitingMetaData
-    if(awaitingImage):
-        if(event.author.id == awaitingUserId):
-            try:
-                url = event.message.attachments[0].url
-                await bot.rest.delete_message(672892614613139471,event.message)
-                foundURL=True
-            except:
-                print("Same user, but no attachment.")
-                foundURL=False
-            if(foundURL):
-                awaitingImage = False
-                titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
-                embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = prevPrompt, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
-                await bot.rest.edit_message(672892614613139471, activeMessage, embed)
-                filepath = WdGenerateImage(prevPrompt,prevNegPrompt)
-                f = hikari.File(filepath)
-                if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
-                    embed.title = "Stable Diffusion v1.5 - Result:"
-                else:
-                    embed.title = "Waifu Diffusion v1.3 - Result:"
-                embed.set_image(f)
-                await bot.rest.edit_message(672892614613139471, activeMessage, embed)
-    if(awaitingMetaData):
-        if(event.author.id == awaitingUserId):
-            try:
-                mdurl = event.message.attachments[0].url
-                await bot.rest.delete_message(672892614613139471,event.message)
-                response = requests.get(mdurl)
-                mdataimage = Image.open(BytesIO(response.content)).convert("RGB")
-                mdataimage = mdataimage.resize((512, 512))
-                awaitingMetaData = False
-                embed = hikari.Embed(title=(mdurl.rsplit('/', 1)[-1]),colour=hikari.Colour(0x56aaf8)).set_thumbnail(mdurl)
-                if(str(mdataimage.info.get("Prompt")) != "None"):
-                    embed.add_field("Prompt:",str(mdataimage.info.get("Prompt")))
-                if(str(mdataimage.info.get("Negative Prompt")) != "None"):
-                    embed.add_field("Negative Prompt:",str(mdataimage.info.get("Negative Prompt")))
-                if(str(mdataimage.info.get("Guidance Scale")) != "None"):
-                    embed.add_field("Guidance Scale:",str(mdataimage.info.get("Guidance Scale")))
-                if(str(mdataimage.info.get("Inference Steps")) != "None"):
-                    embed.add_field("Inference Steps:",str(mdataimage.info.get("Inference Steps")))
-                if(str(mdataimage.info.get("Img2Img Strength")) != "None"):
-                    embed.add_field("Img2Img Strength:",str(mdataimage.info.get("Img2Img Strength")))
-                await bot.rest.edit_message(672892614613139471, activeMessage, embed)
-            except:
-                pass
 
 #----------------------------------
 #Ping Command
@@ -216,45 +154,64 @@ async def ping(ctx: lightbulb.SlashContext) -> None:
 #Metadata Command
 #----------------------------------
 @bot.command
+@lightbulb.option("image", "input image", required = True,type = hikari.Attachment)
 @lightbulb.command("metadata", "check metadata of an image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def metadata(ctx: lightbulb.SlashContext) -> None:
-    global awaitingUserId
-    global awaitingMetaData
-    global activeMessage
-    awaitingUserId = ctx.author.id
-    awaitingMetaData = True
-    embed = hikari.Embed(title="Please send your input image...",colour=hikari.Colour(0xff7e85)).set_image("https://i.imgur.com/ec2IoO9.png")
-    responseProxy = await ctx.respond(embed)
-    activeMessage = await responseProxy.message()
+    datas = await hikari.Attachment.read(ctx.options.image)
+    mdataimage = Image.open(BytesIO(datas)).convert("RGB")
+    mdataimage = mdataimage.resize((512, 512))
+    embed = hikari.Embed(title=(ctx.options.image.url.rsplit('/', 1)[-1]),colour=hikari.Colour(0x56aaf8)).set_thumbnail(ctx.options.image.url)
+    if(str(mdataimage.info.get("Prompt")) != "None"):
+        embed.add_field("Prompt:",str(mdataimage.info.get("Prompt")))
+    if(str(mdataimage.info.get("Negative Prompt")) != "None"):
+        embed.add_field("Negative Prompt:",str(mdataimage.info.get("Negative Prompt")))
+    if(str(mdataimage.info.get("Guidance Scale")) != "None"):
+        embed.add_field("Guidance Scale:",str(mdataimage.info.get("Guidance Scale")))
+    if(str(mdataimage.info.get("Inference Steps")) != "None"):
+        embed.add_field("Inference Steps:",str(mdataimage.info.get("Inference Steps")))
+    if(str(mdataimage.info.get("Img2Img Strength")) != "None"):
+        embed.add_field("Img2Img Strength:",str(mdataimage.info.get("Img2Img Strength")))
+    await ctx.respond(embed)
 
 #----------------------------------
 #Process Command
 #----------------------------------
 @bot.command
-@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ")
+@lightbulb.option("image", "image to run diffusion on", required = True,type = hikari.Attachment)
+@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = True)
 @lightbulb.option("negativeprompt", "prompts to not effect the result, separated by commas. ",required = False)
 @lightbulb.option("strength", "Strength of the input image (Default:0.25)", required = False,type = float, default=0.25)
 @lightbulb.command("process", "runs diffusion on an input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def process(ctx: lightbulb.SlashContext) -> None:
-    global awaitingUserId
-    global awaitingImage
-    global strength
-    global activeMessage
+    global prevStrength
     global curmodel
     global prevPrompt
     global prevNegPrompt
-    awaitingUserId = ctx.author.id
-    embed = hikari.Embed(title="Please send your input image...",colour=hikari.Colour(0xff7e85)).set_image("https://i.imgur.com/ec2IoO9.png").set_footer(text = str(ctx.options.prompt), icon = curmodel)
-    responseProxy = await ctx.respond(embed)
-    activeMessage = await responseProxy.message()
-    awaitingImage = True
-    strength = float(ctx.options.strength)
+    global prevUrl
+
+    #--Inputs
+    if ctx.options.strength != None:
+        prevStrength = float(ctx.options.strength)
     if ctx.options.prompt != None:
         prevPrompt = str(ctx.options.prompt)
     if ctx.options.negativeprompt != None:
         prevNegPrompt = str(ctx.options.negativeprompt)
+    #--------
+    
+    prevUrl = ctx.options.image.url
+    titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
+    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = prevPrompt, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+    await ctx.respond(embed)
+    filepath = WdGenerateImage(prevPrompt,prevNegPrompt)
+    f = hikari.File(filepath)
+    if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
+        embed.title = "Stable Diffusion v1.5 - Result:"
+    else:
+        embed.title = "Waifu Diffusion v1.3 - Result:"
+    embed.set_image(f)
+    await ctx.edit_last_response(embed)
 
 #----------------------------------
 #ReProcess Command
@@ -263,22 +220,24 @@ async def process(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("prompt", "(Optional) A detailed description of desired output. Uses last prompt if empty. ",required = False)
 @lightbulb.option("negativeprompt", "prompts to not effect the result, separated by commas. ",required = False)
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float, default=0.25, max_value=1, min_value=0)
-@lightbulb.command("reprocess", "re-runs diffusion on the previous image")
+@lightbulb.command("reprocess", "re-runs diffusion on the previous input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def reprocess(ctx: lightbulb.SlashContext) -> None:
-    global awaitingUserId
-    global awaitingImage
-    global strength
-    global activeMessage
+    global prevStrength
     global curmodel
     global prevNegPrompt
     global prevPrompt
     titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
-    strength = float(ctx.options.strength)
+
+    #--Inputs
+    if ctx.options.strength != None:
+        prevStrength = float(ctx.options.strength)
     if ctx.options.prompt != None:
         prevPrompt = str(ctx.options.prompt)
     if ctx.options.negativeprompt != None:
         prevNegPrompt = str(ctx.options.negativeprompt)
+    #--------
+
     embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8),).set_footer(text = str(prevPrompt), icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
     await ctx.respond(embed)
     filepath = WdGenerateImage(prevPrompt,prevNegPrompt)
@@ -300,20 +259,22 @@ async def reprocess(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("overprocess", "re-runs diffusion on the RESULT of the previous diffusion")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def overprocess(ctx: lightbulb.SlashContext) -> None:
-    global awaitingUserId
-    global awaitingImage
-    global strength
-    global activeMessage
+    global prevStrength
     global curmodel
     global overprocessbool
     global prevPrompt
     global prevNegPrompt
     titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
-    strength = float(ctx.options.strength)
+
+    #--Inputs
+    if ctx.options.strength != None:
+        prevStrength = float(ctx.options.strength)
     if ctx.options.prompt != None:
         prevPrompt = str(ctx.options.prompt)
     if ctx.options.negativeprompt != None:
         prevNegPrompt = str(ctx.options.negativeprompt)
+    #--------
+    
     embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8),).set_footer(text = str(prevPrompt), icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
     await ctx.respond(embed)
     overprocessbool=True
@@ -489,6 +450,7 @@ async def changemodel(ctx: lightbulb.SlashContext) -> None:
 #Quit
 #----------------------------------
 @bot.command()
+@lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.command("quit", "Puts kiwi to sleep")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def quit(ctx: lightbulb.SlashContext) -> None:
