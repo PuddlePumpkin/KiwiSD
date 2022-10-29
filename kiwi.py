@@ -17,27 +17,28 @@ from io import BytesIO
 import random
 import traceback
 
-
-curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
-#pipe = StableDiffusionPipeline.from_pretrained('hakurei/waifu-diffusion',torch_dtype=torch.float16, revision="fp16").to('cuda')
-
-
-def filecount():
-    return len([entry for entry in os.listdir("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results") if os.path.isfile(os.path.join("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results", entry))])
-
 #----------------------------------
 #Globals
 #----------------------------------
-pipe = None
+curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
+pipe = StableDiffusionPipeline.from_pretrained('hakurei/waifu-diffusion',custom_pipeline="lpw_stable_diffusion",torch_dtype=torch.float16, revision="fp16").to('cuda')
 guideVar = 6.5
 infSteps = 30
 prevPrompt = ""
 prevNegPrompt = ""
 prevStrength = 0.25
 prevUrl = ""
-mode = -1
-overprocessImage=None
-overprocessbool=False
+overprocessImage = None
+overprocessbool = False
+regentitles = ["I'll try again!... <:scootcry:1033114138366443600>", "Sorry if I didnt do good enough... <:scootcry:1033114138366443600>", "I'll try my best to do better... <:scootcry:1033114138366443600>"]
+titles =  ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
+
+#----------------------------------
+#Filecount Function
+#----------------------------------
+def filecount():
+    return len([entry for entry in os.listdir("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results") if os.path.isfile(os.path.join("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results", entry))])
+
 #----------------------------------
 #Normal Generate Function
 #----------------------------------
@@ -48,14 +49,6 @@ def WdGenerate(prompttext,negativeprompttext):
     global pipe
     global overprocessImage
     prompt = prompttext
-    if (curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png"):
-        if (mode != 3):
-            pipe = StableDiffusionPipeline.from_pretrained('runwayml/stable-diffusion-v1-5',use_auth_token="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",torch_dtype=torch.float16, revision="fp16").to('cuda')
-            mode = 3
-    else:
-        if (mode != 2):
-            pipe = StableDiffusionPipeline.from_pretrained('hakurei/waifu-diffusion',torch_dtype=torch.float16, revision="fp16").to('cuda')
-            mode = 2
     print("Generating: " + prompttext)
     response = requests.get("https://i.imgur.com/ZMKhIoA.png")
     init_image = Image.open(BytesIO(response.content)).convert("RGB")
@@ -77,7 +70,7 @@ def WdGenerate(prompttext,negativeprompttext):
     return "C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png"
 
 #----------------------------------
-#Image Generate Function
+#Image Helpers
 #----------------------------------
 def crop_center(pil_img, crop_width, crop_height):
     img_width, img_height = pil_img.size
@@ -88,6 +81,10 @@ def crop_center(pil_img, crop_width, crop_height):
 def crop_max_square(pil_img):
     return crop_center(pil_img, min(pil_img.size), min(pil_img.size))
 
+
+#----------------------------------
+#img2img Generate Function
+#----------------------------------
 def WdGenerateImage(prompttext, negativeprompttext):
     global guideVar
     global infSteps
@@ -98,14 +95,6 @@ def WdGenerateImage(prompttext, negativeprompttext):
     global overprocessImage
     global overprocessbool
     prompt = prompttext
-    if (curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png"):
-        if (mode != 1):
-            pipe = StableDiffusionImg2ImgPipeline.from_pretrained('runwayml/stable-diffusion-v1-5',use_auth_token="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",torch_dtype=torch.float16, revision="fp16").to('cuda')
-            mode = 1
-    else:
-        if (mode != 0):
-            pipe = StableDiffusionImg2ImgPipeline.from_pretrained('hakurei/waifu-diffusion',torch_dtype=torch.float16, revision="fp16").to('cuda')
-            mode = 0
     print("Generating: " + prompttext)
     if(overprocessbool):
         print("Loading image from overprocessImage")
@@ -196,6 +185,7 @@ async def metadata(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float, default=0.25)
 @lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False, default = 7,type = float, max_value=100, min_value=-100)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,type = int, default=30, max_value=100, min_value=1)
 @lightbulb.command("process", "runs diffusion on an input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def process(ctx: lightbulb.SlashContext) -> None:
@@ -205,16 +195,18 @@ async def process(ctx: lightbulb.SlashContext) -> None:
     global prevNegPrompt
     global prevUrl
     global guideVar
+    global titles
+    global infsteps
 
     #--Inputs
     prevStrength = float(ctx.options.strength)
     prevPrompt = str(ctx.options.prompt)
     prevNegPrompt = str(ctx.options.negativeprompt)
     guideVar = float(ctx.options.guidescale)
+    infSteps = int(ctx.options.steps)
     #--------
     
     prevUrl = ctx.options.image.url
-    titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
 
     #--Embed
     footer = "Guidance Scale: " + str(guideVar) + "                        Strength: "+str(prevStrength)                   
@@ -235,13 +227,14 @@ async def process(ctx: lightbulb.SlashContext) -> None:
     await ctx.edit_last_response(embed)
 
 #----------------------------------
-#ReProcess Command
+#Reprocess Command
 #----------------------------------
 @bot.command
 @lightbulb.option("prompt", "(Optional) A detailed description of desired output. Uses last prompt if empty. ",required = False)
 @lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float, max_value=1, min_value=0)
 @lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, max_value=100, min_value=-100)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,type = int, max_value=100, min_value=1)
 @lightbulb.command("reprocess", "re-runs diffusion on the previous input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def reprocess(ctx: lightbulb.SlashContext) -> None:
@@ -250,9 +243,9 @@ async def reprocess(ctx: lightbulb.SlashContext) -> None:
     global prevNegPrompt
     global prevPrompt
     global guideVar
+    global regentitles
+    global infsteps
     try:
-        titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
-
         #--Inputs
         if ctx.options.strength != None:
             prevStrength = float(ctx.options.strength)
@@ -262,11 +255,13 @@ async def reprocess(ctx: lightbulb.SlashContext) -> None:
             prevNegPrompt = str(ctx.options.negativeprompt)
         if ctx.options.guidescale != None:
             guideVar = float(ctx.options.guidescale)
+        if ctx.options.steps != None:
+            infSteps = int(ctx.options.steps)
         #--------
 
         #--Embed
         footer = "Guidance Scale: " + str(guideVar) + "                        Strength: "+str(prevStrength)                   
-        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+        embed = hikari.Embed(title=random.choice(regentitles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
         embed.add_field("Prompt:",prevPrompt)
         if ((prevNegPrompt != None) and (prevNegPrompt!= "None") and (prevNegPrompt!= "")):
             embed.add_field("Negative Prompt:",prevNegPrompt)
@@ -300,6 +295,7 @@ async def reprocess(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float, max_value=1, min_value=0)
 @lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, max_value=100, min_value=-100)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,type = int, max_value=100, min_value=1)
 @lightbulb.command("overprocess", "re-runs diffusion on the RESULT of the previous diffusion")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def overprocess(ctx: lightbulb.SlashContext) -> None:
@@ -309,7 +305,8 @@ async def overprocess(ctx: lightbulb.SlashContext) -> None:
     global prevPrompt
     global prevNegPrompt
     global guideVar
-    titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
+    global regentitles
+    global infsteps
     try:
         #--Inputs
         if ctx.options.strength != None:
@@ -320,12 +317,14 @@ async def overprocess(ctx: lightbulb.SlashContext) -> None:
             prevNegPrompt = str(ctx.options.negativeprompt)
         if ctx.options.guidescale != None:
             guideVar = float(ctx.options.guidescale)
+        if ctx.options.steps != None:
+            infSteps = int(ctx.options.steps)
             
         #--------
         
         #--Embed
         footer = "Guidance Scale: " + str(guideVar) + "                        Strength: "+str(prevStrength)                   
-        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+        embed = hikari.Embed(title=random.choice(regentitles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
         embed.add_field("Prompt:",prevPrompt)
         if ((prevNegPrompt != None) and (prevNegPrompt!= "None") and (prevNegPrompt!= "")):
             embed.add_field("Negative Prompt:",prevNegPrompt)
@@ -376,7 +375,7 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
     global prevNegPrompt
     global infSteps
     global guideVar
-    titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
+    global titles
 
     #--Inputs
     prevPrompt = str(ctx.options.prompt)
@@ -418,8 +417,7 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
     global prevNegPrompt
     global infSteps
     global guideVar
-    titles = ["I'll try again!... <:scootcry:1033114138366443600>", "Sorry if I didnt do good enough... <:scootcry:1033114138366443600>", "I'll try my best to do better... <:scootcry:1033114138366443600>"]
-
+    global regentitles
     #try for if no prompt to regen
     try:
         #--Inputs
@@ -436,7 +434,7 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
 
         #--Embed
         footer = "Guidance Scale: " + str(guideVar) + "                 Inference Steps: "+str(infSteps)                   
-        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+        embed = hikari.Embed(title=random.choice(regentitles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
         embed.add_field("Prompt:",prevPrompt)
         if ((prevNegPrompt != None) and (prevNegPrompt!= "None") and (prevNegPrompt!= "")):
             embed.add_field("Negative Prompt:",prevNegPrompt)
@@ -504,14 +502,15 @@ async def deletelast(ctx: lightbulb.SlashContext) -> None:
 async def changemodel(ctx: lightbulb.SlashContext) -> None:
     global pipe
     global curmodel
-    global mode
     if ctx.options.model.startswith("s"):
-        await ctx.respond("> **Model set to Stable Diffusion v1.5**")
-        mode = -1
+        await ctx.respond("> **Loading Stable Diffusion v1.5**")
+        pipe = StableDiffusionPipeline.from_pretrained('runwayml/stable-diffusion-v1-5',custom_pipeline="lpw_stable_diffusion",use_auth_token="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",torch_dtype=torch.float16, revision="fp16").to('cuda')
+        await ctx.edit_last_response("> **Model set to Stable Diffusion v1.5**")
         curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png"
     elif ctx.options.model.startswith("w"):
-        await ctx.respond("> **Model set to Waifu Diffusion v1.3**")
-        mode = -1
+        await ctx.respond("> **Loading Stable Diffusion v1.5**")
+        pipe = StableDiffusionPipeline.from_pretrained('hakurei/waifu-diffusion',custom_pipeline="lpw_stable_diffusion",torch_dtype=torch.float16, revision="fp16").to('cuda')
+        await ctx.edit_last_response("> **Model set to Waifu Diffusion v1.3**")
         curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
     else:
         await ctx.respond("> **I don't understand** <:scootcry:1033114138366443600>")
