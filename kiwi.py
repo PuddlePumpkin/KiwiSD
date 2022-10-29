@@ -120,6 +120,7 @@ def WdGenerateImage(prompttext, negativeprompttext):
     metadata.add_text("Negative Prompt", negativeprompttext)
     metadata.add_text("Img2Img Strength", str(prevStrength))
     metadata.add_text("Guidance Scale", str(guideVar))
+    metadata.add_text("Inference Steps", str(infSteps))
     overprocessImage = image
     image.save("C:/Users/keira/Desktop/GITHUB/Kiwi/results/" + str(countStr) + ".png", pnginfo=metadata)
     return "C:/Users/keira/Desktop/GITHUB/Kiwi/results/" + str(countStr) + ".png"
@@ -196,35 +197,43 @@ async def process(ctx: lightbulb.SlashContext) -> None:
     global prevUrl
     global guideVar
     global titles
-    global infsteps
+    global infSteps
+    try:
+        #--Inputs
+        prevStrength = float(ctx.options.strength)
+        prevPrompt = str(ctx.options.prompt)
+        prevNegPrompt = str(ctx.options.negativeprompt)
+        guideVar = float(ctx.options.guidescale)
+        infSteps = int(ctx.options.steps)
+        #--------
+        
+        prevUrl = ctx.options.image.url
 
-    #--Inputs
-    prevStrength = float(ctx.options.strength)
-    prevPrompt = str(ctx.options.prompt)
-    prevNegPrompt = str(ctx.options.negativeprompt)
-    guideVar = float(ctx.options.guidescale)
-    infSteps = int(ctx.options.steps)
-    #--------
-    
-    prevUrl = ctx.options.image.url
+        #--Embed
+        footer = "Guidance Scale: " + str(guideVar) + "                 Inference Steps: "+str(infSteps) +"\nImage Strength: "+str(prevStrength)                   
+        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+        embed.add_field("Prompt:",prevPrompt)
+        if ctx.options.negativeprompt != None:
+            embed.add_field("Negative Prompt:",prevNegPrompt)
+        await ctx.respond(embed)
+        #-------
 
-    #--Embed
-    footer = "Guidance Scale: " + str(guideVar) + "                        Strength: "+str(prevStrength)                   
-    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
-    embed.add_field("Prompt:",prevPrompt)
-    if ctx.options.negativeprompt != None:
-        embed.add_field("Negative Prompt:",prevNegPrompt)
-    await ctx.respond(embed)
-    #-------
-
-    filepath = WdGenerateImage(prevPrompt,prevNegPrompt)
-    f = hikari.File(filepath)
-    if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
-        embed.title = "Stable Diffusion v1.5 - Result:"
-    else:
-        embed.title = "Waifu Diffusion v1.3 - Result:"
-    embed.set_image(f)
-    await ctx.edit_last_response(embed)
+        filepath = WdGenerateImage(prevPrompt,prevNegPrompt)
+        f = hikari.File(filepath)
+        if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
+            embed.title = "Stable Diffusion v1.5 - Result:"
+        else:
+            embed.title = "Waifu Diffusion v1.3 - Result:"
+        embed.set_image(f)
+        await ctx.edit_last_response(embed)
+    except Exception:
+        traceback.print_exc()
+        try:
+            await ctx.delete_last_response()
+        except Exception:
+            traceback.print_exc()
+        await ctx.respond("> Sorry, something went wrong! <:scootcry:1033114138366443600>")
+        return
 
 #----------------------------------
 #Reprocess Command
@@ -244,7 +253,7 @@ async def reprocess(ctx: lightbulb.SlashContext) -> None:
     global prevPrompt
     global guideVar
     global regentitles
-    global infsteps
+    global infSteps
     try:
         #--Inputs
         if ctx.options.strength != None:
@@ -260,7 +269,7 @@ async def reprocess(ctx: lightbulb.SlashContext) -> None:
         #--------
 
         #--Embed
-        footer = "Guidance Scale: " + str(guideVar) + "                        Strength: "+str(prevStrength)                   
+        footer = "Guidance Scale: " + str(guideVar) + "                 Inference Steps: "+str(infSteps) +"\nImage Strength: "+str(prevStrength)
         embed = hikari.Embed(title=random.choice(regentitles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
         embed.add_field("Prompt:",prevPrompt)
         if ((prevNegPrompt != None) and (prevNegPrompt!= "None") and (prevNegPrompt!= "")):
@@ -306,7 +315,7 @@ async def overprocess(ctx: lightbulb.SlashContext) -> None:
     global prevNegPrompt
     global guideVar
     global regentitles
-    global infsteps
+    global infSteps
     try:
         #--Inputs
         if ctx.options.strength != None:
@@ -323,7 +332,7 @@ async def overprocess(ctx: lightbulb.SlashContext) -> None:
         #--------
         
         #--Embed
-        footer = "Guidance Scale: " + str(guideVar) + "                        Strength: "+str(prevStrength)                   
+        footer = "Guidance Scale: " + str(guideVar) + "                 Inference Steps: "+str(infSteps) +"\nImage Strength: "+str(prevStrength)
         embed = hikari.Embed(title=random.choice(regentitles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
         embed.add_field("Prompt:",prevPrompt)
         if ((prevNegPrompt != None) and (prevNegPrompt!= "None") and (prevNegPrompt!= "")):
@@ -358,7 +367,29 @@ async def overprocess(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("help", "get help and command info")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def help(ctx: lightbulb.SlashContext) -> None:
-    await ctx.respond("**~~                                                                                    ~~ Generation ~~                                                                                        ~~**\n> **/generate**: Generates a image from a detailed description, or booru tags separated by commas\n> **/regenerate**: Re-generates last entered prompt\n> **/process**: Diffuses from an input image\n> **/reprocess**: Reproccesses last input image\n> **/overprocess**: Diffuses from last diffusion result\n**~~                                                                                       ~~ Settings ~~                                                                                           ~~**\n **/changemodel**: switches model between stable diffusion v1.5 or waifu diffusion v1.3\n**~~                                                                                         ~~ Other ~~                                                                                              ~~**\n> **/deletelast**: Deletes the last bot message in this channel, for deleting nsfw without admin perms.\n> **/ping**: Checks connection\n**~~                                                                                           ~~ Tips ~~                                                                                               ~~**\n> More tags usually results in better images, especially composition tags.\n> __[Composition Tags](https://danbooru.donmai.us/wiki_pages/tag_group:image_composition)__\n> __[Tag Groups](https://danbooru.donmai.us/wiki_pages/tag_groups)__\n> __[Waifu Diffusion 1.3 Release Notes](https://gist.github.com/harubaru/f727cedacae336d1f7877c4bbe2196e1)__")
+    embedtext1 = (
+    "**~~                   ~~ Generation ~~                   ~~**"
+    "\n> **/generate**: Generates a image from a detailed description, or booru tags separated by commas"
+    "\n> **/regenerate**: Re-generates last entered prompt"
+    "\n> **/process**: Diffuses from an input image"
+    "\n> **/reprocess**: Reproccesses last input image"
+    "\n> **/overprocess**: Diffuses from last diffusion result"
+    "\n**~~                      ~~ Settings ~~                         ~~**"
+    "\n> **/changemodel**: switches model between stable diffusion v1.5 or waifu diffusion v1.3"
+    "\n**~~                        ~~ Other ~~                        ~~**"
+    "\n> **/deletelast**: Deletes the last bot message in this channel, for deleting nsfw without admin perms."
+    "\n> **/ping**: Checks connection"
+    "\n**~~                          ~~ Tips ~~                          ~~**"
+    "\n> More prompts (separated by commas) often result in better images, especially composition prompts."
+    "\n> You can multiply prompt focus with parenthesis eg: **(**1girl**)** or **(**1girl:1.3**)** **Default: 1.1**"
+    "\n> You can reduce prompt focus with square brackets **[**1girl**]** / **[**1girl:1.3**]**  **Default: 1.1**"
+    "\n> Prompt focus modifiers can be escaped with a **\\\\** eg: **\\\\**(1girl**\\\\**), would be input as (1girl) and not be focused "
+    "\n> __[Composition Tags](https://danbooru.donmai.us/wiki_pages/tag_group:image_composition)__"
+    "\n> __[Tag Groups](https://danbooru.donmai.us/wiki_pages/tag_groups)__"
+    "\n> __[Waifu Diffusion 1.3 Release Notes](https://gist.github.com/harubaru/f727cedacae336d1f7877c4bbe2196e1)__"
+    )
+    await ctx.respond(embedtext1)
+    await bot.rest.create_message(672892614613139471,embedtext2)
 
 #----------------------------------
 #Generate Command
@@ -376,31 +407,39 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
     global infSteps
     global guideVar
     global titles
+    try:
+        #--Inputs
+        prevPrompt = str(ctx.options.prompt)
+        prevNegPrompt = str(ctx.options.negativeprompt)
+        infSteps = int(ctx.options.steps)
+        guideVar = float(ctx.options.guidescale)
+        #-------
 
-    #--Inputs
-    prevPrompt = str(ctx.options.prompt)
-    prevNegPrompt = str(ctx.options.negativeprompt)
-    infSteps = int(ctx.options.steps)
-    guideVar = float(ctx.options.guidescale)
-    #-------
+        #--Embed
+        footer = "Guidance Scale: " + str(guideVar) + "                 Inference Steps: "+str(infSteps)                   
+        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+        embed.add_field("Prompt:",prevPrompt)
+        if ctx.options.negativeprompt != None:
+            embed.add_field("Negative Prompt:",prevNegPrompt)
+        await ctx.respond(embed)
+        #-------
 
-    #--Embed
-    footer = "Guidance Scale: " + str(guideVar) + "                 Inference Steps: "+str(infSteps)                   
-    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
-    embed.add_field("Prompt:",prevPrompt)
-    if ctx.options.negativeprompt != None:
-        embed.add_field("Negative Prompt:",prevNegPrompt)
-    await ctx.respond(embed)
-    #-------
-
-    filepath = WdGenerate(ctx.options.prompt,ctx.options.negativeprompt)
-    f = hikari.File(filepath)
-    if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
-        embed.title = "Stable Diffusion v1.5 - Result:"
-    else:
-        embed.title = "Waifu Diffusion v1.3 - Result:"
-    embed.set_image(f)
-    await ctx.edit_last_response(embed)
+        filepath = WdGenerate(ctx.options.prompt,ctx.options.negativeprompt)
+        f = hikari.File(filepath)
+        if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
+            embed.title = "Stable Diffusion v1.5 - Result:"
+        else:
+            embed.title = "Waifu Diffusion v1.3 - Result:"
+        embed.set_image(f)
+        await ctx.edit_last_response(embed)
+    except Exception:
+        traceback.print_exc()
+        try:
+            await ctx.delete_last_response()
+        except Exception:
+            traceback.print_exc()
+        await ctx.respond("> Sorry, something went wrong! <:scootcry:1033114138366443600>")
+        return
 
 #----------------------------------
 #Regenerate Command
@@ -486,9 +525,12 @@ async def deletelast(ctx: lightbulb.SlashContext) -> None:
                 found = True
                 break
         if found:
-            await ctx.respond(f"> **I deleted the last message I sent...**\n> I'm sorry if it was too lewd >///<!")
+            await ctx.respond(f"> I'm sorry if I was too lewd >///<!")
             #else:
             #await ctx.respond(f"Could not find any message in the array!")
+            await asyncio.sleep(3)
+            await ctx.delete_last_response()
+
     else:
         await ctx.respond("Sorry >~< I couldnt find any messages I sent recently!")
 
