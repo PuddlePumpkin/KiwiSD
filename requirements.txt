@@ -1,0 +1,15 @@
+-f https://download.pytorch.org/whl/cu117
+torch
+-f https://download.pytorch.org/whl/cu117
+torchvision
+-f https://download.pytorch.org/whl/cu117
+torchaudio
+
+diffusers
+hikari-lightbulb
+hikari
+asyncio
+prompt-toolkit
+transformers
+scipy
+ftfy

@@ -37,7 +37,7 @@ titles =  ["I'll try to make that for you!...", "Maybe I could make that...", "I
 #Filecount Function
 #----------------------------------
 def filecount():
-    return len([entry for entry in os.listdir("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results") if os.path.isfile(os.path.join("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results", entry))])
+    return len([entry for entry in os.listdir("C:/Users/keira/Desktop/GITHUB/Kiwi/results") if os.path.isfile(os.path.join("C:/Users/keira/Desktop/GITHUB/Kiwi/results", entry))])
 
 #----------------------------------
 #Normal Generate Function
@@ -57,7 +57,7 @@ def WdGenerate(prompttext,negativeprompttext):
         pipe.safety_checker = dummy_checker
         image = pipe(prompt,negative_prompt=negativeprompttext, guidance_scale=guideVar, num_inference_steps=infSteps).images[0]
     countStr = str(filecount()+1)
-    while os.path.exists("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png"):
+    while os.path.exists("C:/Users/keira/Desktop/GITHUB/Kiwi/results/" + str(countStr) + ".png"):
         countStr = int(countStr)+1
     metadata = PngInfo()
     metadata.add_text("Prompt", prompttext)
@@ -66,8 +66,8 @@ def WdGenerate(prompttext,negativeprompttext):
     metadata.add_text("Guidance Scale", str(guideVar))
     metadata.add_text("Inference Steps", str(infSteps))
     overprocessImage = image
-    image.save("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png", pnginfo=metadata)
-    return "C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png"
+    image.save("C:/Users/keira/Desktop/GITHUB/Kiwi/results/" + str(countStr) + ".png", pnginfo=metadata)
+    return "C:/Users/keira/Desktop/GITHUB/Kiwi/results/" + str(countStr) + ".png"
 
 #----------------------------------
 #Image Helpers
@@ -113,7 +113,7 @@ def WdGenerateImage(prompttext, negativeprompttext):
         pipe.safety_checker = dummy_checker
         image = pipe(prompt, init_image = init_image, negative_prompt=negativeprompttext, strength=(1-prevStrength), guidance_scale=guideVar, num_inference_steps=infSteps).images[0]
     countStr = str(filecount()+1)
-    while os.path.exists("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png"):
+    while os.path.exists("C:/Users/keira/Desktop/GITHUB/Kiwi/results/" + str(countStr) + ".png"):
         countStr = int(countStr)+1
     metadata = PngInfo()
     metadata.add_text("Prompt", prompttext)
@@ -121,8 +121,8 @@ def WdGenerateImage(prompttext, negativeprompttext):
     metadata.add_text("Img2Img Strength", str(prevStrength))
     metadata.add_text("Guidance Scale", str(guideVar))
     overprocessImage = image
-    image.save("C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png", pnginfo=metadata)
-    return "C:/Users/keira/Desktop/GITHUB/Kiwi/venv/Scripts/results/" + str(countStr) + ".png"
+    image.save("C:/Users/keira/Desktop/GITHUB/Kiwi/results/" + str(countStr) + ".png", pnginfo=metadata)
+    return "C:/Users/keira/Desktop/GITHUB/Kiwi/results/" + str(countStr) + ".png"
 
 #----------------------------------    
 # Instantiate a Bot instance
