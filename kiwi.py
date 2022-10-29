@@ -15,6 +15,7 @@ from diffusers import StableDiffusionPipeline
 from diffusers import StableDiffusionImg2ImgPipeline
 from io import BytesIO
 import random
+import traceback
 
 
 curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
@@ -282,11 +283,12 @@ async def reprocess(ctx: lightbulb.SlashContext) -> None:
             embed.title = "Waifu Diffusion v1.3 - Result:"
         embed.set_image(f)
         await ctx.edit_last_response(embed)
-    except:
+    except Exception:
+        traceback.print_exc()
         try:
             await ctx.delete_last_response()
-        except:
-            pass
+        except Exception:
+            traceback.print_exc()
         await ctx.respond("> Sorry, something went wrong! <:scootcry:1033114138366443600>")
         return
 
@@ -341,11 +343,12 @@ async def overprocess(ctx: lightbulb.SlashContext) -> None:
             embed.title = "Waifu Diffusion v1.3 - Result:"
         embed.set_image(f)
         await ctx.edit_last_response(embed)
-    except: 
+    except Exception:
+        traceback.print_exc()
         try:
             await ctx.delete_last_response()
-        except:
-            pass
+        except Exception:
+            traceback.print_exc()
         await ctx.respond("> Sorry, something went wrong! <:scootcry:1033114138366443600>")
         return
 
@@ -421,7 +424,7 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
     try:
         #--Inputs
         if ctx.options.prompt != None:
-            prevPrompt = float(ctx.options.strength)
+            prevPrompt = str(ctx.options.prompt)
         if ctx.options.negativeprompt != None:
             prevNegPrompt = str(ctx.options.negativeprompt)
         if ctx.options.steps != None:
@@ -450,7 +453,8 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
             embed.title = "Waifu Diffusion v1.3 - Result:"
         embed.set_image(f)
         await ctx.edit_last_response(embed)
-    except:
+    except Exception:
+        traceback.print_exc()
         await ctx.respond("> Sorry, something went wrong! <:scootcry:1033114138366443600>")
         return
 
