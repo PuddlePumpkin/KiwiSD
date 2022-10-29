@@ -78,6 +78,15 @@ def WdGenerate(prompttext,negativeprompttext):
 #----------------------------------
 #Image Generate Function
 #----------------------------------
+def crop_center(pil_img, crop_width, crop_height):
+    img_width, img_height = pil_img.size
+    return pil_img.crop(((img_width - crop_width) // 2,
+                         (img_height - crop_height) // 2,
+                         (img_width + crop_width) // 2,
+                         (img_height + crop_height) // 2))
+def crop_max_square(pil_img):
+    return crop_center(pil_img, min(pil_img.size), min(pil_img.size))
+
 def WdGenerateImage(prompttext, negativeprompttext):
     global guideVar
     global infSteps
@@ -105,7 +114,9 @@ def WdGenerateImage(prompttext, negativeprompttext):
         print("Loading image from url: " + prevUrl)
         response = requests.get(prevUrl)
         init_image = Image.open(BytesIO(response.content)).convert("RGB")
-        init_image = init_image.resize((512, 512))
+        #Crop and resize
+        init_image = crop_max_square(init_image)
+        init_image = init_image.resize((512, 512),Image.Resampling.LANCZOS)
 
     with autocast("cuda"):
         def dummy_checker(images, **kwargs): return images, False
@@ -238,38 +249,46 @@ async def reprocess(ctx: lightbulb.SlashContext) -> None:
     global prevNegPrompt
     global prevPrompt
     global guideVar
-    titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
+    try:
+        titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
 
-    #--Inputs
-    if ctx.options.strength != None:
-        prevStrength = float(ctx.options.strength)
-    if ctx.options.prompt != None:
-        prevPrompt = str(ctx.options.prompt)
-    if ctx.options.negativeprompt != None:
-        prevNegPrompt = str(ctx.options.negativeprompt)
-    if ctx.options.guidescale != None:
-        guideVar = float(ctx.options.guidescale)
-    #--------
+        #--Inputs
+        if ctx.options.strength != None:
+            prevStrength = float(ctx.options.strength)
+        if ctx.options.prompt != None:
+            prevPrompt = str(ctx.options.prompt)
+        if ctx.options.negativeprompt != None:
+            prevNegPrompt = str(ctx.options.negativeprompt)
+        if ctx.options.guidescale != None:
+            guideVar = float(ctx.options.guidescale)
+        #--------
 
-    #--Embed
-    footer = "Guidance Scale: " + str(guideVar) + "                        Strength: "+str(prevStrength)                   
-    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
-    embed.add_field("Prompt:",prevPrompt)
-    if ((prevNegPrompt != None) and (prevNegPrompt!= "None") and (prevNegPrompt!= "")):
-        embed.add_field("Negative Prompt:",prevNegPrompt)
-    else:
-        prevNegPrompt = ""
-    await ctx.respond(embed)
-    #-------
+        #--Embed
+        footer = "Guidance Scale: " + str(guideVar) + "                        Strength: "+str(prevStrength)                   
+        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+        embed.add_field("Prompt:",prevPrompt)
+        if ((prevNegPrompt != None) and (prevNegPrompt!= "None") and (prevNegPrompt!= "")):
+            embed.add_field("Negative Prompt:",prevNegPrompt)
+        else:
+            prevNegPrompt = ""
+        await ctx.respond(embed)
+        #-------
 
-    filepath = WdGenerateImage(prevPrompt,prevNegPrompt)
-    f = hikari.File(filepath)
-    if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
-        embed.title = "Stable Diffusion v1.5 - Result:"
-    else:
-        embed.title = "Waifu Diffusion v1.3 - Result:"
-    embed.set_image(f)
-    await ctx.edit_last_response(embed)
+        filepath = WdGenerateImage(prevPrompt,prevNegPrompt)
+        f = hikari.File(filepath)
+        if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
+            embed.title = "Stable Diffusion v1.5 - Result:"
+        else:
+            embed.title = "Waifu Diffusion v1.3 - Result:"
+        embed.set_image(f)
+        await ctx.edit_last_response(embed)
+    except:
+        try:
+            await ctx.delete_last_response()
+        except:
+            pass
+        await ctx.respond("> Sorry, something went wrong! <:scootcry:1033114138366443600>")
+        return
 
 #----------------------------------
 #OverProcess Command
@@ -289,39 +308,46 @@ async def overprocess(ctx: lightbulb.SlashContext) -> None:
     global prevNegPrompt
     global guideVar
     titles = ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
-
-    #--Inputs
-    if ctx.options.strength != None:
-        prevStrength = float(ctx.options.strength)
-    if ctx.options.prompt != None:
-        prevPrompt = str(ctx.options.prompt)
-    if ctx.options.negativeprompt != None:
-        prevNegPrompt = str(ctx.options.negativeprompt)
-    if ctx.options.guidescale != None:
-        guideVar = float(ctx.options.guidescale)
+    try:
+        #--Inputs
+        if ctx.options.strength != None:
+            prevStrength = float(ctx.options.strength)
+        if ctx.options.prompt != None:
+            prevPrompt = str(ctx.options.prompt)
+        if ctx.options.negativeprompt != None:
+            prevNegPrompt = str(ctx.options.negativeprompt)
+        if ctx.options.guidescale != None:
+            guideVar = float(ctx.options.guidescale)
+            
+        #--------
         
-    #--------
-    
-    #--Embed
-    footer = "Guidance Scale: " + str(guideVar) + "                        Strength: "+str(prevStrength)                   
-    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
-    embed.add_field("Prompt:",prevPrompt)
-    if ((prevNegPrompt != None) and (prevNegPrompt!= "None") and (prevNegPrompt!= "")):
-        embed.add_field("Negative Prompt:",prevNegPrompt)
-    else:
-        prevNegPrompt = ""
-    await ctx.respond(embed)
-    #-------
+        #--Embed
+        footer = "Guidance Scale: " + str(guideVar) + "                        Strength: "+str(prevStrength)                   
+        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+        embed.add_field("Prompt:",prevPrompt)
+        if ((prevNegPrompt != None) and (prevNegPrompt!= "None") and (prevNegPrompt!= "")):
+            embed.add_field("Negative Prompt:",prevNegPrompt)
+        else:
+            prevNegPrompt = ""
+        await ctx.respond(embed)
+        #-------
 
-    overprocessbool=True
-    filepath = WdGenerateImage(prevPrompt,prevNegPrompt)
-    f = hikari.File(filepath)
-    if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
-        embed.title = "Stable Diffusion v1.5 - Result:"
-    else:
-        embed.title = "Waifu Diffusion v1.3 - Result:"
-    embed.set_image(f)
-    await ctx.edit_last_response(embed)
+        overprocessbool=True
+        filepath = WdGenerateImage(prevPrompt,prevNegPrompt)
+        f = hikari.File(filepath)
+        if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
+            embed.title = "Stable Diffusion v1.5 - Result:"
+        else:
+            embed.title = "Waifu Diffusion v1.3 - Result:"
+        embed.set_image(f)
+        await ctx.edit_last_response(embed)
+    except: 
+        try:
+            await ctx.delete_last_response()
+        except:
+            pass
+        await ctx.respond("> Sorry, something went wrong! <:scootcry:1033114138366443600>")
+        return
 
 #----------------------------------
 #Help Command
@@ -391,36 +417,42 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
     global guideVar
     titles = ["I'll try again!... <:scootcry:1033114138366443600>", "Sorry if I didnt do good enough... <:scootcry:1033114138366443600>", "I'll try my best to do better... <:scootcry:1033114138366443600>"]
 
-    #--Inputs
-    if ctx.options.prompt != None:
-        prevPrompt = float(ctx.options.strength)
-    if ctx.options.negativeprompt != None:
-        prevNegPrompt = str(ctx.options.negativeprompt)
-    if ctx.options.steps != None:
-        infSteps = int(ctx.options.steps)
-    if ctx.options.guidescale != None:
-        guideVar = float(ctx.options.guidescale)
-    #--------
+    #try for if no prompt to regen
+    try:
+        #--Inputs
+        if ctx.options.prompt != None:
+            prevPrompt = float(ctx.options.strength)
+        if ctx.options.negativeprompt != None:
+            prevNegPrompt = str(ctx.options.negativeprompt)
+        if ctx.options.steps != None:
+            infSteps = int(ctx.options.steps)
+        if ctx.options.guidescale != None:
+            guideVar = float(ctx.options.guidescale)
+        #--------
+    
 
-    #--Embed
-    footer = "Guidance Scale: " + str(guideVar) + "                 Inference Steps: "+str(infSteps)                   
-    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
-    embed.add_field("Prompt:",prevPrompt)
-    if ((prevNegPrompt != None) and (prevNegPrompt!= "None") and (prevNegPrompt!= "")):
-        embed.add_field("Negative Prompt:",prevNegPrompt)
-    else:
-        prevNegPrompt = ""
-    await ctx.respond(embed)
-    #-------
+        #--Embed
+        footer = "Guidance Scale: " + str(guideVar) + "                 Inference Steps: "+str(infSteps)                   
+        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+        embed.add_field("Prompt:",prevPrompt)
+        if ((prevNegPrompt != None) and (prevNegPrompt!= "None") and (prevNegPrompt!= "")):
+            embed.add_field("Negative Prompt:",prevNegPrompt)
+        else:
+            prevNegPrompt = ""
+        await ctx.respond(embed)
+        #-------
 
-    filepath = WdGenerate(prevPrompt,prevNegPrompt)
-    f = hikari.File(filepath)
-    if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
-        embed.title = "Stable Diffusion v1.5 - Result:"
-    else:
-        embed.title = "Waifu Diffusion v1.3 - Result:"
-    embed.set_image(f)
-    await ctx.edit_last_response(embed)
+        filepath = WdGenerate(prevPrompt,prevNegPrompt)
+        f = hikari.File(filepath)
+        if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
+            embed.title = "Stable Diffusion v1.5 - Result:"
+        else:
+            embed.title = "Waifu Diffusion v1.3 - Result:"
+        embed.set_image(f)
+        await ctx.edit_last_response(embed)
+    except:
+        await ctx.respond("> Sorry, something went wrong! <:scootcry:1033114138366443600>")
+        return
 
 #----------------------------------
 #Delete Last Command
