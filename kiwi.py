@@ -30,6 +30,7 @@ prevPrompt = ""
 prevNegPrompt = ""
 prevStrength = 0.25
 prevUrl = ""
+prevSeed = 0
 overprocessImage = None
 overprocessbool = False
 regentitles = ["I'll try again!... <:scootcry:1033114138366443600>", "Sorry if I didnt do good enough... <:scootcry:1033114138366443600>", "I'll try my best to do better... <:scootcry:1033114138366443600>"]
@@ -40,36 +41,6 @@ titles =  ["I'll try to make that for you!...", "Maybe I could make that...", "I
 #----------------------------------
 def filecount():
     return len([entry for entry in os.listdir("C:/Users/keira/Desktop/GITHUB/Kiwi/results") if os.path.isfile(os.path.join("C:/Users/keira/Desktop/GITHUB/Kiwi/results", entry))])
-
-#----------------------------------
-#Normal Generate Function
-#----------------------------------
-def WdGenerate(prompttext,negativeprompttext):
-    global guideVar
-    global infSteps
-    global mode
-    global pipe
-    global overprocessImage
-    prompt = prompttext
-    print("Generating: " + prompttext)
-    response = requests.get("https://i.imgur.com/ZMKhIoA.png")
-    init_image = Image.open(BytesIO(response.content)).convert("RGB")
-    with autocast("cuda"):
-        def dummy_checker(images, **kwargs): return images, False
-        pipe.safety_checker = dummy_checker
-        image = pipe(prompt,negative_prompt=negativeprompttext, guidance_scale=guideVar, num_inference_steps=infSteps).images[0]
-    countStr = str(filecount()+1)
-    while os.path.exists("C:/Users/keira/Desktop/GITHUB/Kiwi/results/" + str(countStr) + ".png"):
-        countStr = int(countStr)+1
-    metadata = PngInfo()
-    metadata.add_text("Prompt", prompttext)
-    if(negativeprompttext!=None):
-        metadata.add_text("Negative Prompt", negativeprompttext)
-    metadata.add_text("Guidance Scale", str(guideVar))
-    metadata.add_text("Inference Steps", str(infSteps))
-    overprocessImage = image
-    image.save("C:/Users/keira/Desktop/GITHUB/Kiwi/results/" + str(countStr) + ".png", pnginfo=metadata)
-    return "C:/Users/keira/Desktop/GITHUB/Kiwi/results/" + str(countStr) + ".png"
 
 #----------------------------------
 #Image Helpers
@@ -85,41 +56,52 @@ def crop_max_square(pil_img):
 
 
 #----------------------------------
-#img2img Generate Function
+#Generate Function
 #----------------------------------
-def WdGenerateImage(prompttext, negativeprompttext):
+def WdGenerateImage(prompttext, negativeprompttext, processimage = False):
     global guideVar
     global infSteps
     global prevUrl
     global prevStrength
+    global prevSeed
     global pipe
     global overprocessImage
     global overprocessbool
     prompt = prompttext
-    print("Generating: " + prompttext)
-    if(overprocessbool):
-        print("Loading image from overprocessImage")
-        init_image = overprocessImage
-        overprocessbool=False
+    if prevSeed != None:
+        generator = torch.Generator("cuda").manual_seed(prevSeed)
     else:
-        print("Loading image from url: " + prevUrl)
-        response = requests.get(prevUrl)
-        init_image = Image.open(BytesIO(response.content)).convert("RGB")
-        #Crop and resize
-        init_image = crop_max_square(init_image)
-        init_image = init_image.resize((512, 512),Image.Resampling.LANCZOS)
-
+        generator = None
+    print("Generating: " + prompttext)
+    if processimage:
+        if(overprocessbool):
+            print("Loading image from overprocessImage")
+            init_image = overprocessImage
+            overprocessbool=False
+        else:
+            print("Loading image from url: " + prevUrl)
+            response = requests.get(prevUrl)
+            init_image = Image.open(BytesIO(response.content)).convert("RGB")
+            #Crop and resize
+            init_image = crop_max_square(init_image)
+            init_image = init_image.resize((512, 512),Image.Resampling.LANCZOS)
+    else:
+        init_image = None
+    if ((negativeprompttext != None) and (negativeprompttext!= "None") and (negativeprompttext!= "")):
+        metadata.add_text("Negative Prompt", negativeprompttext)
+        negativeprompttext = None
     with autocast("cuda"):
         def dummy_checker(images, **kwargs): return images, False
         pipe.safety_checker = dummy_checker
-        image = pipe(prompt, init_image = init_image, negative_prompt=negativeprompttext, strength=(1-prevStrength), guidance_scale=guideVar, num_inference_steps=infSteps).images[0]
+        image = pipe(prompt, generator = generator, init_image = init_image, negative_prompt=negativeprompttext, strength=(1-prevStrength), guidance_scale=guideVar, num_inference_steps=infSteps).images[0]
     countStr = str(filecount()+1)
     while os.path.exists("C:/Users/keira/Desktop/GITHUB/Kiwi/results/" + str(countStr) + ".png"):
         countStr = int(countStr)+1
     metadata = PngInfo()
     metadata.add_text("Prompt", prompttext)
-    metadata.add_text("Negative Prompt", negativeprompttext)
-    metadata.add_text("Img2Img Strength", str(prevStrength))
+
+    if(processimage):
+        metadata.add_text("Img2Img Strength", str(prevStrength))
     metadata.add_text("Guidance Scale", str(guideVar))
     metadata.add_text("Inference Steps", str(infSteps))
     overprocessImage = image
@@ -188,6 +170,7 @@ async def metadata(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float, default=0.25)
 @lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False, default = 7,type = float, max_value=100, min_value=-100)
 @lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,type = int, default=30, max_value=100, min_value=1)
+@lightbulb.option("seed", "(Optional) Seed for diffusion", required = False,type = int, min_value=0)
 @lightbulb.command("process", "runs diffusion on an input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def process(ctx: lightbulb.SlashContext) -> None:
@@ -199,13 +182,16 @@ async def process(ctx: lightbulb.SlashContext) -> None:
     global guideVar
     global titles
     global infSteps
+    global prevSeed
     try:
         #--Inputs
+        prevSeed = ctx.options.seed
         prevStrength = float(ctx.options.strength)
         prevPrompt = str(ctx.options.prompt)
         prevNegPrompt = str(ctx.options.negativeprompt)
         guideVar = float(ctx.options.guidescale)
         infSteps = int(ctx.options.steps)
+
         #--------
         
         prevUrl = ctx.options.image.url
@@ -219,7 +205,7 @@ async def process(ctx: lightbulb.SlashContext) -> None:
         await ctx.respond(embed)
         #-------
 
-        filepath = WdGenerateImage(prevPrompt,prevNegPrompt)
+        filepath = WdGenerateImage(prevPrompt,prevNegPrompt,True)
         f = hikari.File(filepath)
         if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
             embed.title = "Stable Diffusion v1.5 - Result:"
@@ -245,6 +231,7 @@ async def process(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float, max_value=1, min_value=0)
 @lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, max_value=100, min_value=-100)
 @lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,type = int, max_value=100, min_value=1)
+@lightbulb.option("seed", "(Optional) Seed for diffusion", required = False,type = int, min_value=0)
 @lightbulb.command("reprocess", "re-runs diffusion on the previous input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def reprocess(ctx: lightbulb.SlashContext) -> None:
@@ -255,8 +242,14 @@ async def reprocess(ctx: lightbulb.SlashContext) -> None:
     global guideVar
     global regentitles
     global infSteps
+    global prevSeed
     try:
         #--Inputs
+        if ctx.options.seed != None:
+            if ctx.options.seed == 0:
+                prevSeed = None
+            else:
+                prevSeed = ctx.options.seed
         if ctx.options.strength != None:
             prevStrength = float(ctx.options.strength)
         if ctx.options.prompt != None:
@@ -280,7 +273,7 @@ async def reprocess(ctx: lightbulb.SlashContext) -> None:
         await ctx.respond(embed)
         #-------
 
-        filepath = WdGenerateImage(prevPrompt,prevNegPrompt)
+        filepath = WdGenerateImage(prevPrompt,prevNegPrompt,True)
         f = hikari.File(filepath)
         if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
             embed.title = "Stable Diffusion v1.5 - Result:"
@@ -306,6 +299,7 @@ async def reprocess(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float, max_value=1, min_value=0)
 @lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, max_value=100, min_value=-100)
 @lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,type = int, max_value=100, min_value=1)
+@lightbulb.option("seed", "(Optional) Seed for diffusion", required = False,type = int, min_value=0)
 @lightbulb.command("overprocess", "re-runs diffusion on the RESULT of the previous diffusion")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def overprocess(ctx: lightbulb.SlashContext) -> None:
@@ -317,8 +311,14 @@ async def overprocess(ctx: lightbulb.SlashContext) -> None:
     global guideVar
     global regentitles
     global infSteps
+    global prevSeed
     try:
         #--Inputs
+        if ctx.options.seed != None:
+            if ctx.options.seed == 0:
+                prevSeed = None
+            else:
+                prevSeed = ctx.options.seed
         if ctx.options.strength != None:
             prevStrength = float(ctx.options.strength)
         if ctx.options.prompt != None:
@@ -344,7 +344,7 @@ async def overprocess(ctx: lightbulb.SlashContext) -> None:
         #-------
 
         overprocessbool=True
-        filepath = WdGenerateImage(prevPrompt,prevNegPrompt)
+        filepath = WdGenerateImage(prevPrompt,prevNegPrompt,True)
         f = hikari.File(filepath)
         if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
             embed.title = "Stable Diffusion v1.5 - Result:"
@@ -400,6 +400,7 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
 @lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,type = int, default=30, max_value=100, min_value=1)
 @lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, default=7, max_value=100, min_value=-100)
+@lightbulb.option("seed", "(Optional) Seed for diffusion", required = False,type = int, min_value=0)
 @lightbulb.command("generate", "Generate a diffusion image from description or tags, separated by commas")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def generate(ctx: lightbulb.SlashContext) -> None:
@@ -408,8 +409,10 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
     global infSteps
     global guideVar
     global titles
+    global prevSeed
     try:
         #--Inputs
+        prevSeed = ctx.options.seed
         prevPrompt = str(ctx.options.prompt)
         prevNegPrompt = str(ctx.options.negativeprompt)
         infSteps = int(ctx.options.steps)
@@ -425,7 +428,7 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
         await ctx.respond(embed)
         #-------
 
-        filepath = WdGenerate(ctx.options.prompt,ctx.options.negativeprompt)
+        filepath = WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt)
         f = hikari.File(filepath)
         if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
             embed.title = "Stable Diffusion v1.5 - Result:"
@@ -458,6 +461,7 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("animatedend", "end value", required = True,type = float)
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,default=0.25,type = float, max_value=1, min_value=0)
 @lightbulb.option("image", "image to run diffusion on", required = False,type = hikari.Attachment)
+@lightbulb.option("seed", "(Optional) Seed for diffusion", required = False,type = int, min_value=0)
 @lightbulb.command("admingenerategif", "Generate a series of results")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
@@ -465,6 +469,8 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
     global infSteps
     global prevUrl
     global prevStrength
+    global prevSeed
+    prevSeed = ctx.options.seed
     try:
         await ctx.respond("> Running gif generation...")
         guideVar = ctx.options.guidescale
@@ -489,9 +495,9 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
                         else:
                             prevStrength = 1
                     if ctx.options.image != None:
-                        WdGenerateImage(ctx.options.prompt,str(ctx.options.negativeprompt))
+                        WdGenerateImage(ctx.options.prompt,str(ctx.options.negativeprompt,True))
                     else:
-                        WdGenerate(ctx.options.prompt,str(ctx.options.negativeprompt))
+                        WdGenerateImage(ctx.options.prompt,str(ctx.options.negativeprompt))
                     if (time.time()-startTime >= 10):
                         await ctx.edit_last_response("> Animation progress: **" + str(int(curstep/(ctx.options.animatedend-ctx.options.animatedstart)*100))+"%**")
                         startTime = time.time()
@@ -510,7 +516,7 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
                             prevStrength = curstep 
                         else:
                             prevStrength = 0
-                    WdGenerateImage(ctx.options.prompt,str(ctx.options.negativeprompt))
+                    WdGenerateImage(ctx.options.prompt,str(ctx.options.negativeprompt),True)
                     if (time.time()-startTime >= 10):
                         await ctx.edit_last_response("> Animation progress: **" + str(int(1-(curstep/(ctx.options.animatedend-ctx.options.animatedstart)*100)))+"%**")
                         startTime = time.time()
@@ -534,6 +540,7 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
 @lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,type = int, max_value=100, min_value=1)
 @lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, max_value=100, min_value=-100)
+@lightbulb.option("seed", "(Optional) Seed for diffusion", required = False,type = int, min_value=0)
 @lightbulb.command("regenerate", "regenerates last prompt")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def regenerate(ctx: lightbulb.SlashContext) -> None:
@@ -542,9 +549,15 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
     global infSteps
     global guideVar
     global regentitles
+    global prevSeed
     #try for if no prompt to regen
     try:
         #--Inputs
+        if ctx.options.seed != None:
+            if ctx.options.seed == 0:
+                prevSeed = None
+            else:
+                prevSeed = ctx.options.seed
         if ctx.options.prompt != None:
             prevPrompt = str(ctx.options.prompt)
         if ctx.options.negativeprompt != None:
@@ -567,7 +580,7 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
         await ctx.respond(embed)
         #-------
 
-        filepath = WdGenerate(prevPrompt,prevNegPrompt)
+        filepath = WdGenerateImage(prevPrompt,prevNegPrompt)
         f = hikari.File(filepath)
         if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
             embed.title = "Stable Diffusion v1.5 - Result:"
