@@ -1,3 +1,5 @@
+from sqlite3 import Timestamp
+import time
 import lightbulb
 import hikari
 from prompt_toolkit import prompt
@@ -90,7 +92,6 @@ def WdGenerateImage(prompttext, negativeprompttext):
     global infSteps
     global prevUrl
     global prevStrength
-    global mode
     global pipe
     global overprocessImage
     global overprocessbool
@@ -432,6 +433,90 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
             embed.title = "Waifu Diffusion v1.3 - Result:"
         embed.set_image(f)
         await ctx.edit_last_response(embed)
+    except Exception:
+        traceback.print_exc()
+        try:
+            await ctx.delete_last_response()
+        except Exception:
+            traceback.print_exc()
+        await ctx.respond("> Sorry, something went wrong! <:scootcry:1033114138366443600>")
+        return
+
+
+#----------------------------------
+#Admin Generate Gif
+#----------------------------------
+@bot.command
+@lightbulb.add_checks(lightbulb.owner_only)
+@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ")
+@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:20)", required = False,type = int, default=20, max_value=100, min_value=1)
+@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, default=7, max_value=100, min_value=-100)
+@lightbulb.option("animatedkey", "which key (guidescale, steps, strength)", required = True,type = str)
+@lightbulb.option("animatedstep", "step value", required = True,type = float)
+@lightbulb.option("animatedstart", "start value", required = True,type = float)
+@lightbulb.option("animatedend", "end value", required = True,type = float)
+@lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,default=0.25,type = float, max_value=1, min_value=0)
+@lightbulb.option("image", "image to run diffusion on", required = False,type = hikari.Attachment)
+@lightbulb.command("admingenerategif", "Generate a series of results")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
+    global guideVar
+    global infSteps
+    global prevUrl
+    global prevStrength
+    try:
+        await ctx.respond("> Running gif generation...")
+        guideVar = ctx.options.guidescale
+        infSteps = ctx.options.steps
+        if ctx.options.image != None:
+            prevUrl = ctx.options.image.url
+        curstep = ctx.options.animatedstart
+        prevStrength = ctx.options.strength
+        prevNegPrompt = str(ctx.options.negativeprompt)
+        startTime = time.time()
+        if ctx.options.animatedend > ctx.options.animatedstart:
+            if ctx.options.animatedstep > 0:
+                while curstep <= ctx.options.animatedend:
+                    curstep = curstep + ctx.options.animatedstep
+                    if ctx.options.animatedkey == "guidescale":
+                        guideVar = float(curstep)
+                    elif ctx.options.animatedkey == "steps":
+                        infSteps = int(curstep)
+                    elif ctx.options.animatedkey == "strength":
+                        if ((prevStrength + float(ctx.options.animatedstep))<=1):
+                            prevStrength = curstep 
+                        else:
+                            prevStrength = 1
+                    if ctx.options.image != None:
+                        WdGenerateImage(ctx.options.prompt,str(ctx.options.negativeprompt))
+                    else:
+                        WdGenerate(ctx.options.prompt,str(ctx.options.negativeprompt))
+                    if (time.time()-startTime >= 10):
+                        await ctx.edit_last_response("> Animation progress: **" + str(int(curstep/(ctx.options.animatedend-ctx.options.animatedstart)*100))+"%**")
+                        startTime = time.time()
+            else:
+                raise Exception("step not matching")
+        else:
+            if ctx.options.animatedstep < 0:
+                while curstep >= ctx.options.animatedend:
+                    curstep = curstep + ctx.options.animatedstep
+                    if ctx.options.animatedkey == "guidescale":
+                        guideVar = float(curstep)
+                    elif ctx.options.animatedkey == "steps":
+                        infSteps = int(curstep)
+                    elif ctx.options.animatedkey == "strength":
+                        if ((prevStrength + float(ctx.options.animatedstep))>=0):
+                            prevStrength = curstep 
+                        else:
+                            prevStrength = 0
+                    WdGenerateImage(ctx.options.prompt,str(ctx.options.negativeprompt))
+                    if (time.time()-startTime >= 10):
+                        await ctx.edit_last_response("> Animation progress: **" + str(int(1-(curstep/(ctx.options.animatedend-ctx.options.animatedstart)*100)))+"%**")
+                        startTime = time.time()
+            else:
+                raise Exception("step not matching: " + str(ctx.options.animatedstep))
+        await ctx.edit_last_response("> Animation Complete.")
     except Exception:
         traceback.print_exc()
         try:
