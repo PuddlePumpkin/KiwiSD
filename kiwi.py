@@ -24,16 +24,16 @@ import traceback
 #----------------------------------
 curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
 pipe = StableDiffusionPipeline.from_pretrained('hakurei/waifu-diffusion',custom_pipeline="lpw_stable_diffusion",torch_dtype=torch.float16, revision="fp16").to('cuda')
-guideVar = 6.5
-infSteps = 30
 prevPrompt = ""
 prevNegPrompt = ""
 prevStrength = 0.25
 prevUrl = ""
 prevSeed = None
 prevResultImage = None
+prevGuideScale = None
+prevInfSteps = None
 overprocessbool = False
-regentitles = ["I'll try again!... <:scootcry:1033114138366443600>", "Sorry if I didnt do good enough... <:scootcry:1033114138366443600>", "I'll try my best to do better... <:scootcry:1033114138366443600>"]
+regentitles = ["I'll try again!... ", "Sorry if I didn't do good enough... ", "I'll try my best to do better... "]
 titles =  ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
 
 #----------------------------------
@@ -60,9 +60,9 @@ def crop_max_square(pil_img):
 def get_embed(Prompt,NegativePrompt, GuideScale, InfSteps, Seed, File, ImageStrength=None):
     global curmodel
     if ImageStrength != None:
-        footer = ("{:28s} {:28s}".format("Guidance Scale: "+str(GuideScale), "Inference Steps: "+str(InfSteps))+"\n"+"{:28s} {:28s}".format("Seed: "+str(Seed), "Image Strength: "+str(ImageStrength)))
+        footer = ("{:31s} {:31s}".format("Guidance Scale: "+str(GuideScale), "Inference Steps: "+str(InfSteps))+"\n"+"{:31s} {:31s}".format("Seed: "+str(Seed), "Image Strength: "+str(ImageStrength)))
     else:
-        footer = ("{:28s} {:28s}".format("Guidance Scale: "+str(GuideScale), "Inference Steps: "+str(InfSteps))+"\n"+"{:28s}".format("Seed: "+str(Seed)))
+        footer = ("{:31s} {:31s}".format("Guidance Scale: "+str(GuideScale), "Inference Steps: "+str(InfSteps))+"\n"+"{:31s}".format("Seed: "+str(Seed)))
     f = hikari.File(File)
     embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image(f)
     if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
@@ -92,6 +92,7 @@ def WdGenerateImage(Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,Guid
 
 #Handle prompt
     if(Prompt!=None):
+        prevPrompt = Prompt
         prompt = Prompt
     elif(prevPrompt!=None):
         prompt = prevPrompt
@@ -114,6 +115,7 @@ def WdGenerateImage(Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,Guid
             prevInfSteps = 30
             infsteps = 30
         else:
+            prevInfSteps = InfSteps
             infsteps = InfSteps
     elif(prevInfSteps!=None):
         infsteps = prevInfSteps
@@ -127,6 +129,7 @@ def WdGenerateImage(Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,Guid
             prevGuideScale = 7.0
             guidescale = 7.0
         else:
+            prevGuideScale = GuideScale
             guidescale = GuideScale
     elif(prevGuideScale!=None):
         guidescale = prevGuideScale
@@ -155,11 +158,14 @@ def WdGenerateImage(Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,Guid
             strength = None
             imgurl = None
         else:
+            prevUrl = ImgUrl 
             imgurl = ImgUrl
     elif(prevUrl!=None):
         imgurl = prevUrl
     elif(prevUrl==None):
         prevUrl = None
+        strength = None
+        prevStrength = None
         imgurl = prevUrl
 
 #Handle seed
@@ -298,7 +304,7 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
             url = ctx.options.image.url
             #strength = ctx.options.strength
         #--Embed                  
-        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = "", icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://i.imgur.com/1fTsgvW.gif").set_footer(text = "", icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
         await ctx.respond(embed)
         #-------
         embed = WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength)
@@ -333,7 +339,7 @@ async def genfromimage(ctx: lightbulb.SlashContext) -> None:
             url = ctx.options.image.url
             #strength = ctx.options.strength
         #--Embed                  
-        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = "", icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://i.imgur.com/1fTsgvW.gif").set_footer(text = "", icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
         await ctx.respond(embed)
         #-------
         embed = WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength)
@@ -354,20 +360,19 @@ async def genfromimage(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
 @lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, max_value=100, min_value=-100)
 @lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,type = int, max_value=100, min_value=1)
-@lightbulb.option("seed", "(Optional) Seed for diffusion", required = False,type = int, min_value=0)
+@lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required = False, default = 0, type = int, min_value=0)
 @lightbulb.command("regenerate", "runs diffusion on an input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def regenerate(ctx: lightbulb.SlashContext) -> None:
     global curmodel
-    global titles
+    global regentitles
     try:
         if(ctx.options.image == None):
             url = None
         else:
             url = ctx.options.image.url
-
         #--Embed                  
-        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = "", icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+        embed = hikari.Embed(title=random.choice(regentitles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://media.discordapp.net/stickers/976356216215334953.webp").set_footer(text = "", icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
         await ctx.respond(embed)
         #-------
         embed = WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength)
@@ -416,7 +421,7 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
 @lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:20)", required = False,type = int, default=20, max_value=100, min_value=1)
 @lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, default=7, max_value=100, min_value=-100)
-@lightbulb.option("animatedkey", "which key (guidescale, steps, strength)", required = True,type = str)
+@lightbulb.option("animatedkey", "which key (guidescale, steps, strength)", required = True,type = str, choices=["guidescale, steps, strength"])
 @lightbulb.option("animatedstep", "step value", required = True,type = float)
 @lightbulb.option("animatedstart", "start value", required = True,type = float)
 @lightbulb.option("animatedend", "end value", required = True,type = float)
@@ -426,39 +431,31 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("admingenerategif", "Generate a series of results")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
-    global guideVar
-    global infSteps
-    global prevUrl
-    global prevStrength
-    global prevSeed
-    prevSeed = ctx.options.seed
     try:
         await ctx.respond("> Running gif generation...")
-        guideVar = ctx.options.guidescale
-        infSteps = ctx.options.steps
         if ctx.options.image != None:
-            prevUrl = ctx.options.image.url
+            genUrl = ctx.options.image.url
+        else:
+            genUrl = None
         curstep = ctx.options.animatedstart
-        prevStrength = ctx.options.strength
-        prevNegPrompt = str(ctx.options.negativeprompt)
         startTime = time.time()
+        infsteps = ctx.options.infsteps
+        guidance = ctx.options.guidescale
+        strength = ctx.options.strength
         if ctx.options.animatedend > ctx.options.animatedstart:
             if ctx.options.animatedstep > 0:
                 while curstep <= ctx.options.animatedend:
                     curstep = curstep + ctx.options.animatedstep
                     if ctx.options.animatedkey == "guidescale":
-                        guideVar = float(curstep)
+                        guidance = float(curstep)
                     elif ctx.options.animatedkey == "steps":
-                        infSteps = int(curstep)
+                        infsteps = int(curstep)
                     elif ctx.options.animatedkey == "strength":
-                        if ((prevStrength + float(ctx.options.animatedstep))<=1):
-                            prevStrength = curstep 
+                        if ((strength + float(ctx.options.animatedstep))<=1):
+                            strength = curstep 
                         else:
-                            prevStrength = 1
-                    if ctx.options.image != None:
-                        WdGenerateImage(ctx.options.prompt,str(ctx.options.negativeprompt,True))
-                    else:
-                        WdGenerateImage(ctx.options.prompt,str(ctx.options.negativeprompt))
+                            strength = 1
+                    WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,infsteps,ctx.options.seed,guidance,genUrl,strength)
                     if (time.time()-startTime >= 10):
                         await ctx.edit_last_response("> Animation progress: **" + str(int(curstep/(ctx.options.animatedend-ctx.options.animatedstart)*100))+"%**")
                         startTime = time.time()
@@ -469,15 +466,15 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
                 while curstep >= ctx.options.animatedend:
                     curstep = curstep + ctx.options.animatedstep
                     if ctx.options.animatedkey == "guidescale":
-                        guideVar = float(curstep)
+                        guidance = float(curstep)
                     elif ctx.options.animatedkey == "steps":
-                        infSteps = int(curstep)
+                        infsteps = int(curstep)
                     elif ctx.options.animatedkey == "strength":
-                        if ((prevStrength + float(ctx.options.animatedstep))>=0):
-                            prevStrength = curstep 
+                        if ((strength + float(ctx.options.animatedstep))>=0):
+                            strength = curstep 
                         else:
-                            prevStrength = 0
-                    WdGenerateImage(ctx.options.prompt,str(ctx.options.negativeprompt),True)
+                            strength = 1
+                    WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,infsteps,ctx.options.seed,guidance,genUrl,strength)
                     if (time.time()-startTime >= 10):
                         await ctx.edit_last_response("> Animation progress: **" + str(int(1-(curstep/(ctx.options.animatedend-ctx.options.animatedstart)*100)))+"%**")
                         startTime = time.time()
@@ -533,7 +530,7 @@ async def deletelast(ctx: lightbulb.SlashContext) -> None:
 #Change Model
 #----------------------------------
 @bot.command()
-@lightbulb.option("model", "which model to load, sd / wd")
+@lightbulb.option("model", "which model to load, sd / wd",choices=["sd","wd"],required=True)
 @lightbulb.command("changemodel", "switches model between stable diffusion / waifu diffusion")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def changemodel(ctx: lightbulb.SlashContext) -> None:
