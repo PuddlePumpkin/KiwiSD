@@ -18,6 +18,7 @@ from diffusers import StableDiffusionImg2ImgPipeline
 from io import BytesIO
 import random
 import traceback
+from urllib.parse import urlparse
 
 #----------------------------------
 #Globals
@@ -34,14 +35,25 @@ prevGuideScale = None
 prevInfSteps = None
 overprocessbool = False
 regentitles = ["I'll try again!... ", "Sorry if I didn't do good enough... ", "I'll try my best to do better... "]
+outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
 titles =  ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
 
 #----------------------------------
 #Filecount Function
 #----------------------------------
 def filecount():
-    return len([entry for entry in os.listdir("C:/Users/keira/Desktop/GITHUB/Kiwi/results") if os.path.isfile(os.path.join("C:/Users/keira/Desktop/GITHUB/Kiwi/results", entry))])
+    global outputDirectory
+    return len([entry for entry in os.listdir(outputDirectory) if os.path.isfile(os.path.join(outputDirectory, entry))])
 
+#----------------------------------
+#isurl Function
+#----------------------------------
+def is_url(url):
+    try:
+        result = urlparse(url)
+        return all([result.scheme, result.netloc])
+    except ValueError:
+        return False
 #----------------------------------
 #Image Helpers
 #----------------------------------
@@ -86,7 +98,7 @@ def WdGenerateImage(Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,Guid
     global prevUrl
     global prevStrength
     global prevResultImage
-
+    global outputDirectory
     global pipe
     global overprocessbool
 
@@ -221,12 +233,12 @@ def WdGenerateImage(Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,Guid
         else:
             image = pipe(prompt, generator = generator, init_image = init_image, negative_prompt=negativeprompt, guidance_scale=guidescale, num_inference_steps=infsteps).images[0]
     countStr = str(filecount()+1)
-    while os.path.exists("C:/Users/keira/Desktop/GITHUB/Kiwi/results/" + str(countStr) + ".png"):
+    while os.path.exists(outputDirectory + str(countStr) + ".png"):
         countStr = int(countStr)+1
 
     prevResultImage = image
-    image.save("C:/Users/keira/Desktop/GITHUB/Kiwi/results/" + str(countStr) + ".png", pnginfo=metadata)
-    return get_embed(prompt,negativeprompt,guidescale,infsteps,seed,"C:/Users/keira/Desktop/GITHUB/Kiwi/results/" + str(countStr) + ".png",strength)
+    image.save(outputDirectory + str(countStr) + ".png", pnginfo=metadata)
+    return get_embed(prompt,negativeprompt,guidescale,infsteps,seed,outputDirectory + str(countStr) + ".png",strength)
 
 #----------------------------------    
 # Instantiate a Bot instance
@@ -244,7 +256,7 @@ bot = lightbulb.BotApp(
 #----------------------------------
 @bot.listen(hikari.ShardReadyEvent)
 async def ready_listener(_):
-    await bot.rest.create_message(672892614613139471, "> **I'm awake running waifu diffusion v1.3! Type /help for help!**")
+    await bot.rest.create_message(672892614613139471, "> I'm awake running waifu diffusion v1.3! Type **/help** for help!")
 
 
 #----------------------------------
@@ -276,15 +288,70 @@ async def metadata(ctx: lightbulb.SlashContext) -> None:
         embed.add_field("Guidance Scale:",str(mdataimage.info.get("Guidance Scale")))
     if(str(mdataimage.info.get("Inference Steps")) != "None"):
         embed.add_field("Inference Steps:",str(mdataimage.info.get("Inference Steps")))
+    if(str(mdataimage.info.get("Seed")) != "None"):
+        embed.add_field("Seed:",str(mdataimage.info.get("Seed")))
     if(str(mdataimage.info.get("Img2Img Strength")) != "None"):
         embed.add_field("Img2Img Strength:",str(mdataimage.info.get("Img2Img Strength")))
     await ctx.respond(embed)
+
+#----------------------------------
+#Image to Command
+#----------------------------------
+@bot.command
+@lightbulb.option("image", "input image", required = False, type = hikari.Attachment)
+@lightbulb.option("imagelink", "image link or message ID", required = False, type = str)
+@lightbulb.command("imagetocommand", "parses metadata to a command to send to get the same image")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
+    try:
+        if (ctx.options.image != None):
+            datas = await hikari.Attachment.read(ctx.options.image)
+            mdataimage = Image.open(BytesIO(datas)).convert("RGB")
+            mdataimage = mdataimage.resize((512, 512))
+            url = ctx.options.image.url
+        elif(ctx.options.imagelink != None):
+            if(is_url(ctx.options.imagelink)):
+                response = requests.get(ctx.options.imagelink)
+                url = ctx.options.imagelink
+                mdataimage = Image.open(BytesIO(response.content)).convert("RGB")
+            else:
+                messageIdResponse = await ctx.app.rest.fetch_message(ctx.channel_id,ctx.options.imagelink)
+                datas = await hikari.Attachment.read(messageIdResponse.embeds[0].image)
+                mdataimage = Image.open(BytesIO(datas)).convert("RGB")
+                mdataimage = mdataimage.resize((512, 512))
+                url = messageIdResponse.embeds[0].image.url
+        mdataimage = mdataimage.resize((512, 512))
+        embed = hikari.Embed(title=(url.rsplit('/', 1)[-1]),colour=hikari.Colour(0x56aaf8)).set_thumbnail(url)
+        responseStr = "`/generate "   
+        if(str(mdataimage.info.get("Prompt")) != "None"):
+            responseStr = responseStr+"prompt: " + mdataimage.info.get("Prompt")+" "
+        if(str(mdataimage.info.get("Negative Prompt")) != "None"):
+            responseStr = responseStr+"negativeprompt: "+ mdataimage.info.get("Negative Prompt")+" "
+        if(str(mdataimage.info.get("Guidance Scale")) != "None"):
+            responseStr = responseStr+"guidescale: "+ mdataimage.info.get("Guidance Scale")+" "
+        if(str(mdataimage.info.get("Inference Steps")) != "None"):
+            responseStr = responseStr+"steps: "+ mdataimage.info.get("Inference Steps")+" "
+        if(str(mdataimage.info.get("Seed")) != "None"):
+            responseStr = responseStr+"seed: "+ mdataimage.info.get("Seed")
+        if(str(mdataimage.info.get("Img2Img Strength")) != "None"):
+            embed = hikari.Embed(title="This image was generated from an image input <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
+            await ctx.respond(embed)
+            return
+        embed.description = responseStr + "`"
+        await ctx.respond(embed)
+    except Exception:
+        traceback.print_exc()
+        embed = hikari.Embed(title="Sorry, something went wrong! <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
+        if (not await ctx.edit_last_response(embed)):
+            await ctx.respond(embed)
+        return
 
 #----------------------------------
 #Generate Command
 #----------------------------------
 @bot.command
 @lightbulb.option("image", "image to run diffusion on", required = False,type = hikari.Attachment)
+@lightbulb.option("imagelink", "image link or message ID", required = False, type = str)
 @lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = True)
 @lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False,default = "0")
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float, default=0.25)
@@ -297,14 +364,20 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
     global curmodel
     global titles
     try:
-        if(ctx.options.image == None):
-            url = "0"
-            #strength = "0"
-        else:
+        if(ctx.options.image != None):
             url = ctx.options.image.url
-            #strength = ctx.options.strength
+        elif(ctx.options.imagelink != None):
+            if(is_url(ctx.options.imagelink)):
+                url = ctx.options.imagelink
+            else:
+                messageIdResponse = await ctx.app.rest.fetch_message(ctx.channel_id,ctx.options.imagelink)
+                url = messageIdResponse.embeds[0].image.url
+        else:
+            url = "0"
+
+        
         #--Embed                  
-        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://i.imgur.com/1fTsgvW.gif").set_footer(text = "", icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://i.imgur.com/21reOYm.gif").set_footer(text = "", icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
         await ctx.respond(embed)
         #-------
         embed = WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength)
@@ -334,12 +407,10 @@ async def genfromimage(ctx: lightbulb.SlashContext) -> None:
     try:
         if(ctx.options.image == None):
             url = "0"
-            #strength = "0"
         else:
             url = ctx.options.image.url
-            #strength = ctx.options.strength
         #--Embed                  
-        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://i.imgur.com/1fTsgvW.gif").set_footer(text = "", icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://i.imgur.com/21reOYm.gif").set_footer(text = "", icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
         await ctx.respond(embed)
         #-------
         embed = WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength)
@@ -355,6 +426,7 @@ async def genfromimage(ctx: lightbulb.SlashContext) -> None:
 #----------------------------------
 @bot.command
 @lightbulb.option("image", "image to run diffusion on", required = False,type = hikari.Attachment)
+@lightbulb.option("imagelink", "image link or message ID", required = False, type = str)
 @lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = False)
 @lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
@@ -367,10 +439,16 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
     global curmodel
     global regentitles
     try:
-        if(ctx.options.image == None):
-            url = None
-        else:
+        if(ctx.options.image != None):
             url = ctx.options.image.url
+        elif(ctx.options.imagelink != None):
+            if(is_url(ctx.options.imagelink)):
+                url = ctx.options.imagelink
+            else:
+                messageIdResponse = await ctx.app.rest.fetch_message(ctx.channel_id,ctx.options.imagelink)
+                url = messageIdResponse.embeds[0].image.url
+        else:
+            url = "0"
         #--Embed                  
         embed = hikari.Embed(title=random.choice(regentitles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://media.discordapp.net/stickers/976356216215334953.webp").set_footer(text = "", icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
         await ctx.respond(embed)
@@ -413,7 +491,7 @@ async def help(ctx: lightbulb.SlashContext) -> None:
     await bot.rest.create_message(672892614613139471,embedtext2)
 
 #----------------------------------
-#Admin Generate Gif
+#Admin Generate Gif Command
 #----------------------------------
 @bot.command
 @lightbulb.add_checks(lightbulb.owner_only)
@@ -421,7 +499,7 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
 @lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:20)", required = False,type = int, default=20, max_value=100, min_value=1)
 @lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, default=7, max_value=100, min_value=-100)
-@lightbulb.option("animatedkey", "which key (guidescale, steps, strength)", required = True,type = str, choices=["guidescale, steps, strength"])
+@lightbulb.option("animatedkey", "which key (guidescale, steps, strength)", required = True,type = str, choices=["guidescale", "steps", "strength"])
 @lightbulb.option("animatedstep", "step value", required = True,type = float)
 @lightbulb.option("animatedstart", "start value", required = True,type = float)
 @lightbulb.option("animatedend", "end value", required = True,type = float)
@@ -431,6 +509,7 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("admingenerategif", "Generate a series of results")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
+    global outputDirectory
     try:
         await ctx.respond("> Running gif generation...")
         if ctx.options.image != None:
@@ -442,6 +521,7 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
         infsteps = ctx.options.infsteps
         guidance = ctx.options.guidescale
         strength = ctx.options.strength
+        imageList = []
         if ctx.options.animatedend > ctx.options.animatedstart:
             if ctx.options.animatedstep > 0:
                 while curstep <= ctx.options.animatedend:
@@ -455,7 +535,7 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
                             strength = curstep 
                         else:
                             strength = 1
-                    WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,infsteps,ctx.options.seed,guidance,genUrl,strength)
+                    imageList.append(WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,infsteps,ctx.options.seed,guidance,genUrl,strength))
                     if (time.time()-startTime >= 10):
                         await ctx.edit_last_response("> Animation progress: **" + str(int(curstep/(ctx.options.animatedend-ctx.options.animatedstart)*100))+"%**")
                         startTime = time.time()
@@ -474,13 +554,14 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
                             strength = curstep 
                         else:
                             strength = 1
-                    WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,infsteps,ctx.options.seed,guidance,genUrl,strength)
+                    imageList.append(WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,infsteps,ctx.options.seed,guidance,genUrl,strength))
                     if (time.time()-startTime >= 10):
-                        await ctx.edit_last_response("> Animation progress: **" + str(int(1-(curstep/(ctx.options.animatedend-ctx.options.animatedstart)*100)))+"%**")
+                        await ctx.edit_last_response("> Animation progress: **" + str(100-(int(1-(curstep/(ctx.options.animatedend-ctx.options.animatedstart)*100))))+"%**")
                         startTime = time.time()
             else:
                 raise Exception("step not matching: " + str(ctx.options.animatedstep))
         await ctx.edit_last_response("> Animation Complete.")
+        imageList[0].save(outputDirectory + "resultgif.gif",save_all=True, append_images=imageList[1:], duration=86, loop=0)
     except Exception:
         traceback.print_exc()
         embed = hikari.Embed(title="Sorry, something went wrong! <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
@@ -527,7 +608,7 @@ async def deletelast(ctx: lightbulb.SlashContext) -> None:
         await ctx.respond("Sorry >~< I couldnt find any messages I sent recently!")
 
 #----------------------------------
-#Change Model
+#Change Model Command
 #----------------------------------
 @bot.command()
 @lightbulb.option("model", "which model to load, sd / wd",choices=["sd","wd"],required=True)
