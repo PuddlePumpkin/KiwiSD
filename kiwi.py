@@ -34,6 +34,7 @@ prevResultImage = None
 prevGuideScale = None
 prevInfSteps = None
 overprocessbool = False
+botBusy = False
 regentitles = ["I'll try again!... ", "Sorry if I didn't do good enough... ", "I'll try my best to do better... "]
 outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
 titles =  ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
@@ -268,7 +269,13 @@ async def ready_listener(_):
 @lightbulb.command("ping", "checks the bot is alive")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def ping(ctx: lightbulb.SlashContext) -> None:
+    global botBusy
+    if botBusy:
+        await ctx.respond("> Sorry, kiwi is busy!")
+        return
+    botBusy = True
     await ctx.respond("Pong!")
+    botBusy = False
 
 #----------------------------------
 #Metadata Command
@@ -278,6 +285,11 @@ async def ping(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("metadata", "check metadata of an image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def metadata(ctx: lightbulb.SlashContext) -> None:
+    global botBusy
+    if botBusy:
+        await ctx.respond("> Sorry, kiwi is busy!")
+        return
+    botBusy = True
     datas = await hikari.Attachment.read(ctx.options.image)
     mdataimage = Image.open(BytesIO(datas)).convert("RGB")
     mdataimage = mdataimage.resize((512, 512))
@@ -295,6 +307,7 @@ async def metadata(ctx: lightbulb.SlashContext) -> None:
     if(str(mdataimage.info.get("Img2Img Strength")) != "None"):
         embed.add_field("Img2Img Strength:",str(mdataimage.info.get("Img2Img Strength")))
     await ctx.respond(embed)
+    botBusy = False
 
 #----------------------------------
 #Image to Command
@@ -305,6 +318,11 @@ async def metadata(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("imagetocommand", "parses metadata to a command to send to get the same image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
+    global botBusy
+    if botBusy:
+        await ctx.respond("> Sorry, kiwi is busy!")
+        return
+    botBusy = True
     try:
         if (ctx.options.image != None):
             datas = await hikari.Attachment.read(ctx.options.image)
@@ -338,14 +356,17 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
         if(str(mdataimage.info.get("Img2Img Strength")) != "None"):
             embed = hikari.Embed(title="This image was generated from an image input <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
             await ctx.respond(embed)
+            botBusy = False
             return
         embed.description = responseStr + "`"
         await ctx.respond(embed)
+        botBusy = False
     except Exception:
         traceback.print_exc()
         embed = hikari.Embed(title="Sorry, something went wrong! <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
         if (not await ctx.edit_last_response(embed)):
             await ctx.respond(embed)
+        botBusy = False
         return
 
 #----------------------------------
@@ -366,6 +387,11 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
     global curmodel
     global titles
     global outputDirectory
+    global botBusy
+    if botBusy:
+        await ctx.respond("> Sorry, kiwi is busy!")
+        return
+    botBusy = True
     outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
     try:
         if(ctx.options.image != None):
@@ -386,10 +412,12 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
         #-------
         embed = WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength)
         await ctx.edit_last_response(embed)
+        botBusy = False
     except Exception:
         traceback.print_exc()
         embed = hikari.Embed(title="Sorry, something went wrong! <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
         await ctx.edit_last_response(embed)
+        botBusy = False
         return
 
 #----------------------------------
@@ -409,6 +437,11 @@ async def genfromimage(ctx: lightbulb.SlashContext) -> None:
     global curmodel
     global titles
     global outputDirectory
+    global botBusy
+    if botBusy:
+        await ctx.respond("> Sorry, kiwi is busy!")
+        return
+    botBusy = True
     outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
     try:
         if(ctx.options.image == None):
@@ -421,10 +454,12 @@ async def genfromimage(ctx: lightbulb.SlashContext) -> None:
         #-------
         embed = WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength)
         await ctx.edit_last_response(embed)
+        botBusy = False
     except Exception:
         traceback.print_exc()
         embed = hikari.Embed(title="Sorry, something went wrong! <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
         await ctx.edit_last_response(embed)
+        botBusy = False
         return
 
 #----------------------------------
@@ -445,6 +480,11 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
     global curmodel
     global regentitles
     global outputDirectory
+    global botBusy
+    if botBusy:
+        await ctx.respond("> Sorry, kiwi is busy!")
+        return
+    botBusy = True
     outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
     try:
         if(ctx.options.image != None):
@@ -463,10 +503,12 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
         #-------
         embed = WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength)
         await ctx.edit_last_response(embed)
+        botBusy = False
     except Exception:
         traceback.print_exc()
         embed = hikari.Embed(title="Sorry, something went wrong! <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
         await ctx.edit_last_response(embed)
+        botBusy = False
         return
 
 #----------------------------------
@@ -476,6 +518,11 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("help", "get help and command info")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def help(ctx: lightbulb.SlashContext) -> None:
+    global botBusy
+    if botBusy:
+        await ctx.respond("> Sorry, kiwi is busy!")
+        return
+    botBusy = True
     embedtext1 = (
     "**~~                   ~~ Generation ~~                   ~~**"
     "\n> **/generate**: Generates a image from a detailed description, or booru tags separated by commas"
@@ -496,7 +543,7 @@ async def help(ctx: lightbulb.SlashContext) -> None:
     "\n> __[Waifu Diffusion 1.3 Release Notes](https://gist.github.com/harubaru/f727cedacae336d1f7877c4bbe2196e1)__"
     )
     await ctx.respond(embedtext1)
-    await bot.rest.create_message(672892614613139471,embedtext2)
+    botBusy = False
 
 #----------------------------------
 #Admin Generate Gif Command
@@ -507,10 +554,10 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
 @lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:20)", required = False,type = int, default=20, max_value=100, min_value=1)
 @lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, default=7, max_value=100, min_value=-100)
-@lightbulb.option("animatedkey", "which key (guidescale, steps, strength)", required = True,type = str, choices=["guidescale", "steps", "strength"])
-@lightbulb.option("animatedstep", "step value", required = True,type = float)
-@lightbulb.option("animatedstart", "start value", required = True,type = float)
-@lightbulb.option("animatedend", "end value", required = True,type = float)
+@lightbulb.option("key", "which key (guidescale, steps, strength)", required = True,type = str, choices=["guidescale", "steps", "strength"])
+@lightbulb.option("animstep", "step value", required = True,type = float)
+@lightbulb.option("start", "start value", required = True,type = float)
+@lightbulb.option("end", "end value", required = True,type = float)
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,default=0.25,type = float, max_value=1, min_value=0)
 @lightbulb.option("image", "image to run diffusion on", required = False,type = hikari.Attachment)
 @lightbulb.option("seed", "(Optional) Seed for diffusion", required = False,type = int, min_value=0)
@@ -519,62 +566,62 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
     global outputDirectory
     global prevResultImage
+    global botBusy
+    if botBusy:
+        await ctx.respond("> Sorry, kiwi is busy!")
+        return
+    botBusy = True
     outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/animation/"
     try:
-        embed = hikari.Embed(title=("Starting gif generation..."),colour=hikari.Colour(0xFFFFFF))
+        embed = hikari.Embed(title=("Animation in progress, This may take a while..."),colour=hikari.Colour(0xFFFFFF)).set_thumbnail("https://i.imgur.com/21reOYm.gif")
         await ctx.respond(embed)
         if ctx.options.image != None:
             genUrl = ctx.options.image.url
         else:
             genUrl = "0"
-        curstep = ctx.options.animatedstart
+        curstep = ctx.options.start
         startTime = time.time()
-        infsteps = ctx.options.infsteps
+        infsteps = ctx.options.steps
         guidance = ctx.options.guidescale
         strength = ctx.options.strength
+        stepcount = 0
         imageList = []
-        if ctx.options.animatedend > ctx.options.animatedstart:
-            if ctx.options.animatedstep > 0:
-                while curstep <= ctx.options.animatedend:
-                    curstep = curstep + ctx.options.animatedstep
-                    if ctx.options.animatedkey == "guidescale":
+        if ctx.options.end > ctx.options.start:
+            if ctx.options.animstep > 0:
+                while curstep <= ctx.options.end:
+                    stepcount=stepcount + 1
+                    curstep = curstep + ctx.options.animstep
+                    if ctx.options.key == "guidescale":
                         guidance = float(curstep)
-                    elif ctx.options.animatedkey == "steps":
+                    elif ctx.options.key == "steps":
                         infsteps = int(curstep)
-                    elif ctx.options.animatedkey == "strength":
-                        if ((strength + float(ctx.options.animatedstep))<=1):
+                    elif ctx.options.key == "strength":
+                        if ((strength + float(ctx.options.animstep))<=1):
                             strength = curstep 
                         else:
                             strength = 1
                     WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,infsteps,ctx.options.seed,guidance,genUrl,strength)
                     imageList.append(prevResultImage)
-                    if (time.time()-startTime >= 10):
-                        embed = hikari.Embed(title=("Animation progress: **" + str(int(curstep/(ctx.options.animatedend-ctx.options.animatedstart)*100))+"%**"),colour=hikari.Colour(0xFFFFFF))
-                        await ctx.edit_last_response(embed)
-                        startTime = time.time()
             else:
                 raise Exception("step not matching")
         else:
-            if ctx.options.animatedstep < 0:
-                while curstep >= ctx.options.animatedend:
-                    curstep = curstep + ctx.options.animatedstep
-                    if ctx.options.animatedkey == "guidescale":
+            if ctx.options.animstep < 0:
+                while curstep >= ctx.options.end:
+                    stepcount=stepcount + 1
+                    curstep = curstep + ctx.options.animstep
+                    if ctx.options.key == "guidescale":
                         guidance = float(curstep)
-                    elif ctx.options.animatedkey == "steps":
+                    elif ctx.options.key == "steps":
                         infsteps = int(curstep)
-                    elif ctx.options.animatedkey == "strength":
-                        if ((strength + float(ctx.options.animatedstep))>=0):
+                    elif ctx.options.key == "strength":
+                        if ((strength + float(ctx.options.animstep))>=0):
                             strength = curstep 
                         else:
                             strength = 1
                     WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,infsteps,ctx.options.seed,guidance,genUrl,strength)
                     imageList.append(prevResultImage)
-                    if (time.time()-startTime >= 10):
-                        embed = hikari.Embed(title=("Animation progress: **" + str(int(curstep/(ctx.options.animatedend-ctx.options.animatedstart)*100))+"%**"),colour=hikari.Colour(0xFFFFFF))
-                        await ctx.edit_last_response(embed)
-                        startTime = time.time()
             else:
-                raise Exception("step not matching: " + str(ctx.options.animatedstep))
+                raise Exception("step not matching: " + str(ctx.options.animstep))
         imageList[0].save(outputDirectory + "resultgif.gif",save_all=True, append_images=imageList[1:], duration=86, loop=0)
         file_name = outputDirectory + "resultgif.gif"
         file_stats = os.stat(file_name)
@@ -583,10 +630,12 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
         else:
             embed = hikari.Embed(title=("Animation Complete. (Gif file too large for upload)"),colour=hikari.Colour(0xFFFFFF))
             await ctx.edit_last_response(embed)
+        botBusy = False
     except Exception:
         traceback.print_exc()
         embed = hikari.Embed(title="Sorry, something went wrong! <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
         await ctx.edit_last_response(embed)
+        botBusy = False
         return
 
 #----------------------------------
@@ -596,9 +645,15 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("deletelast", "delete previous message in channel.")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def deletelast(ctx: lightbulb.SlashContext) -> None:
+    global botBusy
+    if botBusy:
+        await ctx.respond("> Sorry, kiwi is busy!")
+        return
+    botBusy = True
     """Purge a certain amount of messages from a channel."""
     if not ctx.guild_id:
         await ctx.respond("This command can only be used in a server.")
+        botBusy = False
         return
 
     # Fetch messages that are not older than 14 days in the channel the command is invoked in
@@ -627,6 +682,7 @@ async def deletelast(ctx: lightbulb.SlashContext) -> None:
 
     else:
         await ctx.respond("Sorry >~< I couldnt find any messages I sent recently!")
+    botBusy = False
 
 #----------------------------------
 #Change Model Command
@@ -638,6 +694,11 @@ async def deletelast(ctx: lightbulb.SlashContext) -> None:
 async def changemodel(ctx: lightbulb.SlashContext) -> None:
     global pipe
     global curmodel
+    global botBusy
+    if botBusy:
+        await ctx.respond("> Sorry, kiwi is busy!")
+        return
+    botBusy = True
     if ctx.options.model.startswith("s"):
         await ctx.respond("> **Loading Stable Diffusion v1.5**")
         pipe = StableDiffusionPipeline.from_pretrained('runwayml/stable-diffusion-v1-5',custom_pipeline="lpw_stable_diffusion",use_auth_token="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",torch_dtype=torch.float16, revision="fp16").to('cuda')
@@ -650,6 +711,7 @@ async def changemodel(ctx: lightbulb.SlashContext) -> None:
         curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
     else:
         await ctx.respond("> **I don't understand** <:scootcry:1033114138366443600>")
+    botBusy = False
 
 #----------------------------------
 #Quit
