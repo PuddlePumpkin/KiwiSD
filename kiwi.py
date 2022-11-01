@@ -417,16 +417,16 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
 #Generate Command
 #----------------------------------
 @bot.command
-@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = True)
-@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
-@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, max_value=100, min_value=-100)
+@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = False,default ="0")
+@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False,default ="0")
+@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float,default = 7, max_value=100, min_value=-100)
 @lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required = False, default = 0, type = int, min_value=0)
-@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,type = int, max_value=100, min_value=1)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,default = 30, type = int, max_value=100, min_value=1)
 @lightbulb.option("image", "(Optional) image to run diffusion on", required = False,type = hikari.Attachment)
 @lightbulb.option("imagelink", "(Optional) image link or message ID", required = False, type = str)
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
-@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int,min_value=10,max_value=1080)
-@lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int,min_value=10,max_value=1080)
+@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int, default = 512, choices=[128,256,512,768,1024])
+@lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int, default = 512, choices=[128,256,512,768,1024])
 @lightbulb.command("generate", "runs diffusion on an input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def generate(ctx: lightbulb.SlashContext) -> None:
@@ -470,15 +470,15 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
 #Generate From Image Command
 #----------------------------------
 @bot.command
-@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = True)
-@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
-@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, max_value=100, min_value=-100)
+@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = False,default ="0")
+@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False,default ="0")
+@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float,default = 7, max_value=100, min_value=-100)
 @lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required = False, default = 0, type = int, min_value=0)
-@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,type = int, max_value=100, min_value=1)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,default = 30, type = int, max_value=100, min_value=1)
 @lightbulb.option("image", "(Optional) image to run diffusion on", required = True,type = hikari.Attachment)
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
-@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int,min_value=10,max_value=1080)
-@lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int,min_value=10,max_value=1080)
+@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int, default = 512, choices=[128,256,512,768,1024])
+@lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int, default = 512, choices=[128,256,512,768,1024])
 @lightbulb.command("genfromimage", "shortcut for /generate, requires an image to make quickly entering images easier")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def genfromimage(ctx: lightbulb.SlashContext) -> None:
@@ -522,8 +522,8 @@ async def genfromimage(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("image", "(Optional) image to run diffusion on", required = False,type = hikari.Attachment)
 @lightbulb.option("imagelink", "(Optional) image link or message ID", required = False, type = str)
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
-@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int,min_value=10,max_value=1080)
-@lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int,min_value=10,max_value=1080)
+@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int,choices=[128,256,512,768,1024])
+@lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int,choices=[128,256,512,768,1024])
 @lightbulb.command("regenerate", "runs diffusion on an input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def regenerate(ctx: lightbulb.SlashContext) -> None:
