@@ -67,9 +67,9 @@ def crop_max_square(pil_img):
     return crop_center(pil_img, min(pil_img.size), min(pil_img.size))
 
 #----------------------------------
-#Footer
+#Get Embed
 #----------------------------------
-def get_embed(Prompt,NegativePrompt, GuideScale, InfSteps, Seed, File, ImageStrength=None):
+def get_embed(Prompt,NegativePrompt, GuideScale, InfSteps, Seed, File, ImageStrength=None, Gifmode=False):
     global curmodel
     if ImageStrength != None:
         footer = ("{:31s} {:31s}".format("Guidance Scale: "+str(GuideScale), "Inference Steps: "+str(InfSteps))+"\n"+"{:31s} {:31s}".format("Seed: "+str(Seed), "Image Strength: "+str(ImageStrength)))
@@ -84,6 +84,8 @@ def get_embed(Prompt,NegativePrompt, GuideScale, InfSteps, Seed, File, ImageStre
     embed.add_field("Prompt:",Prompt)
     if ((NegativePrompt != None) and (NegativePrompt!= "None") and (NegativePrompt!= "")):
         embed.add_field("Negative Prompt:",prevNegPrompt)
+    if(Gifmode):
+        embed.set_footer(None)
     return embed
     
 #----------------------------------
@@ -363,6 +365,8 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
 async def generate(ctx: lightbulb.SlashContext) -> None:
     global curmodel
     global titles
+    global outputDirectory
+    outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
     try:
         if(ctx.options.image != None):
             url = ctx.options.image.url
@@ -404,6 +408,8 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
 async def genfromimage(ctx: lightbulb.SlashContext) -> None:
     global curmodel
     global titles
+    global outputDirectory
+    outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
     try:
         if(ctx.options.image == None):
             url = "0"
@@ -438,6 +444,8 @@ async def genfromimage(ctx: lightbulb.SlashContext) -> None:
 async def regenerate(ctx: lightbulb.SlashContext) -> None:
     global curmodel
     global regentitles
+    global outputDirectory
+    outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
     try:
         if(ctx.options.image != None):
             url = ctx.options.image.url
@@ -510,12 +518,15 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.implements(lightbulb.SlashCommand)
 async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
     global outputDirectory
+    global prevResultImage
+    outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/animation/"
     try:
-        await ctx.respond("> Running gif generation...")
+        embed = hikari.Embed(title=("Starting gif generation..."),colour=hikari.Colour(0xFFFFFF))
+        await ctx.respond(embed)
         if ctx.options.image != None:
             genUrl = ctx.options.image.url
         else:
-            genUrl = None
+            genUrl = "0"
         curstep = ctx.options.animatedstart
         startTime = time.time()
         infsteps = ctx.options.infsteps
@@ -535,9 +546,11 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
                             strength = curstep 
                         else:
                             strength = 1
-                    imageList.append(WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,infsteps,ctx.options.seed,guidance,genUrl,strength))
+                    WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,infsteps,ctx.options.seed,guidance,genUrl,strength)
+                    imageList.append(prevResultImage)
                     if (time.time()-startTime >= 10):
-                        await ctx.edit_last_response("> Animation progress: **" + str(int(curstep/(ctx.options.animatedend-ctx.options.animatedstart)*100))+"%**")
+                        embed = hikari.Embed(title=("Animation progress: **" + str(int(curstep/(ctx.options.animatedend-ctx.options.animatedstart)*100))+"%**"),colour=hikari.Colour(0xFFFFFF))
+                        await ctx.edit_last_response(embed)
                         startTime = time.time()
             else:
                 raise Exception("step not matching")
@@ -554,14 +567,22 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
                             strength = curstep 
                         else:
                             strength = 1
-                    imageList.append(WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,infsteps,ctx.options.seed,guidance,genUrl,strength))
+                    WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,infsteps,ctx.options.seed,guidance,genUrl,strength)
+                    imageList.append(prevResultImage)
                     if (time.time()-startTime >= 10):
-                        await ctx.edit_last_response("> Animation progress: **" + str(100-(int(1-(curstep/(ctx.options.animatedend-ctx.options.animatedstart)*100))))+"%**")
+                        embed = hikari.Embed(title=("Animation progress: **" + str(int(curstep/(ctx.options.animatedend-ctx.options.animatedstart)*100))+"%**"),colour=hikari.Colour(0xFFFFFF))
+                        await ctx.edit_last_response(embed)
                         startTime = time.time()
             else:
                 raise Exception("step not matching: " + str(ctx.options.animatedstep))
-        await ctx.edit_last_response("> Animation Complete.")
         imageList[0].save(outputDirectory + "resultgif.gif",save_all=True, append_images=imageList[1:], duration=86, loop=0)
+        file_name = outputDirectory + "resultgif.gif"
+        file_stats = os.stat(file_name)
+        if((file_stats.st_size / (1024 * 1024)) < 8):
+            await ctx.edit_last_response(get_embed(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.guidescale,ctx.options.steps,ctx.options.seed,outputDirectory + "resultgif.gif",ctx.options.strength,True))
+        else:
+            embed = hikari.Embed(title=("Animation Complete. (Gif file too large for upload)"),colour=hikari.Colour(0xFFFFFF))
+            await ctx.edit_last_response(embed)
     except Exception:
         traceback.print_exc()
         embed = hikari.Embed(title="Sorry, something went wrong! <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
