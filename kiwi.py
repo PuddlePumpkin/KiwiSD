@@ -580,7 +580,6 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
         else:
             genUrl = "0"
         curstep = ctx.options.start
-        startTime = time.time()
         infsteps = ctx.options.steps
         guidance = ctx.options.guidescale
         strength = ctx.options.strength
@@ -626,8 +625,10 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
         file_name = outputDirectory + "resultgif.gif"
         file_stats = os.stat(file_name)
         if((file_stats.st_size / (1024 * 1024)) < 8):
+            print("Anim Complete, sending gif.")
             await ctx.edit_last_response(get_embed(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.guidescale,ctx.options.steps,ctx.options.seed,outputDirectory + "resultgif.gif",ctx.options.strength,True))
         else:
+            print("Anim Complete, Gif too big.")
             embed = hikari.Embed(title=("Animation Complete. (Gif file too large for upload)"),colour=hikari.Colour(0xFFFFFF))
             await ctx.edit_last_response(embed)
         botBusy = False
@@ -705,10 +706,11 @@ async def changemodel(ctx: lightbulb.SlashContext) -> None:
         await ctx.edit_last_response("> **Model set to Stable Diffusion v1.5**")
         curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png"
     elif ctx.options.model.startswith("w"):
-        await ctx.respond("> **Loading Stable Diffusion v1.5**")
+        await ctx.respond("> **Loading Waifu Diffusion v1.3**")
         pipe = StableDiffusionPipeline.from_pretrained('hakurei/waifu-diffusion',custom_pipeline="lpw_stable_diffusion",torch_dtype=torch.float16, revision="fp16").to('cuda')
         await ctx.edit_last_response("> **Model set to Waifu Diffusion v1.3**")
         curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
+        ctx.edit_last_response()
     else:
         await ctx.respond("> **I don't understand** <:scootcry:1033114138366443600>")
     botBusy = False
