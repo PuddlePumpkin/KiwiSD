@@ -848,7 +848,7 @@ async def todo(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("adminupdatecommands", "update commands")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def todo(ctx: lightbulb.SlashContext) -> None:
-    bot.sync_application_commands()
+    await bot.sync_application_commands()
     await ctx.respond("> Commands Updated.")
 
 #----------------------------------
