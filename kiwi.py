@@ -1,4 +1,5 @@
 from calendar import c
+from msilib.schema import Component
 from sqlite3 import Timestamp
 import time
 import lightbulb
@@ -15,17 +16,18 @@ from PIL.PngImagePlugin import PngInfo
 from PIL import Image
 from torch import autocast, negative
 from diffusers import StableDiffusionPipeline
-from diffusers import StableDiffusionImg2ImgPipeline
 from io import BytesIO
 import random
 import traceback
 from urllib.parse import urlparse
+from hikari.api import ActionRowBuilder
 
 #----------------------------------
 #Globals
 #----------------------------------
 curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
 pipe = StableDiffusionPipeline.from_pretrained('hakurei/waifu-diffusion',custom_pipeline="lpw_stable_diffusion",torch_dtype=torch.float16, revision="fp16").to('cuda')
+pipe.enable_attention_slicing()
 prevPrompt = ""
 prevNegPrompt = ""
 prevStrength = 0.25
@@ -83,15 +85,62 @@ def get_embed(Prompt,NegativePrompt, GuideScale, InfSteps, Seed, File, ImageStre
     embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image(f)
     if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
         embed.title = "Stable Diffusion v1.5 - Result:"
+        embed.color = hikari.Colour(0xff8f87)
     else:
         embed.title = "Waifu Diffusion v1.3 - Result:"
+        embed.color = hikari.Colour(0x56aaf8)
     embed.add_field("Prompt:",Prompt)
     if ((NegativePrompt != None) and (NegativePrompt!= "None") and (NegativePrompt!= "")):
         embed.add_field("Negative Prompt:",prevNegPrompt)
     if(Gifmode):
         embed.set_footer(None)
     return embed
-    
+
+async def generate_rows(bot: lightbulb.BotApp):
+    rows = []
+    row = bot.rest.build_action_row()
+    label = "🗑️"
+    row.add_button(hikari.ButtonStyle.SECONDARY,label).set_label(label).add_to_container()
+    rows.append(row)
+    return rows
+
+async def handle_responses(
+    bot: lightbulb.BotApp,
+    author: hikari.User,
+    message: hikari.Message,
+) -> None:
+    """Watches for events, and handles responding to them."""
+
+    # Now we need to check if the user who ran the command interacts
+    # with our buttons, we stop watching after 120 seconds (2 mins) of
+    # inactivity.
+    with bot.stream(hikari.InteractionCreateEvent, 120).filter(
+        # Here we filter out events we don't care about.
+        lambda e: (
+            # A component interaction is a button interaction.
+            isinstance(e.interaction, hikari.ComponentInteraction)
+            # Make sure the command author hit the button.
+            and e.interaction.user == author
+            # Make sure the button was attached to our message.
+            and e.interaction.message == message
+        )
+    ) as stream:
+        async for event in stream:
+            cid = event.interaction.custom_id
+            # If we haven't responded to the interaction yet, we
+            # need to create the initial response. Otherwise, we
+            # need to edit the initial response.
+            await bot.rest.delete_message(672892614613139471,message)
+            return
+    # Once were back outside the stream loop, it's been 2 minutes since
+    # the last interaction and it's time now to remove the buttons from
+    # the message to prevent further interaction.
+    await message.edit(
+        # Set components to an empty list to get rid of them.
+        components=[]
+    )
+
+
 #----------------------------------
 #Generate Function
 #----------------------------------
@@ -392,11 +441,11 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
         if(str(mdataimage.info.get("Inference Steps")) != "None"):
             responseStr = responseStr+"steps: "+ mdataimage.info.get("Inference Steps")+" "
         if(str(mdataimage.info.get("Seed")) != "None"):
-            responseStr = responseStr+"seed: "+ mdataimage.info.get("Seed")
+            responseStr = responseStr+"seed: "+ mdataimage.info.get("Seed")+" "
         if(str(mdataimage.info.get("Width")) != "None"):
-            responseStr = responseStr+"width: "+ mdataimage.info.get("Width")
+            responseStr = responseStr+"width: "+ mdataimage.info.get("Width")+" "
         if(str(mdataimage.info.get("Height")) != "None"):
-            responseStr = responseStr+"height: "+ mdataimage.info.get("Height")
+            responseStr = responseStr+"height: "+ mdataimage.info.get("Height")+" "
         if(str(mdataimage.info.get("Img2Img Strength")) != "None"):
             embed = hikari.Embed(title="This image was generated from an image input <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
             await ctx.respond(embed)
@@ -425,8 +474,8 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("image", "(Optional) image to run diffusion on", required = False,type = hikari.Attachment)
 @lightbulb.option("imagelink", "(Optional) image link or message ID", required = False, type = str)
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
-@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int, default = 512, choices=[128,256,512,768,1024])
-@lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int, default = 512, choices=[128,256,512,768,1024])
+@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
+@lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.command("generate", "runs diffusion on an input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def generate(ctx: lightbulb.SlashContext) -> None:
@@ -477,8 +526,8 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,default = 30, type = int, max_value=100, min_value=1)
 @lightbulb.option("image", "(Optional) image to run diffusion on", required = True,type = hikari.Attachment)
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
-@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int, default = 512, choices=[128,256,512,768,1024])
-@lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int, default = 512, choices=[128,256,512,768,1024])
+@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
+@lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.command("genfromimage", "shortcut for /generate, requires an image to make quickly entering images easier")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def genfromimage(ctx: lightbulb.SlashContext) -> None:
@@ -522,8 +571,8 @@ async def genfromimage(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("image", "(Optional) image to run diffusion on", required = False,type = hikari.Attachment)
 @lightbulb.option("imagelink", "(Optional) image link or message ID", required = False, type = str)
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
-@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int,choices=[128,256,512,768,1024])
-@lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int,choices=[128,256,512,768,1024])
+@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int,choices=[128, 256, 384, 512, 640, 768])
+@lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int,choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.command("regenerate", "runs diffusion on an input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def regenerate(ctx: lightbulb.SlashContext) -> None:
@@ -753,11 +802,13 @@ async def changemodel(ctx: lightbulb.SlashContext) -> None:
     if ctx.options.model.startswith("s"):
         await ctx.respond("> **Loading Stable Diffusion v1.5**")
         pipe = StableDiffusionPipeline.from_pretrained('runwayml/stable-diffusion-v1-5',custom_pipeline="lpw_stable_diffusion",use_auth_token="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",torch_dtype=torch.float16, revision="fp16").to('cuda')
+        pipe.enable_attention_slicing()
         await ctx.edit_last_response("> **Model set to Stable Diffusion v1.5**")
         curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png"
     elif ctx.options.model.startswith("w"):
         await ctx.respond("> **Loading Waifu Diffusion v1.3**")
         pipe = StableDiffusionPipeline.from_pretrained('hakurei/waifu-diffusion',custom_pipeline="lpw_stable_diffusion",torch_dtype=torch.float16, revision="fp16").to('cuda')
+        pipe.enable_attention_slicing()
         await ctx.edit_last_response("> **Model set to Waifu Diffusion v1.3**")
         curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
         ctx.edit_last_response()
@@ -779,9 +830,12 @@ async def todo(ctx: lightbulb.SlashContext) -> None:
         file1.write(ctx.options.string)
         file1.close()
     file2 = open("todo.txt","r")
+    rows = await generate_rows(ctx.bot)
     embed = hikari.Embed(title="Todo:",colour=hikari.Colour(0xabaeff),description=file2.readline().replace(", ",",\n"))
     file2.close()
-    await ctx.respond(embed)
+    response = await ctx.respond(embed,components=rows)
+    message = await response.message()
+    await handle_responses(ctx.bot, ctx.author, message)
 
 #----------------------------------
 #Admin update commands Command
