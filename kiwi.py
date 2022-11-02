@@ -9,6 +9,7 @@ import torch
 import sys
 import datetime
 import asyncio
+from threading import Thread
 import os
 import gc
 import requests
@@ -21,10 +22,12 @@ import random
 import traceback
 from urllib.parse import urlparse
 from hikari.api import ActionRowBuilder
+from lightbulb.ext import tasks
 
 #----------------------------------
 #Globals
 #----------------------------------
+genThread = Thread()
 curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
 pipe = StableDiffusionPipeline.from_pretrained('hakurei/waifu-diffusion',custom_pipeline="lpw_stable_diffusion",torch_dtype=torch.float16, revision="fp16").to('cuda')
 pipe.enable_attention_slicing()
@@ -40,6 +43,7 @@ overprocessbool = False
 prevWidth = 512
 prevHeight = 512
 botBusy = False
+outEmbed = None
 regentitles = ["I'll try again!... ", "Sorry if I didn't do good enough... ", "I'll try my best to do better... "]
 outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
 titles =  ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
@@ -139,194 +143,223 @@ async def handle_responses(
         # Set components to an empty list to get rid of them.
         components=[]
     )
+awaitingEmbed = None
+awaitingProxy = None
+class threadManager(object):
+    def New_Thread(self, Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None):
+        return genImgThreadClass(parent=self, Prompt=Prompt,NegativePrompt=NegativePrompt,InfSteps=InfSteps,Seed=Seed,GuideScale=GuideScale,ImgUrl=ImgUrl,Strength=Strength,Width=Width,Height=Height,Proxy=Proxy)
+    def on_thread_finished(self, thread, data, proxy):
+        global awaitingProxy
+        global awaitingEmbed
+        awaitingProxy = proxy
+        awaitingEmbed = data
 
 
-#----------------------------------
-#Generate Function
-#----------------------------------
-def WdGenerateImage(Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None):
-    global prevPrompt
-    global prevNegPrompt
-    global prevInfSteps
-    global prevGuideScale
-    global prevSeed
-    global prevUrl
-    global prevStrength
-    global prevResultImage
-    global prevWidth
-    global prevHeight
-    global outputDirectory
-    global pipe
-    global overprocessbool
+class genImgThreadClass(Thread):
+    #----------------------------------
+    #Generate Image Function
+    #----------------------------------
+    def __init__(self, parent=None, Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None):
+        self.parent = parent
+        self.prompt = Prompt
+        self.negativePrompt = NegativePrompt
+        self.infSteps = InfSteps
+        self.seed = Seed
+        self.guideScale = GuideScale
+        self.imgUrl = ImgUrl
+        self.strength = Strength
+        self.width = Width
+        self.height = Height
+        self.proxy = Proxy
+        super(genImgThreadClass, self).__init__()
+    def run(self):
+        global prevPrompt
+        global prevNegPrompt
+        global prevInfSteps
+        global prevGuideScale
+        global prevSeed
+        global prevUrl
+        global prevStrength
+        global prevResultImage
+        global prevWidth
+        global prevHeight
+        global outputDirectory
+        global pipe
+        global overprocessbool
+        global outEmbed
 
-#Handle prompt
-    if(Prompt!=None):
-        prevPrompt = Prompt
-        prompt = Prompt
-    elif(prevPrompt!=None):
-        prompt = prevPrompt
-    
-#Handle negative prompt
-    if(NegativePrompt!=None):
-        if(NegativePrompt=="0"):
-            prevNegPrompt = None
-            negativeprompt = None
+        #Handle prompt
+        if(self.prompt!=None):
+            prevPrompt = self.prompt
+            prompt = self.prompt
+        elif(prevPrompt!=None):
+            prompt = prevPrompt
+        
+        #Handle negative prompt
+        if(self.negativePrompt!=None):
+            if(self.negativePrompt=="0"):
+                prevNegPrompt = None
+                negativeprompt = None
+            else:
+                prevNegPrompt = self.negativePrompt
+                negativeprompt = self.negativePrompt
+        #Its okay to use prev neg prompt even if empty
         else:
-            prevNegPrompt = NegativePrompt
-            negativeprompt = NegativePrompt
-    #Its okay to use prev neg prompt even if empty
-    else:
-        negativeprompt = prevNegPrompt
+            negativeprompt = prevNegPrompt
 
-#Handle infsteps
-    if(InfSteps!=None):
-        if(InfSteps=="0"):
+        #Handle infsteps
+        if(self.infSteps!=None):
+            if(self.infSteps=="0"):
+                prevInfSteps = 30
+                infsteps = 30
+            else:
+                prevInfSteps = self.infSteps
+                infsteps = self.infSteps
+        elif(prevInfSteps!=None):
+            infsteps = prevInfSteps
+        elif(prevInfSteps==None):
             prevInfSteps = 30
-            infsteps = 30
-        else:
-            prevInfSteps = InfSteps
-            infsteps = InfSteps
-    elif(prevInfSteps!=None):
-        infsteps = prevInfSteps
-    elif(prevInfSteps==None):
-        prevInfSteps = 30
-        infsteps = prevInfSteps
+            infsteps = prevInfSteps
 
-#Handle guidescale
-    if(GuideScale!=None):
-        if(GuideScale=="0"):
-            prevGuideScale = 7.0
-            guidescale = 7.0
-        else:
-            prevGuideScale = GuideScale
-            guidescale = GuideScale
-    elif(prevGuideScale!=None):
-        guidescale = prevGuideScale
-    elif(prevGuideScale==None):
-        prevGuideScale = 7
-        guidescale = prevGuideScale
+        #Handle guidescale
+        if(self.guideScale!=None):
+            if(self.guideScale=="0"):
+                prevGuideScale = 7.0
+                guidescale = 7.0
+            else:
+                prevGuideScale = self.guideScale
+                guidescale = self.guideScale
+        elif(prevGuideScale!=None):
+            guidescale = prevGuideScale
+        elif(prevGuideScale==None):
+            prevGuideScale = 7
+            guidescale = prevGuideScale
 
-#Handle Stength
-    if(Strength!=None):
-        if(Strength=="0"):
+        #Handle Stength
+        if(self.strength!=None):
+            if(self.strength=="0"):
+                prevStrength = 0.25
+                strength = 0.25
+            else:
+                prevStrength = self.strength
+                strength = self.strength
+        elif(prevStrength!=None):
+            strength = prevStrength
+        elif(prevStrength==None):
             prevStrength = 0.25
-            strength = 0.25
-        else:
-            prevStrength = Strength
-            strength = Strength
-    elif(prevStrength!=None):
-        strength = prevStrength
-    elif(prevStrength==None):
-        prevStrength = 0.25
-        strength = prevStrength
+            strength = prevStrength
 
-#Handle ImgUrl
-    if(ImgUrl!=None):
-        if(ImgUrl=="0"):
+        #Handle ImgUrl
+        if(self.imgUrl!=None):
+            if(self.imgUrl=="0"):
+                prevUrl = None
+                prevStrength = None
+                strength = None
+                imgurl = None
+            else:
+                prevUrl = self.imgUrl 
+                imgurl = self.imgUrl
+        elif(prevUrl!=None):
+            imgurl = prevUrl
+        elif(prevUrl==None):
             prevUrl = None
-            prevStrength = None
             strength = None
-            imgurl = None
-        else:
-            prevUrl = ImgUrl 
-            imgurl = ImgUrl
-    elif(prevUrl!=None):
-        imgurl = prevUrl
-    elif(prevUrl==None):
-        prevUrl = None
-        strength = None
-        prevStrength = None
-        imgurl = prevUrl
+            prevStrength = None
+            imgurl = prevUrl
 
-#Handle seed
-    if(Seed!=None):
-        if(Seed==0):
+        #Handle seed
+        if(self.seed!=None):
+            if(self.seed==0):
+                prevSeed = random.randint(1,100000000)
+                seed = prevSeed
+                generator = torch.Generator("cuda").manual_seed(prevSeed)
+            else:
+                prevSeed = self.seed
+                seed = self.seed
+                generator = torch.Generator("cuda").manual_seed(self.seed)
+        elif(prevSeed!=None):
+            seed = prevSeed
+            generator = torch.Generator("cuda").manual_seed(prevSeed)
+        elif(prevSeed==None):
             prevSeed = random.randint(1,100000000)
             seed = prevSeed
             generator = torch.Generator("cuda").manual_seed(prevSeed)
-        else:
-            prevSeed = Seed
-            seed = Seed
-            generator = torch.Generator("cuda").manual_seed(Seed)
-    elif(prevSeed!=None):
-        seed = prevSeed
-        generator = torch.Generator("cuda").manual_seed(prevSeed)
-    elif(prevSeed==None):
-        prevSeed = random.randint(1,100000000)
-        seed = prevSeed
-        generator = torch.Generator("cuda").manual_seed(prevSeed)
 
-#Handle Width
-    if(Width!=None):
-        if(Width=="0"):
+        #Handle Width
+        if(self.width!=None):
+            if(self.width=="0"):
+                prevWidth = 512
+                width = 512
+            else:
+                prevWidth = self.width
+                width = self.width
+        elif(prevWidth!=None):
+            width = prevWidth
+        elif(prevWidth==None):
             prevWidth = 512
-            width = 512
-        else:
-            prevWidth = Width
-            width = Width
-    elif(prevWidth!=None):
-        width = prevWidth
-    elif(prevWidth==None):
-        prevWidth = 512
-        width = prevWidth
+            width = prevWidth
 
-#Handle Height
-    if(Height!=None):
-        if(Height=="0"):
+        #Handle Height
+        if(self.height!=None):
+            if(self.height=="0"):
+                prevHeight = 512
+                height = 512
+            else:
+                prevHeight = self.height
+                height = self.height
+        elif(prevHeight!=None):
+            height = prevHeight
+        elif(prevHeight==None):
             prevHeight = 512
-            height = 512
+            height = prevHeight
+
+
+        print("Generating: " + prompt)
+        if imgurl != None:
+            if(overprocessbool):
+                print("Loading image from prevResultImage")
+                init_image = prevResultImage
+                overprocessbool=False
+            else:
+                print("Loading image from url: " + imgurl)
+                response = requests.get(imgurl)
+                init_image = Image.open(BytesIO(response.content)).convert("RGB")
+                #Crop and resize
+                init_image = crop_max_square(init_image)
+                init_image = init_image.resize((512, 512),Image.Resampling.LANCZOS)
         else:
-            prevHeight = Height
-            height = Height
-    elif(prevHeight!=None):
-        height = prevHeight
-    elif(prevHeight==None):
-        prevHeight = 512
-        height = prevHeight
+            init_image = None
+
+        #Set Metadata
+        metadata = PngInfo()
+        metadata.add_text("Prompt", prompt)
+        if ((negativeprompt != None) and (negativeprompt!= "None") and (negativeprompt!= "")):
+            metadata.add_text("Negative Prompt", negativeprompt)
+        metadata.add_text("Guidance Scale", str(guidescale))
+        metadata.add_text("Inference Steps", str(infsteps))
+        metadata.add_text("Seed", str(seed))
+        metadata.add_text("Width", str(width))
+        metadata.add_text("Height", str(height))
+
+        with autocast("cuda"):
+            def dummy_checker(images, **kwargs): return images, False
+            pipe.safety_checker = dummy_checker
+            if strength != None:
+                image = pipe(prompt, generator = generator, init_image = init_image, negative_prompt=negativeprompt, strength=(1-strength), guidance_scale=guidescale, num_inference_steps=infsteps).images[0]
+                metadata.add_text("Img2Img Strength", str(strength))
+            else:
+                image = pipe(prompt,height = height,width = width, generator = generator, init_image = init_image, negative_prompt=negativeprompt, guidance_scale=guidescale, num_inference_steps=infsteps).images[0]
+        countStr = str(filecount()+1)
+        while os.path.exists(outputDirectory + str(countStr) + ".png"):
+            countStr = int(countStr)+1
+
+        prevResultImage = image
+        image.save(outputDirectory + str(countStr) + ".png", pnginfo=metadata)
+        outEmbed = get_embed(prompt,negativeprompt,guidescale,infsteps,seed,outputDirectory + str(countStr) + ".png",strength)
+        self.parent and self.parent.on_thread_finished(self, outEmbed, self.proxy)
+        return get_embed(prompt,negativeprompt,guidescale,infsteps,seed,outputDirectory + str(countStr) + ".png",strength)
 
 
-    print("Generating: " + prompt)
-    if imgurl != None:
-        if(overprocessbool):
-            print("Loading image from prevResultImage")
-            init_image = prevResultImage
-            overprocessbool=False
-        else:
-            print("Loading image from url: " + imgurl)
-            response = requests.get(imgurl)
-            init_image = Image.open(BytesIO(response.content)).convert("RGB")
-            #Crop and resize
-            init_image = crop_max_square(init_image)
-            init_image = init_image.resize((512, 512),Image.Resampling.LANCZOS)
-    else:
-        init_image = None
-
-    #Set Metadata
-    metadata = PngInfo()
-    metadata.add_text("Prompt", prompt)
-    if ((negativeprompt != None) and (negativeprompt!= "None") and (negativeprompt!= "")):
-        metadata.add_text("Negative Prompt", negativeprompt)
-    metadata.add_text("Guidance Scale", str(guidescale))
-    metadata.add_text("Inference Steps", str(infsteps))
-    metadata.add_text("Seed", str(seed))
-    metadata.add_text("Width", str(width))
-    metadata.add_text("Height", str(height))
-
-    with autocast("cuda"):
-        def dummy_checker(images, **kwargs): return images, False
-        pipe.safety_checker = dummy_checker
-        if strength != None:
-            image = pipe(prompt, generator = generator, init_image = init_image, negative_prompt=negativeprompt, strength=(1-strength), guidance_scale=guidescale, num_inference_steps=infsteps).images[0]
-            metadata.add_text("Img2Img Strength", str(strength))
-        else:
-            image = pipe(prompt,height = height,width = width, generator = generator, init_image = init_image, negative_prompt=negativeprompt, guidance_scale=guidescale, num_inference_steps=infsteps).images[0]
-    countStr = str(filecount()+1)
-    while os.path.exists(outputDirectory + str(countStr) + ".png"):
-        countStr = int(countStr)+1
-
-    prevResultImage = image
-    image.save(outputDirectory + str(countStr) + ".png", pnginfo=metadata)
-    return get_embed(prompt,negativeprompt,guidescale,infsteps,seed,outputDirectory + str(countStr) + ".png",strength)
 
 #----------------------------------    
 #Instantiate a Bot instance
@@ -338,7 +371,7 @@ bot = lightbulb.BotApp(
     intents=hikari.Intents.ALL,
     help_class=None
     )
-
+tasks.load(bot)
 #----------------------------------    
 #Bot Ready Event
 #----------------------------------
@@ -398,6 +431,20 @@ async def metadata(ctx: lightbulb.SlashContext) -> None:
     await ctx.respond(embed)
     botBusy = False
 
+
+@tasks.task(s=2, auto_start=True)
+async def checkForCompletion():
+    global awaitingProxy
+    global awaitingEmbed
+    global botBusy
+    if awaitingEmbed!=None and awaitingProxy!=None:
+        emy = awaitingEmbed
+        prx = awaitingProxy
+        awaitingEmbed = None
+        awaitingProxy = None
+        await prx.edit(emy)
+        botBusy = False
+        
 #----------------------------------
 #Image to Command
 #----------------------------------
@@ -466,16 +513,16 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
 #Generate Command
 #----------------------------------
 @bot.command
-@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = False,default ="0")
-@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False,default ="0")
-@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float,default = 7, max_value=100, min_value=-100)
-@lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required = False, default = 0, type = int, min_value=0)
-@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,default = 30, type = int, max_value=100, min_value=1)
-@lightbulb.option("image", "(Optional) image to run diffusion on", required = False,type = hikari.Attachment)
-@lightbulb.option("imagelink", "(Optional) image link or message ID", required = False, type = str)
-@lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
-@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
+@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
+@lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
+@lightbulb.option("imagelink", "(Optional) image link or message ID", required = False, type = str)
+@lightbulb.option("image", "(Optional) image to run diffusion on", required = False,type = hikari.Attachment)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,default = 30, type = int, max_value=100, min_value=1)
+@lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required = False, default = 0, type = int, min_value=0)
+@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float,default = 7, max_value=100, min_value=-100)
+@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False,default ="0")
+@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = False,default ="0")
 @lightbulb.command("generate", "runs diffusion on an input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def generate(ctx: lightbulb.SlashContext) -> None:
@@ -483,6 +530,7 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
     global titles
     global outputDirectory
     global botBusy
+    global outEmbed
     if botBusy:
         await ctx.respond("> Sorry, kiwi is busy!")
         return
@@ -500,58 +548,13 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
         else:
             url = "0"
 
-        
         #--Embed                  
         embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://i.imgur.com/21reOYm.gif").set_footer(text = "", icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
-        await ctx.respond(embed)
+        respProxy = await ctx.respond(embed)
         #-------
-        embed = WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height)
-        await ctx.edit_last_response(embed)
-        botBusy = False
-    except Exception:
-        traceback.print_exc()
-        embed = hikari.Embed(title="Sorry, something went wrong! <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
-        await ctx.edit_last_response(embed)
-        botBusy = False
-        return
-
-#----------------------------------
-#Generate From Image Command
-#----------------------------------
-@bot.command
-@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = False,default ="0")
-@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False,default ="0")
-@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float,default = 7, max_value=100, min_value=-100)
-@lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required = False, default = 0, type = int, min_value=0)
-@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,default = 30, type = int, max_value=100, min_value=1)
-@lightbulb.option("image", "(Optional) image to run diffusion on", required = True,type = hikari.Attachment)
-@lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
-@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
-@lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
-@lightbulb.command("genfromimage", "shortcut for /generate, requires an image to make quickly entering images easier")
-@lightbulb.implements(lightbulb.SlashCommand)
-async def genfromimage(ctx: lightbulb.SlashContext) -> None:
-    global curmodel
-    global titles
-    global outputDirectory
-    global botBusy
-    if botBusy:
-        await ctx.respond("> Sorry, kiwi is busy!")
-        return
-    botBusy = True
-    outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
-    try:
-        if(ctx.options.image == None):
-            url = "0"
-        else:
-            url = ctx.options.image.url
-        #--Embed                  
-        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://i.imgur.com/21reOYm.gif").set_footer(text = "", icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
-        await ctx.respond(embed)
-        #-------
-        embed = WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height)
-        await ctx.edit_last_response(embed)
-        botBusy = False
+        threadmanager = threadManager()
+        thread = threadmanager.New_Thread(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy)
+        thread.start()
     except Exception:
         traceback.print_exc()
         embed = hikari.Embed(title="Sorry, something went wrong! <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
@@ -563,16 +566,16 @@ async def genfromimage(ctx: lightbulb.SlashContext) -> None:
 #ReGenerate Command
 #----------------------------------
 @bot.command
-@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = False)
-@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
-@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, max_value=100, min_value=-100)
-@lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required = False, default = 0, type = int, min_value=0)
-@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,type = int, max_value=100, min_value=1)
-@lightbulb.option("image", "(Optional) image to run diffusion on", required = False,type = hikari.Attachment)
-@lightbulb.option("imagelink", "(Optional) image link or message ID", required = False, type = str)
-@lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
-@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int,choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int,choices=[128, 256, 384, 512, 640, 768])
+@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int,choices=[128, 256, 384, 512, 640, 768])
+@lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
+@lightbulb.option("imagelink", "(Optional) image link or message ID", required = False, type = str)
+@lightbulb.option("image", "(Optional) image to run diffusion on", required = False,type = hikari.Attachment)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,type = int, max_value=100, min_value=1)
+@lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required = False, default = 0, type = int, min_value=0)
+@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, max_value=100, min_value=-100)
+@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
+@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = False)
 @lightbulb.command("regenerate", "runs diffusion on an input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def regenerate(ctx: lightbulb.SlashContext) -> None:
@@ -600,9 +603,9 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
         embed = hikari.Embed(title=random.choice(regentitles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://media.discordapp.net/stickers/976356216215334953.webp").set_footer(text = "", icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
         await ctx.respond(embed)
         #-------
-        embed = WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height)
-        await ctx.edit_last_response(embed)
-        botBusy = False
+        threadmanager = threadManager()
+        thread = threadmanager.New_Thread(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy)
+        thread.start()
     except Exception:
         traceback.print_exc()
         embed = hikari.Embed(title="Sorry, something went wrong! <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
@@ -649,17 +652,17 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 #----------------------------------
 @bot.command
 @lightbulb.add_checks(lightbulb.owner_only)
-@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ")
-@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
-@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:20)", required = False,type = int, default=20, max_value=100, min_value=1)
-@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, default=7, max_value=100, min_value=-100)
-@lightbulb.option("seed", "(Optional) Seed for diffusion", required = False,type = int, min_value=0)
-@lightbulb.option("image", "image to run diffusion on", required = False,type = hikari.Attachment)
-@lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,default=0.25,type = float, max_value=1, min_value=0)
-@lightbulb.option("key", "which key (guidescale, steps, strength)", required = True,type = str, choices=["guidescale", "steps", "strength"])
-@lightbulb.option("start", "start value", required = True,type = float)
-@lightbulb.option("end", "end value", required = True,type = float)
 @lightbulb.option("animstep", "step value", required = True,type = float)
+@lightbulb.option("end", "end value", required = True,type = float)
+@lightbulb.option("start", "start value", required = True,type = float)
+@lightbulb.option("key", "which key (guidescale, steps, strength)", required = True,type = str, choices=["guidescale", "steps", "strength"])
+@lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,default=0.25,type = float, max_value=1, min_value=0)
+@lightbulb.option("image", "image to run diffusion on", required = False,type = hikari.Attachment)
+@lightbulb.option("seed", "(Optional) Seed for diffusion", required = False,type = int, min_value=0)
+@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, default=7, max_value=100, min_value=-100)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:20)", required = False,type = int, default=20, max_value=100, min_value=1)
+@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
+@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ")
 @lightbulb.command("admingenerategif", "Generate a series of results")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
@@ -850,7 +853,7 @@ async def todo(ctx: lightbulb.SlashContext) -> None:
 
 #----------------------------------
 #Quit
-#----------------------------------
+#-----------------------------  -----
 @bot.command()
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.command("quit", "Puts kiwi to sleep")
