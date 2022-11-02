@@ -82,9 +82,9 @@ def crop_max_square(pil_img):
 def get_embed(Prompt,NegativePrompt, GuideScale, InfSteps, Seed, File, ImageStrength=None, Gifmode=False):
     global curmodel
     if ImageStrength != None:
-        footer = ("{:31s} {:31s}".format("Guidance Scale: "+str(GuideScale), "Inference Steps: "+str(InfSteps))+"\n"+"{:31s} {:31s}".format("Seed: "+str(Seed), "Image Strength: "+str(ImageStrength)))
+        footer = ("{:30s} {:30s}".format("Guidance Scale: "+str(GuideScale), "Inference Steps: "+str(InfSteps))+"\n"+"{:30s} {:30s}".format("Seed: "+str(Seed), "Image Strength: "+str(ImageStrength)))
     else:
-        footer = ("{:31s} {:31s}".format("Guidance Scale: "+str(GuideScale), "Inference Steps: "+str(InfSteps))+"\n"+"{:31s}".format("Seed: "+str(Seed)))
+        footer = ("{:30s} {:30s}".format("Guidance Scale: "+str(GuideScale), "Inference Steps: "+str(InfSteps))+"\n"+"{:30s}".format("Seed: "+str(Seed)))
     f = hikari.File(File)
     embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image(f)
     if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
@@ -93,7 +93,9 @@ def get_embed(Prompt,NegativePrompt, GuideScale, InfSteps, Seed, File, ImageStre
     else:
         embed.title = "Waifu Diffusion v1.3 - Result:"
         embed.color = hikari.Colour(0x56aaf8)
-    embed.add_field("Prompt:",Prompt)
+    
+    if ((Prompt != None) and (Prompt!= "None") and (Prompt!= "")):
+        embed.add_field("Prompt:",Prompt)
     if ((NegativePrompt != None) and (NegativePrompt!= "None") and (NegativePrompt!= "")):
         embed.add_field("Negative Prompt:",prevNegPrompt)
     if(Gifmode):
@@ -188,12 +190,17 @@ class genImgThreadClass(Thread):
         global overprocessbool
         global outEmbed
 
-        #Handle prompt
+        #Handle negative prompt
         if(self.prompt!=None):
-            prevPrompt = self.prompt
-            prompt = self.prompt
-        elif(prevPrompt!=None):
-            prompt = prevPrompt
+            if(self.prompt=="0"):
+                prevPrompt = ""
+                prompt = ""
+            else:
+                prevPrompt = self.prompt
+                prompt = self.prompt
+        else:
+            prevPrompt = ""
+            prompt = ""
         
         #Handle negative prompt
         if(self.negativePrompt!=None):
@@ -312,9 +319,6 @@ class genImgThreadClass(Thread):
         elif(prevHeight==None):
             prevHeight = 512
             height = prevHeight
-
-
-        print("Generating: " + prompt)
         if imgurl != None:
             if(overprocessbool):
                 print("Loading image from prevResultImage")
@@ -332,8 +336,9 @@ class genImgThreadClass(Thread):
 
         #Set Metadata
         metadata = PngInfo()
-        metadata.add_text("Prompt", prompt)
-        if ((negativeprompt != None) and (negativeprompt!= "None") and (negativeprompt!= "")):
+        if ((prompt != None) and (prompt!= "None") and (prompt!= "")):
+            metadata.add_text("Prompt", prompt)
+        if ((negativeprompt != None) and (negativeprompt!= "None") and (negativeprompt != "")):
             metadata.add_text("Negative Prompt", negativeprompt)
         metadata.add_text("Guidance Scale", str(guidescale))
         metadata.add_text("Inference Steps", str(infsteps))
@@ -399,19 +404,34 @@ async def ping(ctx: lightbulb.SlashContext) -> None:
 #Metadata Command
 #----------------------------------
 @bot.command
-@lightbulb.option("image", "input image", required = True,type = hikari.Attachment)
+@lightbulb.option("image", "input image", required = False,type = hikari.Attachment)
+@lightbulb.option("imagelink", "image link or message ID", required = False, type = str)
 @lightbulb.command("metadata", "check metadata of an image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def metadata(ctx: lightbulb.SlashContext) -> None:
+    if (ctx.options.image != None):
+        datas = await hikari.Attachment.read(ctx.options.image)
+        mdataimage = Image.open(BytesIO(datas)).convert("RGB")
+        mdataimage = mdataimage.resize((512, 512))
+        url = ctx.options.image.url
+    elif(ctx.options.imagelink != None):
+        if(is_url(ctx.options.imagelink)):
+            response = requests.get(ctx.options.imagelink)
+            url = ctx.options.imagelink
+            mdataimage = Image.open(BytesIO(response.content)).convert("RGB")
+        else:
+            messageIdResponse = await ctx.app.rest.fetch_message(ctx.channel_id,ctx.options.imagelink)
+            datas = await hikari.Attachment.read(messageIdResponse.embeds[0].image)
+            mdataimage = Image.open(BytesIO(datas)).convert("RGB")
+            mdataimage = mdataimage.resize((512, 512))
+            url = messageIdResponse.embeds[0].image.url
+        mdataimage = mdataimage.resize((512, 512))
     global botBusy
     if botBusy:
         await ctx.respond("> Sorry, kiwi is busy!")
         return
     botBusy = True
-    datas = await hikari.Attachment.read(ctx.options.image)
-    mdataimage = Image.open(BytesIO(datas)).convert("RGB")
-    mdataimage = mdataimage.resize((512, 512))
-    embed = hikari.Embed(title=(ctx.options.image.url.rsplit('/', 1)[-1]),colour=hikari.Colour(0x56aaf8)).set_thumbnail(ctx.options.image.url)
+    embed = hikari.Embed(title=(url.rsplit('/', 1)[-1]),colour=hikari.Colour(0x56aaf8)).set_thumbnail(url)
     if(str(mdataimage.info.get("Prompt")) != "None"):
         embed.add_field("Prompt:",str(mdataimage.info.get("Prompt")))
     if(str(mdataimage.info.get("Negative Prompt")) != "None"):
@@ -601,8 +621,8 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
             url = "0"
         #--Embed                  
         embed = hikari.Embed(title=random.choice(regentitles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://media.discordapp.net/stickers/976356216215334953.webp").set_footer(text = "", icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
-        await ctx.respond(embed)
-        #-------
+        respProxy = await ctx.respond(embed)
+        #-------    
         threadmanager = threadManager()
         thread = threadmanager.New_Thread(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy)
         thread.start()
