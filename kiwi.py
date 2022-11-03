@@ -57,6 +57,7 @@ awaitingProxy = None
 regentitles = ["I'll try again!... ", "Sorry if I didn't do good enough... ", "I'll try my best to do better... "]
 outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
 titles =  ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
+os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
 
 #----------------------------------
 #load embeddings Function
@@ -914,7 +915,7 @@ async def todo(ctx: lightbulb.SlashContext) -> None:
 #Styles Command
 #----------------------------------
 @bot.command()
-@lightbulb.command("styles", "Get a list of available embeddings / textual inversions.")
+@lightbulb.command("styles", "Get a list of available embeddings.")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def styles(ctx: lightbulb.SlashContext) -> None:
     global embedlist
@@ -934,7 +935,8 @@ async def styles(ctx: lightbulb.SlashContext) -> None:
         fileOpened = open(str(file),"r")
         WDembedliststr = WDembedliststr + fileOpened.readline() + "\n"
         fileOpened.close()
-    embed = hikari.Embed(title="Style list:",colour=hikari.Colour(0xabaeff),description="These textual inversion models are currently loaded, add them exactly as listed in your prompt to have an effect on the output, styles may work best at beginning of the prompt, and characters/objects after.")
+    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
+    embed = hikari.Embed(title="Style list:",colour=hikari.Colour(0xabaeff),description="These embeddings trained via textual inversion are currently loaded, add them exactly as listed in your prompt to have an effect on the output, styles may work best at beginning of the prompt, and characters/objects after.")
     embed.add_field("Waifu Diffusion:",WDembedliststr)
     embed.add_field("Stable Diffusion:",SDembedliststr)
     await ctx.respond(embed)
