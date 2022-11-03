@@ -1,6 +1,8 @@
 #Personal
 *.png
 lpw_stable_diffusion/
+sd/
+wd/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -23,14 +23,22 @@ import traceback
 from urllib.parse import urlparse
 from hikari.api import ActionRowBuilder
 from lightbulb.ext import tasks
+from diffusers import StableDiffusionPipeline
+from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
+from huggingface_hub import hf_hub_download
+import glob
+from pathlib import Path
+
 
 #----------------------------------
-#Globals
+#Setup
 #----------------------------------
-genThread = Thread()
+
+os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings")
+embedlist = list(Path(".").rglob("*.[bB][iI][nN]"))
 curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
-pipe = StableDiffusionPipeline.from_pretrained('hakurei/waifu-diffusion',custom_pipeline="lpw_stable_diffusion",torch_dtype=torch.float16, revision="fp16").to('cuda')
-pipe.enable_attention_slicing()
+
+genThread = Thread()
 prevPrompt = ""
 prevNegPrompt = ""
 prevStrength = 0.25
@@ -44,10 +52,55 @@ prevWidth = 512
 prevHeight = 512
 botBusy = False
 outEmbed = None
+awaitingEmbed = None
+awaitingProxy = None
 regentitles = ["I'll try again!... ", "Sorry if I didn't do good enough... ", "I'll try my best to do better... "]
 outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
 titles =  ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
 
+#----------------------------------
+#load embeddings Function
+#----------------------------------
+def load_learned_embed_in_clip(learned_embeds_path, text_encoder, tokenizer, token=None):
+  loaded_learned_embeds = torch.load(learned_embeds_path, map_location="cpu")
+  
+  # separate token and the embeds
+  trained_token = list(loaded_learned_embeds.keys())[0]
+  embedsS = loaded_learned_embeds[trained_token]
+
+  # cast to dtype of text_encoder
+  dtype = text_encoder.get_input_embeddings().weight.dtype
+  embedsS.to(dtype)
+
+  # add the token in tokenizer
+  token = token if token is not None else trained_token
+  num_added_tokens = tokenizer.add_tokens(token)
+  if num_added_tokens == 0:
+    raise ValueError(f"The tokenizer already contains the token {token}. Please pass a different `token` that is not already in the tokenizer.")
+  
+  # resize the token embeddings
+  text_encoder.resize_token_embeddings(len(tokenizer))
+  
+  # get the id for the token and assign the embeds
+  token_id = tokenizer.convert_tokens_to_ids(token)
+  text_encoder.get_input_embeddings().weight.data[token_id] = embedsS
+
+#----------------------------------
+#Change Pipeline Function
+#----------------------------------
+def change_pipeline(modelpath):
+    global pipe
+    tokenizer = CLIPTokenizer.from_pretrained(modelpath,subfolder="tokenizer", use_auth_token="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")
+    text_encoder = CLIPTextModel.from_pretrained(modelpath, subfolder="text_encoder", use_auth_token="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", torch_dtype=torch.float16)
+    for file in embedlist:
+        print(str(file))
+        load_learned_embed_in_clip("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/" + str(file), text_encoder, tokenizer)
+    if(modelpath=="hakurei/waifu-diffusion"):
+        pipe = StableDiffusionPipeline.from_pretrained(modelpath,revision="fp16", custom_pipeline="lpw_stable_diffusion", torch_dtype=torch.float16, text_encoder=text_encoder, tokenizer=tokenizer).to("cuda")
+    elif(modelpath=="runwayml/stable-diffusion-v1-5"):
+        pipe = StableDiffusionPipeline.from_pretrained(modelpath,custom_pipeline="lpw_stable_diffusion",use_auth_token="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",torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer).to('cuda')
+    pipe.enable_attention_slicing()
+change_pipeline("hakurei/waifu-diffusion")
 #----------------------------------
 #Filecount Function
 #----------------------------------
@@ -145,8 +198,7 @@ async def handle_responses(
         # Set components to an empty list to get rid of them.
         components=[]
     )
-awaitingEmbed = None
-awaitingProxy = None
+
 class threadManager(object):
     def New_Thread(self, Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None):
         return genImgThreadClass(parent=self, Prompt=Prompt,NegativePrompt=NegativePrompt,InfSteps=InfSteps,Seed=Seed,GuideScale=GuideScale,ImgUrl=ImgUrl,Strength=Strength,Width=Width,Height=Height,Proxy=Proxy)
@@ -824,14 +876,12 @@ async def changemodel(ctx: lightbulb.SlashContext) -> None:
     botBusy = True
     if ctx.options.model.startswith("s"):
         await ctx.respond("> **Loading Stable Diffusion v1.5**")
-        pipe = StableDiffusionPipeline.from_pretrained('runwayml/stable-diffusion-v1-5',custom_pipeline="lpw_stable_diffusion",use_auth_token="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",torch_dtype=torch.float16, revision="fp16").to('cuda')
-        pipe.enable_attention_slicing()
+        change_pipeline("runwayml/stable-diffusion-v1-5")
         await ctx.edit_last_response("> **Model set to Stable Diffusion v1.5**")
         curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png"
     elif ctx.options.model.startswith("w"):
         await ctx.respond("> **Loading Waifu Diffusion v1.3**")
-        pipe = StableDiffusionPipeline.from_pretrained('hakurei/waifu-diffusion',custom_pipeline="lpw_stable_diffusion",torch_dtype=torch.float16, revision="fp16").to('cuda')
-        pipe.enable_attention_slicing()
+        change_pipeline('hakurei/waifu-diffusion')
         await ctx.edit_last_response("> **Model set to Waifu Diffusion v1.3**")
         curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
         ctx.edit_last_response()
@@ -859,6 +909,36 @@ async def todo(ctx: lightbulb.SlashContext) -> None:
     response = await ctx.respond(embed,components=rows)
     message = await response.message()
     await handle_responses(ctx.bot, ctx.author, message)
+
+#----------------------------------
+#Styles Command
+#----------------------------------
+@bot.command()
+@lightbulb.command("styles", "Get a list of available embeddings / textual inversions.")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def styles(ctx: lightbulb.SlashContext) -> None:
+    global embedlist
+    SDembedliststr = ""
+    WDembedliststr = ""
+    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/sd")
+    identifierlist = list(Path(".").rglob("**/*token_identifier*"))
+    for file in identifierlist:
+        print(file)
+        fileOpened = open(str(file),"r")
+        SDembedliststr = SDembedliststr + fileOpened.readline() + "\n"
+        fileOpened.close()
+    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/wd")
+    identifierlist = list(Path(".").rglob("**/*token_identifier*"))
+    for file in identifierlist:
+        print(file)
+        fileOpened = open(str(file),"r")
+        WDembedliststr = WDembedliststr + fileOpened.readline() + "\n"
+        fileOpened.close()
+    embed = hikari.Embed(title="Style list:",colour=hikari.Colour(0xabaeff),description="These textual inversion models are currently loaded, add them exactly as listed in your prompt to have an effect on the output, styles may work best at beginning of the prompt, and characters/objects after.")
+    embed.add_field("Waifu Diffusion:",WDembedliststr)
+    embed.add_field("Stable Diffusion:",SDembedliststr)
+    await ctx.respond(embed)
+
 
 #----------------------------------
 #Admin update commands Command
