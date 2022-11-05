@@ -33,7 +33,11 @@ from pathlib import Path
 #----------------------------------
 #Setup
 #----------------------------------
-
+modelpaths = {
+"Stable Diffusion" : "C:/Users/keira/Desktop/GITHUB/Kiwi/models/stablediffusion",
+"Waifu Diffusion" : "C:/Users/keira/Desktop/GITHUB/Kiwi/models/waifudiffusion",
+"Yabai Diffusion" : "C:/Users/keira/Desktop/GITHUB/Kiwi/models/naidiffusers",
+}
 os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings")
 embedlist = list(Path(".").rglob("*.[bB][iI][nN]"))
 curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
@@ -90,20 +94,19 @@ def load_learned_embed_in_clip(learned_embeds_path, text_encoder, tokenizer, tok
 #Change Pipeline Function
 #----------------------------------
 def change_pipeline(modelpath):
+    global modelpaths
     global pipe
-    tokenizer = CLIPTokenizer.from_pretrained(modelpath,subfolder="tokenizer", use_auth_token="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")
-    text_encoder = CLIPTextModel.from_pretrained(modelpath, subfolder="text_encoder", use_auth_token="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", torch_dtype=torch.float16)
+    tokenizer = CLIPTokenizer.from_pretrained(modelpaths[modelpath],subfolder="tokenizer", use_auth_token="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")
+    text_encoder = CLIPTextModel.from_pretrained(modelpaths[modelpath], subfolder="text_encoder", use_auth_token="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", torch_dtype=torch.float16)
     for file in embedlist:
         print(str(file))
         load_learned_embed_in_clip("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/" + str(file), text_encoder, tokenizer)
-    if(modelpath=="hakurei/waifu-diffusion"):
-        pipe = StableDiffusionPipeline.from_pretrained(modelpath,revision="fp16", custom_pipeline="lpw_stable_diffusion", torch_dtype=torch.float16, text_encoder=text_encoder, tokenizer=tokenizer).to("cuda")
-    elif(modelpath=="runwayml/stable-diffusion-v1-5"):
-        pipe = StableDiffusionPipeline.from_pretrained(modelpath,custom_pipeline="lpw_stable_diffusion",use_auth_token="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",torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer).to('cuda')
-    if(modelpath=="C:/Users/keira/Desktop/naidiffusers"):
-        pipe = StableDiffusionPipeline.from_pretrained(modelpath,revision="fp16", custom_pipeline="lpw_stable_diffusion", torch_dtype=torch.float16, text_encoder=text_encoder, tokenizer=tokenizer).to("cuda")
+    if(modelpath=="Stable Diffusion"):
+        pipe = StableDiffusionPipeline.from_pretrained(modelpaths[modelpath],custom_pipeline="lpw_stable_diffusion",use_auth_token="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",torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer).to('cuda')
+    else:
+        pipe = StableDiffusionPipeline.from_pretrained(modelpaths[modelpath],revision="fp16", custom_pipeline="lpw_stable_diffusion", torch_dtype=torch.float16, text_encoder=text_encoder, tokenizer=tokenizer).to("cuda")
     pipe.enable_attention_slicing()
-change_pipeline("hakurei/waifu-diffusion")
+change_pipeline("Waifu Diffusion")
 #----------------------------------
 #Filecount Function
 #----------------------------------
@@ -883,17 +886,17 @@ async def changemodel(ctx: lightbulb.SlashContext) -> None:
     botBusy = True
     if ctx.options.model.startswith("S"):
         await ctx.respond("> **Loading Stable Diffusion v1.5**")
-        change_pipeline("runwayml/stable-diffusion-v1-5")
+        change_pipeline("Stable Diffusion")
         await ctx.edit_last_response("> **Loaded Stable Diffusion v1.5**")
         curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png"
     elif ctx.options.model.startswith("W"):
         await ctx.respond("> **Loading Waifu Diffusion v1.3**")
-        change_pipeline('hakurei/waifu-diffusion')
+        change_pipeline('Waifu Diffusion')
         await ctx.edit_last_response("> *Loaded Waifu Diffusion v1.3**")
         curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
     elif ctx.options.model.startswith("Y"):
         await ctx.respond("> **Loading Yabai Diffusion v???**")
-        change_pipeline('C:/Users/keira/Desktop/naidiffusers')
+        change_pipeline('Yabai Diffusion')
         await ctx.edit_last_response("> **Loaded Yabai Diffusion v???**")
         curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1038241897514283109/YD-01.png"
     else:
@@ -915,7 +918,7 @@ async def todo(ctx: lightbulb.SlashContext) -> None:
         file1.close()
     file2 = open("todo.txt","r")
     rows = await generate_rows(ctx.bot)
-    embed = hikari.Embed(title="Todo:",colour=hikari.Colour(0xabaeff),description=file2.readline().replace(", ",",\n"))
+    embed = hikari.Embed(title="Todo:",colour=hikari.Colour(0xabaeff),description=file2.readline().replace(", "," \n").replace(" "," \n"))
     file2.close()
     response = await ctx.respond(embed,components=rows)
     message = await response.message()
@@ -964,8 +967,8 @@ async def todo(ctx: lightbulb.SlashContext) -> None:
     await ctx.respond("> Commands Updated.")
 
 #----------------------------------
-#Quit
-#-----------------------------  -----
+#Quit Commandl
+#----------------------------------
 @bot.command()
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.command("quit", "Puts kiwi to sleep")
