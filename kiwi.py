@@ -100,6 +100,8 @@ def change_pipeline(modelpath):
         pipe = StableDiffusionPipeline.from_pretrained(modelpath,revision="fp16", custom_pipeline="lpw_stable_diffusion", torch_dtype=torch.float16, text_encoder=text_encoder, tokenizer=tokenizer).to("cuda")
     elif(modelpath=="runwayml/stable-diffusion-v1-5"):
         pipe = StableDiffusionPipeline.from_pretrained(modelpath,custom_pipeline="lpw_stable_diffusion",use_auth_token="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",torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer).to('cuda')
+    if(modelpath=="C:/Users/keira/Desktop/naidiffusers"):
+        pipe = StableDiffusionPipeline.from_pretrained(modelpath,revision="fp16", custom_pipeline="lpw_stable_diffusion", torch_dtype=torch.float16, text_encoder=text_encoder, tokenizer=tokenizer).to("cuda")
     pipe.enable_attention_slicing()
 change_pipeline("hakurei/waifu-diffusion")
 #----------------------------------
@@ -144,9 +146,13 @@ def get_embed(Prompt,NegativePrompt, GuideScale, InfSteps, Seed, File, ImageStre
     if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
         embed.title = "Stable Diffusion v1.5 - Result:"
         embed.color = hikari.Colour(0xff8f87)
-    else:
+    elif curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png":
         embed.title = "Waifu Diffusion v1.3 - Result:"
         embed.color = hikari.Colour(0x56aaf8)
+    else:
+        embed.title = "Yabai Diffusion v??? - Result:"
+        embed.color = hikari.Colour(0xff985c)
+        
     
     if ((Prompt != None) and (Prompt!= "None") and (Prompt!= "")):
         embed.add_field("Prompt:",Prompt)
@@ -704,7 +710,7 @@ async def help(ctx: lightbulb.SlashContext) -> None:
     "\n> **/regenerate**: Re-generates last entered prompt"
     "\n> **/overgenerate**: Diffuses from last diffusion result"
     "\n**~~                      ~~ Settings ~~                         ~~**"
-    "\n> **/changemodel**: switches model between stable diffusion v1.5 or waifu diffusion v1.3"
+    "\n> **/changemodel**: switches model between stable diffusion v1.5, waifu diffusion v1.3, and yabai diffusion v???"
     "\n**~~                        ~~ Other ~~                        ~~**"
     "\n> **/deletelast**: Deletes the last bot message in this channel, for deleting nsfw without admin perms."
     "\n> **/ping**: Checks connection"
@@ -864,8 +870,8 @@ async def deletelast(ctx: lightbulb.SlashContext) -> None:
 #Change Model Command
 #----------------------------------
 @bot.command()
-@lightbulb.option("model", "which model to load, sd / wd",choices=["sd","wd"],required=True)
-@lightbulb.command("changemodel", "switches model between stable diffusion / waifu diffusion")
+@lightbulb.option("model", "which model to load",choices=["Stable Diffusion","Waifu Diffusion","Yabai Diffusion"],required=True)
+@lightbulb.command("changemodel", "switches model between stable diffusion / waifu diffusion / yabai diffusion")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def changemodel(ctx: lightbulb.SlashContext) -> None:
     global pipe
@@ -875,17 +881,21 @@ async def changemodel(ctx: lightbulb.SlashContext) -> None:
         await ctx.respond("> Sorry, kiwi is busy!")
         return
     botBusy = True
-    if ctx.options.model.startswith("s"):
+    if ctx.options.model.startswith("S"):
         await ctx.respond("> **Loading Stable Diffusion v1.5**")
         change_pipeline("runwayml/stable-diffusion-v1-5")
-        await ctx.edit_last_response("> **Model set to Stable Diffusion v1.5**")
+        await ctx.edit_last_response("> **Loaded Stable Diffusion v1.5**")
         curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png"
-    elif ctx.options.model.startswith("w"):
+    elif ctx.options.model.startswith("W"):
         await ctx.respond("> **Loading Waifu Diffusion v1.3**")
         change_pipeline('hakurei/waifu-diffusion')
-        await ctx.edit_last_response("> **Model set to Waifu Diffusion v1.3**")
+        await ctx.edit_last_response("> *Loaded Waifu Diffusion v1.3**")
         curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
-        ctx.edit_last_response()
+    elif ctx.options.model.startswith("Y"):
+        await ctx.respond("> **Loading Yabai Diffusion v???**")
+        change_pipeline('C:/Users/keira/Desktop/naidiffusers')
+        await ctx.edit_last_response("> **Loaded Yabai Diffusion v???**")
+        curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1038241897514283109/YD-01.png"
     else:
         await ctx.respond("> **I don't understand** <:scootcry:1033114138366443600>")
     botBusy = False

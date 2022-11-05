@@ -13,3 +13,4 @@ prompt-toolkit
 transformers
 scipy
 ftfy
+accelerate
