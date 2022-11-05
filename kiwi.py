@@ -28,11 +28,13 @@ from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
 from huggingface_hub import hf_hub_download
 import glob
 from pathlib import Path
+import json
 
 
 #----------------------------------
 #Setup
 #----------------------------------
+
 modelpaths = {
 "Stable Diffusion" : "C:/Users/keira/Desktop/GITHUB/Kiwi/models/stablediffusion",
 "Waifu Diffusion" : "C:/Users/keira/Desktop/GITHUB/Kiwi/models/waifudiffusion",
@@ -41,7 +43,7 @@ modelpaths = {
 os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings")
 embedlist = list(Path(".").rglob("*.[bB][iI][nN]"))
 curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
-
+config = {}
 genThread = Thread()
 prevPrompt = ""
 prevNegPrompt = ""
@@ -63,6 +65,17 @@ outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
 titles =  ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
 os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
 
+def save_config():
+    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
+    global config
+    with open("kiwiconfig.json", "w") as outfile:
+        json.dump(config,outfile)
+
+def load_config():
+    global config
+    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
+    with open('kiwiconfig.json', 'r') as openfile:
+        config = json.load(openfile)
 #----------------------------------
 #load embeddings Function
 #----------------------------------
@@ -140,6 +153,10 @@ def crop_max_square(pil_img):
 #----------------------------------
 def get_embed(Prompt,NegativePrompt, GuideScale, InfSteps, Seed, File, ImageStrength=None, Gifmode=False):
     global curmodel
+    global config
+    if(config["UseDefaultNegativePrompt"]):
+        NegativePrompt = NegativePrompt.replace(", " + config["DefaultNegativePrompt"],"")
+        NegativePrompt = NegativePrompt.replace(config["DefaultNegativePrompt"],"")
     if ImageStrength != None:
         footer = ("{:30s} {:30s}".format("Guidance Scale: "+str(GuideScale), "Inference Steps: "+str(InfSteps))+"\n"+"{:30s} {:30s}".format("Seed: "+str(Seed), "Image Strength: "+str(ImageStrength)))
     else:
@@ -160,7 +177,7 @@ def get_embed(Prompt,NegativePrompt, GuideScale, InfSteps, Seed, File, ImageStre
     if ((Prompt != None) and (Prompt!= "None") and (Prompt!= "")):
         embed.add_field("Prompt:",Prompt)
     if ((NegativePrompt != None) and (NegativePrompt!= "None") and (NegativePrompt!= "")):
-        embed.add_field("Negative Prompt:",prevNegPrompt)
+        embed.add_field("Negative Prompt:",NegativePrompt)
     if(Gifmode):
         embed.set_footer(None)
     return embed
@@ -210,8 +227,8 @@ async def handle_responses(
     )
 
 class threadManager(object):
-    def New_Thread(self, Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None):
-        return genImgThreadClass(parent=self, Prompt=Prompt,NegativePrompt=NegativePrompt,InfSteps=InfSteps,Seed=Seed,GuideScale=GuideScale,ImgUrl=ImgUrl,Strength=Strength,Width=Width,Height=Height,Proxy=Proxy)
+    def New_Thread(self, Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,Config=None):
+        return genImgThreadClass(parent=self, Prompt=Prompt,NegativePrompt=NegativePrompt,InfSteps=InfSteps,Seed=Seed,GuideScale=GuideScale,ImgUrl=ImgUrl,Strength=Strength,Width=Width,Height=Height,Proxy=Proxy,Config=Config)
     def on_thread_finished(self, thread, data, proxy):
         global awaitingProxy
         global awaitingEmbed
@@ -223,7 +240,7 @@ class genImgThreadClass(Thread):
     #----------------------------------
     #Generate Image Function
     #----------------------------------
-    def __init__(self, parent=None, Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None):
+    def __init__(self, parent=None, Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,Config=None):
         self.parent = parent
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
@@ -235,6 +252,7 @@ class genImgThreadClass(Thread):
         self.width = Width
         self.height = Height
         self.proxy = Proxy
+        self.config = Config
         super(genImgThreadClass, self).__init__()
     def run(self):
         global prevPrompt
@@ -276,6 +294,15 @@ class genImgThreadClass(Thread):
         else:
             negativeprompt = prevNegPrompt
 
+        if self.config["UseDefaultNegativePrompt"]:
+            if(negativeprompt!=None):
+                if(negativeprompt==""):
+                    negativeprompt = self.config["DefaultNegativePrompt"]
+                else:
+                    negativeprompt = negativeprompt + ", " + self.config["DefaultNegativePrompt"]
+            else:
+                negativeprompt = self.config["DefaultNegativePrompt"]
+            prevNegPrompt = negativeprompt
         #Handle infsteps
         if(self.infSteps!=None):
             if(self.infSteps=="0"):
@@ -613,6 +640,7 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
     global outputDirectory
     global botBusy
     global outEmbed
+    global config
     if botBusy:
         await ctx.respond("> Sorry, kiwi is busy!")
         return
@@ -635,7 +663,8 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
         respProxy = await ctx.respond(embed)
         #-------
         threadmanager = threadManager()
-        thread = threadmanager.New_Thread(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy)
+        load_config()
+        thread = threadmanager.New_Thread(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,config)
         thread.start()
     except Exception:
         traceback.print_exc()
@@ -912,17 +941,37 @@ async def changemodel(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("todo", "read or write the todo list")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def todo(ctx: lightbulb.SlashContext) -> None:
+    global config
     if ctx.options.string != None:
-        file1 = open("todo.txt","w")
-        file1.write(ctx.options.string)
-        file1.close()
-    file2 = open("todo.txt","r")
+        config["TodoString"] = ctx.options.string
+        save_config()
+    load_config()
     rows = await generate_rows(ctx.bot)
-    embed = hikari.Embed(title="Todo:",colour=hikari.Colour(0xabaeff),description=file2.readline().replace(", "," \n").replace(" "," \n"))
-    file2.close()
+    embed = hikari.Embed(title="Todo:",colour=hikari.Colour(0xabaeff),description=config["TodoString"].replace(", ",",\n"))
     response = await ctx.respond(embed,components=rows)
     message = await response.message()
     await handle_responses(ctx.bot, ctx.author, message)
+
+#----------------------------------
+#Toggle Negative Prompts Command
+#----------------------------------
+@bot.command()
+@lightbulb.add_checks(lightbulb.owner_only)
+@lightbulb.option("option", "Whether or not to append default negative prompts for quality",required=False,type=bool, choices=[True,False])
+@lightbulb.command("togglenegativeprompts", "Enable or disable default negative prompts (Enable for quality boost)")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def todo(ctx: lightbulb.SlashContext) -> None:
+    global config
+    if ctx.options.option != None:
+        config["UseDefaultNegativePrompt"] = ctx.options.option
+        save_config()
+    else:
+        load_config()
+        config["UseDefaultNegativePrompt"] = not config["UseDefaultNegativePrompt"]
+        save_config()
+    load_config()
+    embed = hikari.Embed(title="Default negative prompts set to: " + str(config["UseDefaultNegativePrompt"]),colour=hikari.Colour(0xabaeff))
+    await ctx.respond(embed)
 
 #----------------------------------
 #Styles Command
