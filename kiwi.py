@@ -28,6 +28,7 @@ from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
 from huggingface_hub import hf_hub_download
 import glob
 from pathlib import Path
+from diffusers import DDIMScheduler, LMSDiscreteScheduler, PNDMScheduler, EulerDiscreteScheduler, DDPMScheduler
 import json
 
 
@@ -102,10 +103,13 @@ def change_pipeline(modelpath):
     for file in embedlist:
         print(str(file))
         load_learned_embed_in_clip("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/" + str(file), text_encoder, tokenizer)
+    #scheduler = LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
+    #scheduler = EulerDiscreteScheduler()
     if(modelpath=="Stable Diffusion"):
         pipe = StableDiffusionPipeline.from_pretrained(modelpaths[modelpath],custom_pipeline="lpw_stable_diffusion",use_auth_token="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",torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
     else:
         pipe = StableDiffusionPipeline.from_pretrained(modelpaths[modelpath],revision="fp16", custom_pipeline="lpw_stable_diffusion", torch_dtype=torch.float16, text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to("cuda")
+    #pipe.scheduler = scheduler
     pipe.enable_attention_slicing()
 change_pipeline("Waifu Diffusion")
 #----------------------------------
@@ -454,13 +458,7 @@ async def ready_listener(_):
 @lightbulb.command("ping", "checks the bot is alive")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def ping(ctx: lightbulb.SlashContext) -> None:
-    global botBusy
-    if botBusy:
-        await ctx.respond("> Sorry, kiwi is busy!")
-        return
-    botBusy = True
     await ctx.respond("Pong!")
-    botBusy = False
 
 #----------------------------------
 #Metadata Command
@@ -533,11 +531,6 @@ async def checkForCompletion():
 @lightbulb.command("imagetocommand", "parses metadata to a command to send to get the same image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
-    global botBusy
-    if botBusy:
-        await ctx.respond("> Sorry, kiwi is busy!")
-        return
-    botBusy = True
     try:
         if (ctx.options.image != None):
             datas = await hikari.Attachment.read(ctx.options.image)
@@ -575,20 +568,17 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
         if(str(mdataimage.info.get("Img2Img Strength")) != "None"):
             embed = hikari.Embed(title="This image was generated from an image input <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
             await ctx.respond(embed)
-            botBusy = False
             return
         embed.description = responseStr + "`"
         rows = await generate_rows(ctx.bot)
         response = await ctx.respond(embed,components=rows)
         message = await response.message()
         await handle_responses(ctx.bot, ctx.author, message)
-        botBusy = False
     except Exception:
         traceback.print_exc()
         embed = hikari.Embed(title="Sorry, something went wrong! <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
         if (not await ctx.edit_last_response(embed)):
             await ctx.respond(embed)
-        botBusy = False
         return
 
 #----------------------------------
@@ -718,11 +708,6 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("help", "get help and command info")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def help(ctx: lightbulb.SlashContext) -> None:
-    global botBusy
-    if botBusy:
-        await ctx.respond("> Sorry, kiwi is busy!")
-        return
-    botBusy = True
     embedtext1 = (
     "**~~                   ~~ Generation ~~                   ~~**"
     "\n> **/generate**: Generates a image from a detailed description, or booru tags separated by commas"
@@ -743,7 +728,6 @@ async def help(ctx: lightbulb.SlashContext) -> None:
     "\n> __[Waifu Diffusion 1.3 Release Notes](https://gist.github.com/harubaru/f727cedacae336d1f7877c4bbe2196e1)__"
     )
     await ctx.respond(embedtext1)
-    botBusy = False
 
 #----------------------------------
 #Admin Generate Gif Command
@@ -845,15 +829,9 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("deletelast", "delete previous message in channel.")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def deletelast(ctx: lightbulb.SlashContext) -> None:
-    global botBusy
-    if botBusy:
-        await ctx.respond("> Sorry, kiwi is busy!")
-        return
-    botBusy = True
     """Purge a certain amount of messages from a channel."""
     if not ctx.guild_id:
         await ctx.respond("This command can only be used in a server.")
-        botBusy = False
         return
 
     # Fetch messages that are not older than 14 days in the channel the command is invoked in
@@ -882,7 +860,6 @@ async def deletelast(ctx: lightbulb.SlashContext) -> None:
 
     else:
         await ctx.respond("Sorry >~< I couldnt find any messages I sent recently!")
-    botBusy = False
 
 #----------------------------------
 #Change Model Command
