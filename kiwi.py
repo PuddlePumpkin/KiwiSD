@@ -198,9 +198,9 @@ async def handle_responses(
     """Watches for events, and handles responding to them."""
 
     # Now we need to check if the user who ran the command interacts
-    # with our buttons, we stop watching after 30 seconds of
+    # with our buttons, we stop watching after 60 seconds of
     # inactivity.
-    with bot.stream(hikari.InteractionCreateEvent, 30).filter(
+    with bot.stream(hikari.InteractionCreateEvent, 60).filter(
         # Here we filter out events we don't care about.
         lambda e: (
             # A component interaction is a button interaction.
