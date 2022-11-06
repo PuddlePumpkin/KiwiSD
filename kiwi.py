@@ -28,7 +28,7 @@ from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
 from huggingface_hub import hf_hub_download
 import glob
 from pathlib import Path
-from diffusers import DDIMScheduler, LMSDiscreteScheduler, PNDMScheduler, EulerDiscreteScheduler, DDPMScheduler
+from diffusers import DDIMScheduler, LMSDiscreteScheduler, PNDMScheduler, EulerDiscreteScheduler, DDPMScheduler, DPMSolverMultistepScheduler
 import json
 
 
@@ -49,6 +49,7 @@ genThread = Thread()
 botBusy = False
 awaitingEmbed = None
 awaitingProxy = None
+curmodelpath = ""
 regentitles = ["I'll try again!... ", "Sorry if I didn't do good enough... ", "I'll try my best to do better... "]
 outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
 titles =  ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
@@ -98,13 +99,16 @@ def load_learned_embed_in_clip(learned_embeds_path, text_encoder, tokenizer, tok
 def change_pipeline(modelpath):
     global modelpaths
     global pipe
+    global curmodelpath
     tokenizer = CLIPTokenizer.from_pretrained(modelpaths[modelpath],subfolder="tokenizer", use_auth_token="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")
     text_encoder = CLIPTextModel.from_pretrained(modelpaths[modelpath], subfolder="text_encoder", use_auth_token="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", torch_dtype=torch.float16)
     for file in embedlist:
         print(str(file))
         load_learned_embed_in_clip("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/" + str(file), text_encoder, tokenizer)
-    #scheduler = LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
-    #scheduler = EulerDiscreteScheduler()
+    #KLMS scheduler = LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
+    #Euler scheduler = EulerDiscreteScheduler()
+    #DPM++ scheduler = DPMSolverMultistepScheduler.from_config("C:/Users/keira/Desktop/GITHUB/Kiwi/models/waifudiffusion",subfolder="scheduler",solver_order=2,predict_x0=True,thresholding=False,solver_type="dpm_solver",denoise_final=True,  # the influence of this trick is effective for small (e.g. <=10) steps)
+    curmodelpath = modelpaths[modelpath]
     if(modelpath=="Stable Diffusion"):
         pipe = StableDiffusionPipeline.from_pretrained(modelpaths[modelpath],custom_pipeline="lpw_stable_diffusion",use_auth_token="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",torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
     else:
@@ -143,7 +147,7 @@ def crop_max_square(pil_img):
 #----------------------------------
 #Get Embed
 #----------------------------------
-def get_embed(Prompt,NegativePrompt:str, GuideScale, InfSteps, Seed, File, ImageStrength=None, Gifmode=False):
+def get_embed(Prompt,NegativePrompt:str, GuideScale, InfSteps, Seed, File, ImageStrength=None, Gifmode=False, Scheduler=None):
     global curmodel
     global config
     if(config["UseDefaultNegativePrompt"]):
@@ -162,9 +166,9 @@ def get_embed(Prompt,NegativePrompt:str, GuideScale, InfSteps, Seed, File, Image
             s = ", "
             NegativePrompt = s.join(result)
     if ImageStrength != None:
-        footer = ("{:30s} {:30s}".format("Guidance Scale: "+str(GuideScale), "Inference Steps: "+str(InfSteps))+"\n"+"{:30s} {:30s}".format("Seed: "+str(Seed), "Image Strength: "+str(ImageStrength)))
+        footer = ("{:30s}{:30s}".format("Guidance Scale: "+str(GuideScale), "Inference Steps: "+str(InfSteps))+"\n"+"{:30s}{:30s}".format("Seed: "+str(Seed), "Sampler: " + str(Scheduler)) + "\n" + "{:30s}".format("Image Strength: " + str(ImageStrength)))
     else:
-        footer = ("{:30s} {:30s}".format("Guidance Scale: "+str(GuideScale), "Inference Steps: "+str(InfSteps))+"\n"+"{:30s}".format("Seed: "+str(Seed)))
+        footer = ("{:30s}{:30s}".format("Guidance Scale: "+str(GuideScale), "Inference Steps: "+str(InfSteps))+"\n"+"{:30s}{:30s}".format("Seed: "+str(Seed), "Sampler: "+ str(Scheduler)))
     f = hikari.File(File)
     embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image(f)
     if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
@@ -246,7 +250,7 @@ def remove_duplicates(string:str)->str:
     return s.join(result)
 
 class imageRequest(object):
-    def __init__(self,Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,Config=None,resultImage=None,regenerate=False, overProcess=False):
+    def __init__(self,Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,Config=None,resultImage=None,regenerate=False, overProcess=False, scheduler=None):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
@@ -261,6 +265,7 @@ class imageRequest(object):
         self.resultImage = resultImage
         self.regenerate = regenerate
         self.overProcess = overProcess
+        self.scheduler = scheduler
 
 previous_request = imageRequest()
 
@@ -287,7 +292,23 @@ class genImgThreadClass(Thread):
     def run(self):
         global outputDirectory
         global pipe
-
+        global curmodelpath
+        #Handle Scheduler
+        if(self.request.scheduler==None or self.request.scheduler=="0"):
+            self.request.scheduler = "KLMS"
+            if self.request.regenerate:
+                if self.previous_request.scheduler != None:
+                    self.request.scheduler = self.previous_request.scheduler
+        
+        if self.request.scheduler == "KLMS":
+            scheduler = LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
+        elif self.request.scheduler == "Euler":
+            scheduler = EulerDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
+        elif self.request.scheduler == "PNDM":
+            scheduler = PNDMScheduler(beta_end=0.012,beta_schedule="scaled_linear",beta_start=0.00085,num_train_timesteps=1000,set_alpha_to_one=False,skip_prk_steps=True,steps_offset=1,trained_betas=None)
+        elif self.request.scheduler == "DPM++":
+            scheduler = DPMSolverMultistepScheduler.from_config(curmodelpath,subfolder="scheduler",solver_order=2,predict_x0=True,thresholding=False,solver_type="dpm_solver",denoise_final=True)  # the influence of this trick is effective for small (e.g. <=10) steps)
+        pipe.scheduler = scheduler
         #Handle prompt
         if(self.request.prompt==None or self.request.prompt=="0"):
             self.request.prompt = ""
@@ -405,6 +426,7 @@ class genImgThreadClass(Thread):
         metadata.add_text("Seed", str(self.request.seed))
         metadata.add_text("Width", str(self.request.width))
         metadata.add_text("Height", str(self.request.height))
+        metadata.add_text("Scheduler", str(self.request.scheduler))
 
         #Generate
         with autocast("cuda"):
@@ -422,7 +444,7 @@ class genImgThreadClass(Thread):
         #Process Result
         self.request.resultImage = image
         image.save(outputDirectory + str(countStr) + ".png", pnginfo=metadata)
-        outEmbed = get_embed(self.request.prompt,self.request.negativePrompt,self.request.guideScale,self.request.infSteps,self.request.seed,outputDirectory + str(countStr) + ".png",self.request.strength)
+        outEmbed = get_embed(self.request.prompt,self.request.negativePrompt,self.request.guideScale,self.request.infSteps,self.request.seed,outputDirectory + str(countStr) + ".png",self.request.strength,False,self.request.scheduler)
         self.parent and self.parent.on_thread_finished(self, outEmbed, self.request, self.request.proxy)
 
 
@@ -501,6 +523,8 @@ async def metadata(ctx: lightbulb.SlashContext) -> None:
         embed.add_field("Width:",str(mdataimage.info.get("Width")))
     if(str(mdataimage.info.get("Height")) != "None"):
         embed.add_field("Height:",str(mdataimage.info.get("Height")))
+    if(str(mdataimage.info.get("Scheduler")) != "None"):
+        embed.add_field("Scheduler:", str(mdataimage.info.get("Scheduler")))
     if(str(mdataimage.info.get("Img2Img Strength")) != "None"):
         embed.add_field("Img2Img Strength:",str(mdataimage.info.get("Img2Img Strength")))
     rows = await generate_rows(ctx.bot)
@@ -565,6 +589,8 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
             responseStr = responseStr+"width: "+ mdataimage.info.get("Width")+" "
         if(str(mdataimage.info.get("Height")) != "None"):
             responseStr = responseStr+"height: "+ mdataimage.info.get("Height")+" "
+        if(str(mdataimage.info.get("Scheduler")) != "None"):
+            responseStr = responseStr+"sampler: "+ mdataimage.info.get("Scheduler")+" "
         if(str(mdataimage.info.get("Img2Img Strength")) != "None"):
             embed = hikari.Embed(title="This image was generated from an image input <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
             await ctx.respond(embed)
@@ -588,6 +614,7 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
+@lightbulb.option("sampler", "(Optional) Which scheduler to use", required = False,type = str, default = "DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
 @lightbulb.option("imagelink", "(Optional) image link or message ID", required = False, type = str)
 @lightbulb.option("image", "(Optional) image to run diffusion on", required = False,type = hikari.Attachment)
@@ -628,7 +655,7 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
         #-------
         threadmanager = threadManager()
         load_config()
-        requestObject = imageRequest(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,config)
+        requestObject = imageRequest(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,config,scheduler=ctx.options.sampler)
         thread = threadmanager.New_Thread(requestObject,previous_request)
         thread.start()
     except Exception:
@@ -647,6 +674,7 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
 @bot.command
 @lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int,choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int,choices=[128, 256, 384, 512, 640, 768])
+@lightbulb.option("sampler", "(Optional) Which scheduler to use", required = False,type = str, default = "DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
 @lightbulb.option("imagelink", "(Optional) image link or message ID", required = False, type = str)
 @lightbulb.option("image", "(Optional) image to run diffusion on", required = False,type = hikari.Attachment)
@@ -687,7 +715,7 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
         #-------
         threadmanager = threadManager()
         load_config()
-        requestObject = imageRequest(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,config,regenerate=True)
+        requestObject = imageRequest(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,config,regenerate=True,scheduler=ctx.options.sampler)
         thread = threadmanager.New_Thread(requestObject,previous_request)
         thread.start()
     except Exception:
