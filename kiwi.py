@@ -198,9 +198,9 @@ async def handle_responses(
     """Watches for events, and handles responding to them."""
 
     # Now we need to check if the user who ran the command interacts
-    # with our buttons, we stop watching after 120 seconds (2 mins) of
+    # with our buttons, we stop watching after 30 seconds of
     # inactivity.
-    with bot.stream(hikari.InteractionCreateEvent, 120).filter(
+    with bot.stream(hikari.InteractionCreateEvent, 30).filter(
         # Here we filter out events we don't care about.
         lambda e: (
             # A component interaction is a button interaction.
@@ -440,7 +440,11 @@ tasks.load(bot)
 #----------------------------------
 @bot.listen(hikari.ShardReadyEvent)
 async def ready_listener(_):
-    await bot.rest.create_message(672892614613139471, "> I'm awake running waifu diffusion v1.3! Type **/help** for help!")
+    load_config()
+    if config["AnnounceReadyMessage"].lower() == "true":
+        await bot.rest.create_message(672892614613139471, "> " + config["ReadyMessage"])
+     #> I'm awake running waifu diffusion v1.3! Type **/help** for help!
+    
 
 
 #----------------------------------
@@ -922,8 +926,8 @@ async def todo(ctx: lightbulb.SlashContext) -> None:
         config["TodoString"] = ctx.options.string
         save_config()
     load_config()
-    rows = await generate_rows(ctx.bot)
     embed = hikari.Embed(title="Todo:",colour=hikari.Colour(0xabaeff),description=config["TodoString"].replace(", ",",\n"))
+    rows = await generate_rows(ctx.bot)
     response = await ctx.respond(embed,components=rows)
     message = await response.message()
     await handle_responses(ctx.bot, ctx.author, message)
@@ -932,7 +936,6 @@ async def todo(ctx: lightbulb.SlashContext) -> None:
 #Toggle Negative Prompts Command
 #----------------------------------
 @bot.command()
-@lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.option("option", "Whether or not to append default negative prompts for quality",required=False,type=bool, choices=[True,False])
 @lightbulb.command("togglenegativeprompts", "Enable or disable default negative prompts (Enable for quality boost)")
 @lightbulb.implements(lightbulb.SlashCommand)
@@ -947,7 +950,52 @@ async def todo(ctx: lightbulb.SlashContext) -> None:
         save_config()
     load_config()
     embed = hikari.Embed(title="Default negative prompts set to: " + str(config["UseDefaultNegativePrompt"]),colour=hikari.Colour(0xabaeff))
-    await ctx.respond(embed)
+    rows = await generate_rows(ctx.bot)
+    response = await ctx.respond(embed,components=rows)
+    message = await response.message()
+    await handle_responses(ctx.bot, ctx.author, message)
+
+#----------------------------------
+#Settings Command
+#----------------------------------
+@bot.command()
+@lightbulb.option("value", "value to change it to",required=False,type=str)
+@lightbulb.option("key", "which setting to change",required=False,choices=["UseDefaultNegativePrompt","DefaultNegativePrompt","AdminList","TodoString","AnnounceReadyMessage","ReadyMessage"],type=str)
+@lightbulb.command("settings", "View or modify settings")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def settings(ctx: lightbulb.SlashContext) -> None:
+    global config
+    load_config()
+    if ctx.options.key != None:
+        #Any user settings
+        if ctx.options.key in ["UseDefaultNegativePrompt"]:
+            if ctx.options.key == "UseDefaultNegativePrompt":
+                    if ctx.options.value.lower() == "false":
+                        config["UseDefaultNegativePrompt"] = False
+                    elif ctx.options.value.lower() == "true":
+                        config["UseDefaultNegativePrompt"] = True
+                    else:
+                        await ctx.respond("> Must be true or false.")
+                        return
+        #Admin only settings
+        elif ctx.options.key in ["AdminList","DefaultNegativePrompt","TodoString","AnnounceReadyMessage","ReadyMessage"]:
+            if str(ctx.author.id) in config["AdminList"].replace(", ","").replace(" ,","").replace(" , ","").split(","):
+                config[ctx.options.key] = ctx.options.value
+            else:
+                await ctx.respond("> Sorry, you don't have permission to change that!")
+                return
+        else:
+            await ctx.respond("I don't understand that key!")
+            return
+        save_config()
+    load_config()
+    embed = hikari.Embed(title="Settings:",colour=hikari.Colour(0xabaeff))
+    for key, value in config.items():
+        embed.add_field(str(key),str(value))
+    rows = await generate_rows(ctx.bot)
+    response = await ctx.respond(embed,components=rows)
+    message = await response.message()
+    await handle_responses(ctx.bot, ctx.author, message)
 
 #----------------------------------
 #Styles Command
@@ -990,7 +1038,7 @@ async def todo(ctx: lightbulb.SlashContext) -> None:
     await ctx.respond("> Commands Updated.")
 
 #----------------------------------
-#Quit Commandl
+#Quit Command
 #----------------------------------
 @bot.command()
 @lightbulb.add_checks(lightbulb.owner_only)
