@@ -622,6 +622,7 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
 #Generate Command
 #----------------------------------
 @bot.command
+@lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
@@ -677,6 +678,7 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
 #ReGenerate Command
 #----------------------------------
 @bot.command
+@lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int,choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int,choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
