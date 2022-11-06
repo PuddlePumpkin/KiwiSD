@@ -263,7 +263,7 @@ previous_request = imageRequest()
 class threadManager(object):
     def New_Thread(self, request:imageRequest = None, previous_request:imageRequest = None):
         return genImgThreadClass(parent=self, request=request, previous_request=previous_request)
-    def on_thread_finished(self, thread, data, request, proxy):
+    def on_thread_finished(self, thread, data:hikari.Embed, request:imageRequest, proxy:lightbulb.ResponseProxy):
         global awaitingProxy
         global awaitingEmbed
         global previous_request
