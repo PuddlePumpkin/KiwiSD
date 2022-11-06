@@ -488,11 +488,6 @@ async def metadata(ctx: lightbulb.SlashContext) -> None:
             mdataimage = mdataimage.resize((512, 512))
             url = messageIdResponse.embeds[0].image.url
         mdataimage = mdataimage.resize((512, 512))
-    global botBusy
-    if botBusy:
-        await ctx.respond("> Sorry, kiwi is busy!")
-        return
-    botBusy = True
     embed = hikari.Embed(title=(url.rsplit('/', 1)[-1]),colour=hikari.Colour(0x56aaf8)).set_thumbnail(url)
     if(str(mdataimage.info.get("Prompt")) != "None"):
         embed.add_field("Prompt:",str(mdataimage.info.get("Prompt")))
@@ -510,8 +505,10 @@ async def metadata(ctx: lightbulb.SlashContext) -> None:
         embed.add_field("Height:",str(mdataimage.info.get("Height")))
     if(str(mdataimage.info.get("Img2Img Strength")) != "None"):
         embed.add_field("Img2Img Strength:",str(mdataimage.info.get("Img2Img Strength")))
-    await ctx.respond(embed)
-    botBusy = False
+    rows = await generate_rows(ctx.bot)
+    response = await ctx.respond(embed,components=rows)
+    message = await response.message()
+    await handle_responses(ctx.bot, ctx.author, message)
 
 
 @tasks.task(s=2, auto_start=True)
@@ -581,7 +578,10 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
             botBusy = False
             return
         embed.description = responseStr + "`"
-        await ctx.respond(embed)
+        rows = await generate_rows(ctx.bot)
+        response = await ctx.respond(embed,components=rows)
+        message = await response.message()
+        await handle_responses(ctx.bot, ctx.author, message)
         botBusy = False
     except Exception:
         traceback.print_exc()
@@ -644,7 +644,10 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
     except Exception:
         traceback.print_exc()
         embed = hikari.Embed(title="Sorry, something went wrong! <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
-        await ctx.edit_last_response(embed)
+        rows = await generate_rows(ctx.bot)
+        response = await ctx.edit_last_response(embed,components=rows)
+        message = await response.message()
+        await handle_responses(ctx.bot, ctx.author, message)
         botBusy = False
         return
 
@@ -700,7 +703,10 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
     except Exception:
         traceback.print_exc()
         embed = hikari.Embed(title="Sorry, something went wrong! <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
-        await ctx.edit_last_response(embed)
+        rows = await generate_rows(ctx.bot)
+        response = await ctx.edit_last_response(embed,components=rows)
+        message = await response.message()
+        await handle_responses(ctx.bot, ctx.author, message)
         botBusy = False
         return
 
@@ -1023,7 +1029,10 @@ async def styles(ctx: lightbulb.SlashContext) -> None:
     embed = hikari.Embed(title="Style list:",colour=hikari.Colour(0xabaeff),description="These embeddings trained via textual inversion are currently loaded, add them exactly as listed in your prompt to have an effect on the output, styles may work best at beginning of the prompt, and characters/objects after.")
     embed.add_field("Waifu Diffusion:",WDembedliststr)
     embed.add_field("Stable Diffusion:",SDembedliststr)
-    await ctx.respond(embed)
+    rows = await generate_rows(ctx.bot)
+    response = await ctx.respond(embed,components=rows)
+    message = await response.message()
+    await handle_responses(ctx.bot, ctx.author, message)
 
 
 #----------------------------------
