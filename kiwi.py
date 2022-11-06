@@ -139,13 +139,24 @@ def crop_max_square(pil_img):
 #----------------------------------
 #Get Embed
 #----------------------------------
-def get_embed(Prompt,NegativePrompt, GuideScale, InfSteps, Seed, File, ImageStrength=None, Gifmode=False):
+def get_embed(Prompt,NegativePrompt:str, GuideScale, InfSteps, Seed, File, ImageStrength=None, Gifmode=False):
     global curmodel
     global config
     if(config["UseDefaultNegativePrompt"]):
         if NegativePrompt != None:
-            NegativePrompt = NegativePrompt.replace(", " + config["DefaultNegativePrompt"],"")
-            NegativePrompt = NegativePrompt.replace(config["DefaultNegativePrompt"],"")
+            defaultClipped = remove_duplicates(config["DefaultNegativePrompt"])
+            clippedList = defaultClipped.split(", ")
+            NegativePrompt = remove_duplicates(NegativePrompt)
+            NegativePromptList = NegativePrompt.split(", ")
+            res = [i for i in NegativePromptList if i not in clippedList]
+            working = set()
+            result = []
+            for item in res:
+                if item not in working:
+                    working.add(item)
+                    result.append(item)
+            s = ", "
+            NegativePrompt = s.join(result)
     if ImageStrength != None:
         footer = ("{:30s} {:30s}".format("Guidance Scale: "+str(GuideScale), "Inference Steps: "+str(InfSteps))+"\n"+"{:30s} {:30s}".format("Seed: "+str(Seed), "Image Strength: "+str(ImageStrength)))
     else:
@@ -214,8 +225,21 @@ async def handle_responses(
         # Set components to an empty list to get rid of them.
         components=[]
     )
+def remove_duplicates(string:str)->str:
+    separated = string.replace(", ",",")
+    separated = separated.strip()
+    separated = separated.replace(" ,",",")
+    separated = separated.replace(" , ",",")
+    separated = separated.split(",")
 
-
+    working = set()
+    result = []
+    for item in separated:
+        if item not in working:
+            working.add(item)
+            result.append(item)
+    s = ", "
+    return s.join(result)
 
 class imageRequest(object):
     def __init__(self,Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,Config=None,resultImage=None,regenerate=False, overProcess=False):
@@ -282,7 +306,7 @@ class genImgThreadClass(Thread):
                     if(self.request.negativePrompt==""):
                         self.request.negativePrompt = self.request.config["DefaultNegativePrompt"]
                     else:
-                        self.request.negativePrompt = self.request.negativePrompt + ", " + self.request.config["DefaultNegativePrompt"]
+                        self.request.negativePrompt = self.request.negativePrompt + "," + self.request.config["DefaultNegativePrompt"]
                 else:
                     self.request.negativePrompt = self.request.config["DefaultNegativePrompt"]
 
@@ -325,7 +349,7 @@ class genImgThreadClass(Thread):
             #if self.request.regenerate:
             #    if self.previous_request.seed != None:
             #        self.request.seed = self.previous_request.seed
-            generator = torch.Generator("cuda").manual_seed(self.request.seed)
+        generator = torch.Generator("cuda").manual_seed(self.request.seed)  
 
         #Handle Width
         if(self.request.width==0 or self.request.width== "0" or self.request.width==None):
@@ -360,6 +384,11 @@ class genImgThreadClass(Thread):
             print("Loading image from previous_request.resultImage")
             init_image = self.previous_request.resultImage
 
+        #Check for duplicate tokens
+        if self.request.prompt != None:
+            self.request.prompt = remove_duplicates(self.request.prompt)
+        if self.request.negativePrompt != None:
+            self.request.negativePrompt = remove_duplicates(self.request.negativePrompt)
         #Set Metadata
         metadata = PngInfo()
         if ((self.request.prompt != None) and (self.request.prompt!= "None") and (self.request.prompt!= "")):
@@ -932,14 +961,12 @@ async def styles(ctx: lightbulb.SlashContext) -> None:
     os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/sd")
     identifierlist = list(Path(".").rglob("**/*token_identifier*"))
     for file in identifierlist:
-        print(file)
         fileOpened = open(str(file),"r")
         SDembedliststr = SDembedliststr + fileOpened.readline() + "\n"
         fileOpened.close()
     os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/wd")
     identifierlist = list(Path(".").rglob("**/*token_identifier*"))
     for file in identifierlist:
-        print(file)
         fileOpened = open(str(file),"r")
         WDembedliststr = WDembedliststr + fileOpened.readline() + "\n"
         fileOpened.close()
