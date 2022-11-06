@@ -45,19 +45,7 @@ embedlist = list(Path(".").rglob("*.[bB][iI][nN]"))
 curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
 config = {}
 genThread = Thread()
-prevPrompt = ""
-prevNegPrompt = ""
-prevStrength = 0.25
-prevUrl = ""
-prevSeed = None
-prevResultImage = None
-prevGuideScale = None
-prevInfSteps = None
-overprocessbool = False
-prevWidth = 512
-prevHeight = 512
 botBusy = False
-outEmbed = None
 awaitingEmbed = None
 awaitingProxy = None
 regentitles = ["I'll try again!... ", "Sorry if I didn't do good enough... ", "I'll try my best to do better... "]
@@ -226,22 +214,10 @@ async def handle_responses(
         components=[]
     )
 
-class threadManager(object):
-    def New_Thread(self, Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,Config=None):
-        return genImgThreadClass(parent=self, Prompt=Prompt,NegativePrompt=NegativePrompt,InfSteps=InfSteps,Seed=Seed,GuideScale=GuideScale,ImgUrl=ImgUrl,Strength=Strength,Width=Width,Height=Height,Proxy=Proxy,Config=Config)
-    def on_thread_finished(self, thread, data, proxy):
-        global awaitingProxy
-        global awaitingEmbed
-        awaitingProxy = proxy
-        awaitingEmbed = data
 
 
-class genImgThreadClass(Thread):
-    #----------------------------------
-    #Generate Image Function
-    #----------------------------------
-    def __init__(self, parent=None, Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,Config=None):
-        self.parent = parent
+class imageRequest(object):
+    def __init__(self,Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,Config=None,resultImage=None,regenerate=False, overProcess=False):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
@@ -253,169 +229,182 @@ class genImgThreadClass(Thread):
         self.height = Height
         self.proxy = Proxy
         self.config = Config
+        self.resultImage = resultImage
+        self.regenerate = regenerate
+        self.overProcess = overProcess
+
+previous_request = imageRequest()
+
+class threadManager(object):
+    def New_Thread(self, request:imageRequest = None, previous_request:imageRequest = None):
+        return genImgThreadClass(parent=self, request=request, previous_request=previous_request)
+    def on_thread_finished(self, thread, data, request, proxy):
+        global awaitingProxy
+        global awaitingEmbed
+        global previous_request
+        previous_request = request
+        awaitingProxy = proxy
+        awaitingEmbed = data
+
+class genImgThreadClass(Thread):
+    #----------------------------------
+    #Generate Image Function
+    #----------------------------------
+    def __init__(self, parent=None, request:imageRequest = None, previous_request:imageRequest = None):
+        self.parent = parent
+        self.request = request
+        self.previous_request = previous_request
         super(genImgThreadClass, self).__init__()
     def run(self):
-        global prevPrompt
-        global prevNegPrompt
-        global prevInfSteps
-        global prevGuideScale
-        global prevSeed
-        global prevUrl
-        global prevStrength
-        global prevResultImage
-        global prevWidth
-        global prevHeight
         global outputDirectory
         global pipe
-        global overprocessbool
-        global outEmbed
 
-        #Handle negative prompt
-        if(self.prompt!=None):
-            if(self.prompt=="0"):
-                prevPrompt = ""
-                prompt = ""
+        #Handle prompt
+        if(self.request.prompt!=None):
+            if(self.request.prompt=="0"):
+                self.previous_request.prompt = ""
+                self.request.prompt = ""
             else:
-                prevPrompt = self.prompt
-                prompt = self.prompt
+                self.previous_request.prompt = self.request.prompt
+                self.request.prompt = self.request.prompt
         else:
-            prevPrompt = ""
-            prompt = ""
+            self.previous_request.prompt = ""
+            self.request.prompt = ""
         
         #Handle negative prompt
-        if(self.negativePrompt!=None):
-            if(self.negativePrompt=="0"):
-                prevNegPrompt = None
-                negativeprompt = None
+        if(self.request.negativePrompt!=None):
+            if(self.request.negativePrompt=="0"):
+                self.previous_request.negativePrompt = None
+                self.request.negativePrompt = None
             else:
-                prevNegPrompt = self.negativePrompt
-                negativeprompt = self.negativePrompt
+                self.previous_request.negativePrompt = self.request.negativePrompt
+                self.request.negativePrompt = self.request.negativePrompt
         #Its okay to use prev neg prompt even if empty
         else:
-            negativeprompt = prevNegPrompt
+            self.request.negativePrompt = self.previous_request.negativePrompt
 
-        if self.config["UseDefaultNegativePrompt"]:
-            if(negativeprompt!=None):
-                if(negativeprompt==""):
-                    negativeprompt = self.config["DefaultNegativePrompt"]
+        if self.request.config["UseDefaultNegativePrompt"]:
+            if(self.request.negativePrompt!=None):
+                if(self.request.negativePrompt==""):
+                    self.request.negativePrompt = self.request.config["DefaultNegativePrompt"]
                 else:
-                    negativeprompt = negativeprompt + ", " + self.config["DefaultNegativePrompt"]
+                    self.request.negativePrompt = self.request.negativePrompt + ", " + self.request.config["DefaultNegativePrompt"]
             else:
-                negativeprompt = self.config["DefaultNegativePrompt"]
-            prevNegPrompt = negativeprompt
+                self.request.negativePrompt = self.request.config["DefaultNegativePrompt"]
+            self.previous_request.negativePrompt = self.request.negativePrompt
         #Handle infsteps
-        if(self.infSteps!=None):
-            if(self.infSteps=="0"):
-                prevInfSteps = 30
-                infsteps = 30
+        if(self.request.infSteps!=None):
+            if(self.request.infSteps=="0"):
+                self.previous_request.infSteps = 30
+                self.request.infSteps = 30
             else:
-                prevInfSteps = self.infSteps
-                infsteps = self.infSteps
-        elif(prevInfSteps!=None):
-            infsteps = prevInfSteps
-        elif(prevInfSteps==None):
-            prevInfSteps = 30
-            infsteps = prevInfSteps
+                self.previous_request.infSteps = self.request.infSteps
+                self.request.infSteps = self.request.infSteps
+        elif(self.previous_request.infSteps!=None):
+            self.request.infSteps = self.previous_request.infSteps
+        elif(self.previous_request.infSteps==None):
+            self.previous_request.infSteps = 30
+            self.request.infSteps = self.previous_request.infSteps
 
         #Handle guidescale
-        if(self.guideScale!=None):
-            if(self.guideScale=="0"):
-                prevGuideScale = 7.0
-                guidescale = 7.0
+        if(self.request.guideScale!=None):
+            if(self.request.guideScale=="0"):
+                self.previous_request.guideScale = 7.0
+                self.request.guideScale = 7.0
             else:
-                prevGuideScale = self.guideScale
-                guidescale = self.guideScale
-        elif(prevGuideScale!=None):
-            guidescale = prevGuideScale
-        elif(prevGuideScale==None):
-            prevGuideScale = 7
-            guidescale = prevGuideScale
+                self.previous_request.guideScale = self.request.guideScale
+                self.request.guideScale = self.request.guideScale
+        elif(self.previous_request.guideScale!=None):
+            self.request.guideScale = self.previous_request.guideScale
+        elif(self.previous_request.guideScale==None):
+            self.previous_request.guideScale = 7
+            self.request.guideScale = self.previous_request.guideScale
 
         #Handle Stength
-        if(self.strength!=None):
-            if(self.strength=="0"):
-                prevStrength = 0.25
-                strength = 0.25
+        if(self.request.strength!=None):
+            if(self.request.strength=="0"):
+                self.previous_request.strength = 0.25
+                self.request.strength = 0.25
             else:
-                prevStrength = self.strength
-                strength = self.strength
-        elif(prevStrength!=None):
-            strength = prevStrength
-        elif(prevStrength==None):
-            prevStrength = 0.25
-            strength = prevStrength
+                self.previous_request.strength = self.request.strength
+                self.request.strength = self.request.strength
+        elif(self.previous_request.strength!=None):
+            self.request.strength = self.previous_request.strength
+        elif(self.previous_request.strength==None):
+            self.previous_request.strength = 0.25
+            self.request.strength = self.previous_request.strength
 
         #Handle ImgUrl
-        if(self.imgUrl!=None):
-            if(self.imgUrl=="0"):
-                prevUrl = None
-                prevStrength = None
-                strength = None
-                imgurl = None
+        if(self.request.imgUrl!=None):
+            if(self.request.imgUrl=="0"):
+                self.previous_request.imgUrl = None
+                self.previous_request.strength = None
+                self.request.strength = None
+                self.request.imgUrl = None
             else:
-                prevUrl = self.imgUrl 
-                imgurl = self.imgUrl
-        elif(prevUrl!=None):
-            imgurl = prevUrl
-        elif(prevUrl==None):
-            prevUrl = None
-            strength = None
-            prevStrength = None
-            imgurl = prevUrl
+                self.previous_request.imgUrl = self.request.imgUrl 
+                self.request.imgUrl = self.request.imgUrl
+        elif(self.previous_request.imgUrl!=None):
+            self.request.imgUrl = self.previous_request.imgUrl
+        elif(self.previous_request.imgUrl==None):
+            self.previous_request.imgUrl = None
+            self.request.strength = None
+            self.previous_request.strength = None
+            self.request.imgUrl = self.previous_request.imgUrl
 
         #Handle seed
-        if(self.seed!=None):
-            if(self.seed==0):
-                prevSeed = random.randint(1,100000000)
-                seed = prevSeed
-                generator = torch.Generator("cuda").manual_seed(prevSeed)
+        if(self.request.seed!=None):
+            if(self.request.seed==0):
+                self.previous_request.seed = random.randint(1,100000000)
+                self.request.seed = self.previous_request.seed
+                generator = torch.Generator("cuda").manual_seed(self.request.seed)
             else:
-                prevSeed = self.seed
-                seed = self.seed
-                generator = torch.Generator("cuda").manual_seed(self.seed)
-        elif(prevSeed!=None):
-            seed = prevSeed
-            generator = torch.Generator("cuda").manual_seed(prevSeed)
-        elif(prevSeed==None):
-            prevSeed = random.randint(1,100000000)
-            seed = prevSeed
-            generator = torch.Generator("cuda").manual_seed(prevSeed)
+                self.previous_request.seed = self.request.seed
+                self.request.seed = self.request.seed
+                generator = torch.Generator("cuda").manual_seed(self.request.seed)
+        elif(self.previous_request.seed!=None):
+            self.request.seed = self.previous_request.seed
+            generator = torch.Generator("cuda").manual_seed(self.request.seed)
+        elif(self.previous_request.seed==None):
+            self.previous_request.seed = random.randint(1,100000000)
+            self.request.seed = self.previous_request.seed
+            generator = torch.Generator("cuda").manual_seed(self.request.seed)
 
         #Handle Width
-        if(self.width!=None):
-            if(self.width=="0"):
-                prevWidth = 512
-                width = 512
+        if(self.request.width!=None):
+            if(self.request.width=="0"):
+                self.previous_request.width = 512
+                self.request.width = 512
             else:
-                prevWidth = self.width
-                width = self.width
-        elif(prevWidth!=None):
-            width = prevWidth
-        elif(prevWidth==None):
-            prevWidth = 512
-            width = prevWidth
+                self.previous_request.width = self.request.width
+                self.request.width = self.request.width
+        elif(self.previous_request.width!=None):
+            self.request.width = self.previous_request.width
+        elif(self.previous_request.width==None):
+            self.previous_request.width = 512
+            self.request.width = self.previous_request.width
 
         #Handle Height
-        if(self.height!=None):
-            if(self.height=="0"):
-                prevHeight = 512
-                height = 512
+        if(self.request.height!=None):
+            if(self.request.height=="0"):
+                self.previous_request.height = 512
+                self.request.height = 512
             else:
-                prevHeight = self.height
-                height = self.height
-        elif(prevHeight!=None):
-            height = prevHeight
-        elif(prevHeight==None):
-            prevHeight = 512
-            height = prevHeight
-        if imgurl != None:
-            if(overprocessbool):
+                self.previous_request.height = self.request.height
+                self.request.height = self.request.height
+        elif(self.previous_request.height!=None):
+            self.request.height = self.previous_request.height
+        elif(self.previous_request.height==None):
+            self.previous_request.height = 512
+            self.request.height = self.previous_request.height
+        if self.request.imgUrl != None:
+            if(self.request.overProcess):
                 print("Loading image from prevResultImage")
-                init_image = prevResultImage
-                overprocessbool=False
+                init_image = self.previous_request.resultImage
+                self.request.overProcess=False
             else:
-                print("Loading image from url: " + imgurl)
-                response = requests.get(imgurl)
+                print("Loading image from url: " + self.request.imgUrl)
+                response = requests.get(self.request.imgUrl)
                 init_image = Image.open(BytesIO(response.content)).convert("RGB")
                 #Crop and resize
                 init_image = crop_max_square(init_image)
@@ -425,33 +414,32 @@ class genImgThreadClass(Thread):
 
         #Set Metadata
         metadata = PngInfo()
-        if ((prompt != None) and (prompt!= "None") and (prompt!= "")):
-            metadata.add_text("Prompt", prompt)
-        if ((negativeprompt != None) and (negativeprompt!= "None") and (negativeprompt != "")):
-            metadata.add_text("Negative Prompt", negativeprompt)
-        metadata.add_text("Guidance Scale", str(guidescale))
-        metadata.add_text("Inference Steps", str(infsteps))
-        metadata.add_text("Seed", str(seed))
-        metadata.add_text("Width", str(width))
-        metadata.add_text("Height", str(height))
+        if ((self.request.prompt != None) and (self.request.prompt!= "None") and (self.request.prompt!= "")):
+            metadata.add_text("Prompt", self.request.prompt)
+        if ((self.request.negativePrompt != None) and (self.request.negativePrompt != "None") and (self.request.negativePrompt != "")):
+            metadata.add_text("Negative Prompt", self.request.negativePrompt)
+        metadata.add_text("Guidance Scale", str(self.request.guideScale))
+        metadata.add_text("Inference Steps", str(self.request.infSteps))
+        metadata.add_text("Seed", str(self.request.seed))
+        metadata.add_text("Width", str(self.request.width))
+        metadata.add_text("Height", str(self.request.height))
 
         with autocast("cuda"):
             def dummy_checker(images, **kwargs): return images, False
             pipe.safety_checker = dummy_checker
-            if strength != None:
-                image = pipe(prompt, generator = generator, init_image = init_image, negative_prompt=negativeprompt, strength=(1-strength), guidance_scale=guidescale, num_inference_steps=infsteps).images[0]
-                metadata.add_text("Img2Img Strength", str(strength))
+            if self.request.strength != None:
+                image = pipe(self.request.prompt,height = self.request.height, width = self.request.width, generator = generator, init_image = init_image, negative_prompt=self.request.negativePrompt, strength=(1-self.request.strength), guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps).images[0]
+                metadata.add_text("Img2Img Strength", str(self.request.strength))
             else:
-                image = pipe(prompt,height = height,width = width, generator = generator, init_image = init_image, negative_prompt=negativeprompt, guidance_scale=guidescale, num_inference_steps=infsteps).images[0]
+                image = pipe(self.request.prompt,height = self.request.height, width = self.request.width, generator = generator, init_image = init_image, negative_prompt=self.request.negativePrompt, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps).images[0]
         countStr = str(filecount()+1)
         while os.path.exists(outputDirectory + str(countStr) + ".png"):
             countStr = int(countStr)+1
 
-        prevResultImage = image
+        self.request.resultImage = image
         image.save(outputDirectory + str(countStr) + ".png", pnginfo=metadata)
-        outEmbed = get_embed(prompt,negativeprompt,guidescale,infsteps,seed,outputDirectory + str(countStr) + ".png",strength)
-        self.parent and self.parent.on_thread_finished(self, outEmbed, self.proxy)
-        return get_embed(prompt,negativeprompt,guidescale,infsteps,seed,outputDirectory + str(countStr) + ".png",strength)
+        outEmbed = get_embed(self.request.prompt,self.request.negativePrompt,self.request.guideScale,self.request.infSteps,self.request.seed,outputDirectory + str(countStr) + ".png",self.request.strength)
+        self.parent and self.parent.on_thread_finished(self, outEmbed, self.request, self.request.proxy)
 
 
 
@@ -640,8 +628,8 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
     global titles
     global outputDirectory
     global botBusy
-    global outEmbed
     global config
+    global previous_request
     if botBusy:
         await ctx.respond("> Sorry, kiwi is busy!")
         return
@@ -665,7 +653,8 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
         #-------
         threadmanager = threadManager()
         load_config()
-        thread = threadmanager.New_Thread(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,config)
+        requestObject = imageRequest(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,config)
+        thread = threadmanager.New_Thread(requestObject,previous_request)
         thread.start()
     except Exception:
         traceback.print_exc()
@@ -780,7 +769,6 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.implements(lightbulb.SlashCommand)
 async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
     global outputDirectory
-    global prevResultImage
     global botBusy
     if botBusy:
         await ctx.respond("> Sorry, kiwi is busy!")
