@@ -103,9 +103,9 @@ def change_pipeline(modelpath):
         print(str(file))
         load_learned_embed_in_clip("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/" + str(file), text_encoder, tokenizer)
     if(modelpath=="Stable Diffusion"):
-        pipe = StableDiffusionPipeline.from_pretrained(modelpaths[modelpath],custom_pipeline="lpw_stable_diffusion",use_auth_token="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",torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer).to('cuda')
+        pipe = StableDiffusionPipeline.from_pretrained(modelpaths[modelpath],custom_pipeline="lpw_stable_diffusion",use_auth_token="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",torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
     else:
-        pipe = StableDiffusionPipeline.from_pretrained(modelpaths[modelpath],revision="fp16", custom_pipeline="lpw_stable_diffusion", torch_dtype=torch.float16, text_encoder=text_encoder, tokenizer=tokenizer).to("cuda")
+        pipe = StableDiffusionPipeline.from_pretrained(modelpaths[modelpath],revision="fp16", custom_pipeline="lpw_stable_diffusion", torch_dtype=torch.float16, text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to("cuda")
     pipe.enable_attention_slicing()
 change_pipeline("Waifu Diffusion")
 #----------------------------------
@@ -387,6 +387,7 @@ class genImgThreadClass(Thread):
         #Check for duplicate tokens
         if self.request.prompt != None:
             self.request.prompt = remove_duplicates(self.request.prompt)
+        print("Generating:" + self.request.prompt)
         if self.request.negativePrompt != None:
             self.request.negativePrompt = remove_duplicates(self.request.negativePrompt)
         #Set Metadata
