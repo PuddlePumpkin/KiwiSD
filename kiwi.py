@@ -42,7 +42,10 @@ modelpaths = {
 "Yabai Diffusion" : "C:/Users/keira/Desktop/GITHUB/Kiwi/models/naidiffusers",
 }
 os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings")
+embedlist = []
 embedlist = list(Path(".").rglob("*.[bB][iI][nN]"))
+#embedlist = embedlist + (list(Path(".").rglob("*.[pP][tT]")))
+#print(embedlist)
 curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
 config = {}
 genThread = Thread()
@@ -70,28 +73,62 @@ def load_config():
 #load embeddings Function
 #----------------------------------
 def load_learned_embed_in_clip(learned_embeds_path, text_encoder, tokenizer, token=None):
-  loaded_learned_embeds = torch.load(learned_embeds_path, map_location="cpu")
-  
-  # separate token and the embeds
-  trained_token = list(loaded_learned_embeds.keys())[0]
-  embedsS = loaded_learned_embeds[trained_token]
-
-  # cast to dtype of text_encoder
-  dtype = text_encoder.get_input_embeddings().weight.dtype
-  embedsS.to(dtype)
-
-  # add the token in tokenizer
-  token = token if token is not None else trained_token
-  num_added_tokens = tokenizer.add_tokens(token)
-  if num_added_tokens == 0:
-    raise ValueError(f"The tokenizer already contains the token {token}. Please pass a different `token` that is not already in the tokenizer.")
-  
-  # resize the token embeddings
-  text_encoder.resize_token_embeddings(len(tokenizer))
-  
-  # get the id for the token and assign the embeds
-  token_id = tokenizer.convert_tokens_to_ids(token)
-  text_encoder.get_input_embeddings().weight.data[token_id] = embedsS
+    loaded_learned_embeds = torch.load(learned_embeds_path, map_location="cpu")
+    # separate token and the embeds
+    if isinstance(loaded_learned_embeds,torch.Tensor):
+        return
+        trained_token = "<"+str(Path(learned_embeds_path).name)+">"
+        print(trained_token)
+        loaded_embeds = torch.load(learned_embeds_path, map_location="cpu")
+        dtype = text_encoder.get_input_embeddings().weight.dtype
+        loaded_embeds.to(dtype)
+        num_added_tokens = tokenizer.add_tokens(trained_token)
+        if num_added_tokens == 0:
+            raise ValueError(f'tokenizer already contains the token {trained_token}')
+        text_encoder.resize_token_embeddings(len(tokenizer))
+        token_id = tokenizer.convert_tokens_to_ids(trained_token)
+        text_encoder.get_input_embeddings().weight.data[token_id] = loaded_embeds
+    else:
+        trained_token = list(loaded_learned_embeds.keys())[0]
+        if trained_token == "string_to_token":
+            embedding_path = learned_embeds_path
+            loaded_embeds = torch.load(embedding_path, map_location="cpu")
+            print(loaded_embeds.keys())
+            print("<"+str(Path(learned_embeds_path).name)+">\n")
+            string_to_token = loaded_embeds['string_to_token']
+            string_to_param = loaded_embeds['string_to_param']
+            print(string_to_param)
+            token = list(string_to_token.keys())[0]
+            #print(f'got key {token}')
+            embeds = string_to_param[token]
+            #print(embeds)
+            dtype = text_encoder.get_input_embeddings().weight.dtype
+            #embeds.to(dtype)
+            token = "<"+str(Path(learned_embeds_path).name)+">"
+            #print(token)
+            num_added_tokens = tokenizer.add_tokens(token)
+            if num_added_tokens == 0:
+                raise ValueError(f'tokenizer already contains the token {token}')
+            text_encoder.resize_token_embeddings(len(tokenizer))
+            token_id = tokenizer.convert_tokens_to_ids(token)
+            #print(len(embeds))
+            text_encoder.get_input_embeddings().weight.data[token_id] = embeds
+        else:
+            embedsS = loaded_learned_embeds[trained_token]
+            dtype = text_encoder.get_input_embeddings().weight.dtype
+            embedsS.to(dtype)
+            # add the token in tokenizer
+            token = token if token is not None else trained_token
+            num_added_tokens = tokenizer.add_tokens(token)
+            if num_added_tokens == 0:
+                raise ValueError(f"The tokenizer already contains the token {token}. Please pass a different `token` that is not already in the tokenizer.")
+            print("Token: " + token)
+            # resize the token embeddings
+            if not 'string_to_param' in loaded_learned_embeds:
+                text_encoder.resize_token_embeddings(len(tokenizer))
+            # get the id for the token and assign the embeds
+            token_id = tokenizer.convert_tokens_to_ids(token)
+            text_encoder.get_input_embeddings().weight.data[token_id] = embedsS
 
 #----------------------------------
 #Change Pipeline Function
@@ -103,7 +140,7 @@ def change_pipeline(modelpath):
     tokenizer = CLIPTokenizer.from_pretrained(modelpaths[modelpath],subfolder="tokenizer", use_auth_token="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")
     text_encoder = CLIPTextModel.from_pretrained(modelpaths[modelpath], subfolder="text_encoder", use_auth_token="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", torch_dtype=torch.float16)
     for file in embedlist:
-        print(str(file))
+        #print(str(file))
         load_learned_embed_in_clip("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/" + str(file), text_encoder, tokenizer)
     #KLMS scheduler = LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
     #Euler scheduler = EulerDiscreteScheduler()
