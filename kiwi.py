@@ -743,13 +743,17 @@ async def help(ctx: lightbulb.SlashContext) -> None:
     "\n> **/overgenerate**: Diffuses from last diffusion result"
     "\n**~~                      ~~ Settings ~~                         ~~**"
     "\n> **/changemodel**: switches model between stable diffusion v1.5, waifu diffusion v1.3, and yabai diffusion v???"
+    "\n> **/settings**: displays a list of settings and optionally change them"
+    "\n> **/togglenegativeprompts**: turns default list of negative prompts on or off"
     "\n**~~                        ~~ Other ~~                        ~~**"
+    "\n> **/styles**: displays a list of loaded textual inversions"
+    "\n> **/styleinfo**: displays the training images of a TI"
     "\n> **/deletelast**: Deletes the last bot message in this channel, for deleting nsfw without admin perms."
     "\n> **/ping**: Checks connection"
     "\n**~~                          ~~ Tips ~~                          ~~**"
     "\n> More prompts (separated by commas) often result in better images, especially composition prompts."
     "\n> You can multiply prompt focus with parenthesis eg: **(**1girl**)** or **(**1girl:1.3**)** **Default: 1.1**"
-    "\n> You can reduce prompt focus with square brackets **[**1girl**]** / **[**1girl:1.3**]**  **Default: 1.1**"
+    "\n> You can reduce focus in line like negative prompts with square brackets eg: **[**1girl**]** or **[**1girl:1.3**]**  **Default: 1.1** "
     "\n> Prompt focus modifiers can be escaped with a **\\\\** eg: **\\\\**(1girl**\\\\**), would be input as (1girl) and not be focused "
     "\n> __[Composition Tags](https://danbooru.donmai.us/wiki_pages/tag_group:image_composition)__"
     "\n> __[Tag Groups](https://danbooru.donmai.us/wiki_pages/tag_groups)__"
@@ -912,7 +916,7 @@ async def changemodel(ctx: lightbulb.SlashContext) -> None:
     elif ctx.options.model.startswith("W"):
         await ctx.respond("> **Loading Waifu Diffusion v1.3**")
         change_pipeline('Waifu Diffusion')
-        await ctx.edit_last_response("> *Loaded Waifu Diffusion v1.3**")
+        await ctx.edit_last_response("> **Loaded Waifu Diffusion v1.3**")
         curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
     elif ctx.options.model.startswith("Y"):
         await ctx.respond("> **Loading Yabai Diffusion v???**")
@@ -1039,6 +1043,97 @@ async def styles(ctx: lightbulb.SlashContext) -> None:
     message = await response.message()
     await handle_responses(ctx.bot, ctx.author, message)
 
+#----------------------------------
+#Styles Example Command
+#----------------------------------
+def image_grid(imgs, rows, cols):
+    assert len(imgs) == rows*cols
+
+    w, h = imgs[0].size
+    grid = Image.new('RGB', size=(cols*w, rows*h))
+    grid_w, grid_h = grid.size
+    
+    for i, img in enumerate(imgs):
+        grid.paste(img, box=(i%cols*w, i//cols*h))
+    return grid
+
+#input style
+@bot.command()
+@lightbulb.option("style", "the style to look for",required=True,type=str)
+@lightbulb.command("styleinfo", "Get training images of a style.")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def styleinfo(ctx: lightbulb.SlashContext) -> None:
+    #find matching embedding folder
+    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings")
+    identifierlist = list(Path(".").rglob("**/*token_identifier*"))
+    for file in identifierlist:
+        os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings")
+        fileOpened = open(str(file),"r")
+        if fileOpened.readline() == ctx.options.style:
+            fileOpened.close()
+            #fileOpened = open(str(file.parent) + "\\README.md","r")
+            embed = hikari.Embed(title=ctx.options.style + " - Training Dataset:",colour=hikari.Colour(0xabaeff))
+            savedpath = "C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/" + str(file.parent)
+            if not os.path.exists(str(file.parent) + "\\imageStored.txt"):
+                #print(Path("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/" + str(file.parent) + "/concept_images/"))
+                os.chdir(Path("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/" + str(file.parent) + "/concept_images/"))
+                imagepathlist = []
+                imagelimitCounter = 0
+                for filename in os.listdir():
+                    if imagelimitCounter<9:
+                        imagepathlist.append(filename)
+                        imagelimitCounter = imagelimitCounter + 1
+                    else:
+                        break
+                #print(imagepathlist)
+                imagesopened = []
+                for imagepath in imagepathlist:
+                    
+                    imagesopened.append(crop_max_square(Image.open(imagepath)).resize((512,512),Image.Resampling.LANCZOS))
+                if len(imagesopened) >= 9:
+                    clippedimagelist = []
+                    count = 0
+                    for image in imagesopened:
+                        if count<9:
+                            clippedimagelist.append(image)
+                            count = count+1
+                        else:
+                            break
+                    resultImage = image_grid(clippedimagelist,3,3)
+                    resultImage = resultImage.resize((512, 512),Image.Resampling.LANCZOS)
+                    resultImage.save("conceptgrid.PNG")
+                    embed.set_image("conceptgrid.PNG")
+                elif len(imagesopened) <= 3:
+                    if len(imagesopened)>0:
+                        resultImage = image_grid(imagesopened,1,len(imagesopened))
+                        resultImage = resultImage.resize((512, 512),Image.Resampling.LANCZOS)
+                        resultImage.save("conceptgrid.PNG")
+                        embed.set_image("conceptgrid.PNG")
+                elif len(imagesopened) >= 4:
+                    clippedimagelist = []
+                    count = 0
+                    for image in imagesopened:
+                        if count<4:
+                            clippedimagelist.append(image)
+                            count = count+1
+                        else:
+                            break
+                    resultImage = image_grid(clippedimagelist,2,2)
+                    resultImage = resultImage.resize((512, 512),Image.Resampling.LANCZOS)
+                    resultImage.save("conceptgrid.PNG")
+                    embed.set_image("conceptgrid.PNG")
+            else:
+                fileOpened = open(str(file.parent) + "\\imageStored.txt","r")
+                embed.set_image(fileOpened.readline())
+            proxy = await ctx.respond(embed)
+            proxyresponse = await proxy.message()
+            os.chdir(savedpath)
+            fileOpened = open("imageStored.txt","w")
+            fileOpened.writelines(proxyresponse.embeds[0].image.url)
+            return
+        else:
+            fileOpened.close()
+    await ctx.respond("> Style not found...")
 
 #----------------------------------
 #Admin update commands Command
