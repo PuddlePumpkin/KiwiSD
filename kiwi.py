@@ -1065,7 +1065,7 @@ async def settings(ctx: lightbulb.SlashContext) -> None:
             await ctx.respond("> I don't understand that key!")
             return
         save_user_config(str(ctx.author.id),userconfig)
-    embed = hikari.Embed(title="User Settings",colour=ctx.author.accent_color).set_author(name=ctx.member.nickname,icon=ctx.member.avatar_url)
+    embed = hikari.Embed(title="User Settings:",colour=ctx.author.accent_color).set_author(name=ctx.member.nickname,icon=ctx.member.avatar_url)
     for key, value in userconfig.items():
         embed.add_field(str(key),str(value))
     rows = await generate_rows(ctx.bot)
