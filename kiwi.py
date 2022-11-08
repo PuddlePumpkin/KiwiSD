@@ -347,6 +347,7 @@ class genImgThreadClass(Thread):
         global outputDirectory
         global pipe
         global curmodelpath
+        global botBusy
         #Handle Scheduler
         if(self.request.scheduler==None or self.request.scheduler=="0"):
             self.request.scheduler = "KLMS"
@@ -509,6 +510,7 @@ class genImgThreadClass(Thread):
         #Process Result
         self.request.resultImage = image
         image.save(outputDirectory + str(countStr) + ".png", pnginfo=metadata)
+        botBusy = False
         outEmbed = get_embed(self.request.prompt,self.request.negativePrompt,self.request.guideScale,self.request.infSteps,self.request.seed,outputDirectory + str(countStr) + ".png",self.request.strength,False,self.request.scheduler,self.request.userconfig,self.request.imgUrl)
         self.parent and self.parent.on_thread_finished(self, outEmbed, self.request, self.request.proxy)
 
