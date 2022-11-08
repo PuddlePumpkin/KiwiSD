@@ -35,6 +35,17 @@ import json
 #----------------------------------
 #Setup
 #----------------------------------
+def save_config():
+    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
+    global config
+    with open("kiwiconfig.json", "w") as outfile:
+        json.dump(config,outfile)
+
+def load_config():
+    global config
+    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
+    with open('kiwiconfig.json', 'r') as openfile:
+        config = json.load(openfile)
 
 modelpaths = {
 "Stable Diffusion" : "C:/Users/keira/Desktop/GITHUB/Kiwi/models/stablediffusion",
@@ -48,6 +59,7 @@ embedlist = list(Path(".").rglob("*.[bB][iI][nN]"))
 #print(embedlist)
 curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
 config = {}
+load_config()
 genThread = Thread()
 botBusy = False
 awaitingEmbed = None
@@ -58,17 +70,7 @@ outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
 titles =  ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
 os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
 
-def save_config():
-    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
-    global config
-    with open("kiwiconfig.json", "w") as outfile:
-        json.dump(config,outfile)
 
-def load_config():
-    global config
-    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
-    with open('kiwiconfig.json', 'r') as openfile:
-        config = json.load(openfile)
 #----------------------------------
 #load embeddings Function
 #----------------------------------
@@ -91,27 +93,23 @@ def load_learned_embed_in_clip(learned_embeds_path, text_encoder, tokenizer, tok
     else:
         trained_token = list(loaded_learned_embeds.keys())[0]
         if trained_token == "string_to_token":
+            return
             embedding_path = learned_embeds_path
             loaded_embeds = torch.load(embedding_path, map_location="cpu")
-            print(loaded_embeds.keys())
             print("<"+str(Path(learned_embeds_path).name)+">\n")
             string_to_token = loaded_embeds['string_to_token']
             string_to_param = loaded_embeds['string_to_param']
-            print(string_to_param)
             token = list(string_to_token.keys())[0]
-            #print(f'got key {token}')
+            print(f'got key {token}')
             embeds = string_to_param[token]
-            #print(embeds)
             dtype = text_encoder.get_input_embeddings().weight.dtype
-            #embeds.to(dtype)
+            embeds.to(dtype)
             token = "<"+str(Path(learned_embeds_path).name)+">"
-            #print(token)
             num_added_tokens = tokenizer.add_tokens(token)
             if num_added_tokens == 0:
                 raise ValueError(f'tokenizer already contains the token {token}')
             text_encoder.resize_token_embeddings(len(tokenizer))
             token_id = tokenizer.convert_tokens_to_ids(token)
-            #print(len(embeds))
             text_encoder.get_input_embeddings().weight.data[token_id] = embeds
         else:
             embedsS = loaded_learned_embeds[trained_token]
@@ -184,24 +182,42 @@ def crop_max_square(pil_img):
 #----------------------------------
 #Get Embed
 #----------------------------------
-def get_embed(Prompt,NegativePrompt:str, GuideScale, InfSteps, Seed, File, ImageStrength=None, Gifmode=False, Scheduler=None):
+def get_embed(Prompt,NegativePrompt:str, GuideScale, InfSteps, Seed, File, ImageStrength=None, Gifmode=False, Scheduler=None, UserConfig = None):
     global curmodel
     global config
-    if(config["UseDefaultNegativePrompt"]):
-        if NegativePrompt != None:
-            defaultClipped = remove_duplicates(config["DefaultNegativePrompt"])
-            clippedList = defaultClipped.split(", ")
-            NegativePrompt = remove_duplicates(NegativePrompt)
-            NegativePromptList = NegativePrompt.split(", ")
-            res = [i for i in NegativePromptList if i not in clippedList]
-            working = set()
-            result = []
-            for item in res:
-                if item not in working:
-                    working.add(item)
-                    result.append(item)
-            s = ", "
-            NegativePrompt = s.join(result)
+    if(not config["ShowDefaultPrompts"]):
+        if(UserConfig["UseDefaultNegativePrompt"]):
+            if NegativePrompt != None:
+                defaultClipped = remove_duplicates(UserConfig["DefaultNegativePrompt"])
+                clippedList = defaultClipped.split(", ")
+                NegativePrompt = remove_duplicates(NegativePrompt)
+                NegativePromptList = NegativePrompt.split(", ")
+                res = [i for i in NegativePromptList if i not in clippedList]
+                working = set()
+                result = []
+                for item in res:
+                    if item not in working:
+                        working.add(item)
+                        result.append(item)
+                s = ", "
+                NegativePrompt = s.join(result)
+        if(UserConfig["UseDefaultQualityPrompt"]):
+            if Prompt != None:
+                defaultClipped = remove_duplicates(UserConfig["DefaultQualityPrompt"])
+                clippedList = defaultClipped.split(", ")
+                Prompt = remove_duplicates(Prompt)
+                PromptList = Prompt.split(", ")
+                res = [i for i in PromptList if i not in clippedList]
+                working = set()
+                result = []
+                for item in res:
+                    if item not in working:
+                        working.add(item)
+                        result.append(item)
+                s = ", "
+                Prompt = s.join(result)
+
+
     if ImageStrength != None:
         footer = ("{:30s}{:30s}".format("Guidance Scale: "+str(GuideScale), "Inference Steps: "+str(InfSteps))+"\n"+"{:30s}{:30s}".format("Seed: "+str(Seed), "Sampler: " + str(Scheduler)) + "\n" + "{:30s}".format("Image Strength: " + str(ImageStrength)))
     else:
@@ -287,7 +303,7 @@ def remove_duplicates(string:str)->str:
     return s.join(result)
 
 class imageRequest(object):
-    def __init__(self,Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,Config=None,resultImage=None,regenerate=False, overProcess=False, scheduler=None):
+    def __init__(self,Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,resultImage=None,regenerate=False, overProcess=False, scheduler=None, userconfig=None):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
@@ -298,11 +314,11 @@ class imageRequest(object):
         self.width = Width
         self.height = Height
         self.proxy = Proxy
-        self.config = Config
         self.resultImage = resultImage
         self.regenerate = regenerate
         self.overProcess = overProcess
         self.scheduler = scheduler
+        self.userconfig = userconfig
 
 previous_request = imageRequest()
 
@@ -363,18 +379,29 @@ class genImgThreadClass(Thread):
 
         #Handle Default Negative
         if not self.request.regenerate:
-            if self.request.config["UseDefaultNegativePrompt"]:
+            if self.request.userconfig["UseDefaultNegativePrompt"]:
                 if(self.request.negativePrompt!=None):
                     if(self.request.negativePrompt==""):
-                        self.request.negativePrompt = self.request.config["DefaultNegativePrompt"]
+                        self.request.negativePrompt = self.request.userconfig["DefaultNegativePrompt"]
                     else:
-                        self.request.negativePrompt = self.request.negativePrompt + "," + self.request.config["DefaultNegativePrompt"]
+                        self.request.negativePrompt = self.request.negativePrompt + ", " + self.request.userconfig["DefaultNegativePrompt"]
                 else:
-                    self.request.negativePrompt = self.request.config["DefaultNegativePrompt"]
+                    self.request.negativePrompt = self.request.userconfig["DefaultNegativePrompt"]
+
+        #Handle Default Quality
+        if not self.request.regenerate:
+            if self.request.userconfig["UseDefaultQualityPrompt"]:
+                if(self.request.prompt!=None):
+                    if(self.request.prompt==""):
+                        self.request.prompt = self.request.userconfig["DefaultQualityPrompt"]
+                    else:
+                        self.request.prompt = self.request.userconfig["DefaultQualityPrompt"] + ", " + self.request.prompt  
+                else:
+                    self.request.prompt = self.request.userconfig["DefaultQualityPrompt"]
 
         #Handle infsteps
         if(self.request.infSteps=="0" or self.request.infSteps==0 or self.request.infSteps==None):
-            self.request.infSteps = 30
+            self.request.infSteps = 15
             if self.request.regenerate:
                 if self.previous_request.infSteps != None:
                     self.request.infSteps = self.previous_request.infSteps
@@ -481,7 +508,7 @@ class genImgThreadClass(Thread):
         #Process Result
         self.request.resultImage = image
         image.save(outputDirectory + str(countStr) + ".png", pnginfo=metadata)
-        outEmbed = get_embed(self.request.prompt,self.request.negativePrompt,self.request.guideScale,self.request.infSteps,self.request.seed,outputDirectory + str(countStr) + ".png",self.request.strength,False,self.request.scheduler)
+        outEmbed = get_embed(self.request.prompt,self.request.negativePrompt,self.request.guideScale,self.request.infSteps,self.request.seed,outputDirectory + str(countStr) + ".png",self.request.strength,False,self.request.scheduler,self.request.userconfig)
         self.parent and self.parent.on_thread_finished(self, outEmbed, self.request, self.request.proxy)
 
 
@@ -655,9 +682,9 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
 @lightbulb.option("imagelink", "(Optional) image link or message ID", required = False, type = str)
 @lightbulb.option("image", "(Optional) image to run diffusion on", required = False,type = hikari.Attachment)
-@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,default = 30, type = int, max_value=100, min_value=1)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required = False,default = 30, type = int, max_value=config["MaxSteps"], min_value=1)
 @lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required = False, default = 0, type = int, min_value=0)
-@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float,default = 7, max_value=100, min_value=-100)
+@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float,default = 7, max_value=100 , min_value=-100)
 @lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False,default ="0")
 @lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = True,default ="0")
 @lightbulb.command("generate", "runs diffusion on an input image")
@@ -667,7 +694,6 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
     global titles
     global outputDirectory
     global botBusy
-    global config
     global previous_request
     if botBusy:
         await ctx.respond("> Sorry, kiwi is busy!")
@@ -691,8 +717,9 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
         respProxy = await ctx.respond(embed)
         #-------
         threadmanager = threadManager()
+        userconfig = get_user_config(str(ctx.author.id))
         load_config()
-        requestObject = imageRequest(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,config,scheduler=ctx.options.sampler)
+        requestObject = imageRequest(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,scheduler=ctx.options.sampler,userconfig=userconfig)
         thread = threadmanager.New_Thread(requestObject,previous_request)
         thread.start()
     except Exception:
@@ -715,7 +742,7 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
 @lightbulb.option("imagelink", "(Optional) image link or message ID", required = False, type = str)
 @lightbulb.option("image", "(Optional) image to run diffusion on", required = False,type = hikari.Attachment)
-@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:30)", required = False,type = int, max_value=100, min_value=1)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required = False,type = int, max_value=config["MaxSteps"], min_value=1)
 @lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required = False, default = 0, type = int, min_value=0)
 @lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, max_value=100, min_value=-100)
 @lightbulb.option("negativeprompt", "(Optional) Prompt for diffusion to avoid.",required = False)
@@ -781,7 +808,6 @@ async def help(ctx: lightbulb.SlashContext) -> None:
     "\n**~~                      ~~ Settings ~~                         ~~**"
     "\n> **/changemodel**: switches model between stable diffusion v1.5, waifu diffusion v1.3, and yabai diffusion v???"
     "\n> **/settings**: displays a list of settings and optionally change them"
-    "\n> **/togglenegativeprompts**: turns default list of negative prompts on or off"
     "\n**~~                        ~~ Other ~~                        ~~**"
     "\n> **/styles**: displays a list of loaded textual inversions"
     "\n> **/styleinfo**: displays the training images of a TI"
@@ -811,7 +837,7 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("image", "image to run diffusion on", required = False,type = hikari.Attachment)
 @lightbulb.option("seed", "(Optional) Seed for diffusion", required = False,type = int, min_value=0)
 @lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, default=7, max_value=100, min_value=-100)
-@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:20)", required = False,type = int, default=20, max_value=100, min_value=1)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:20)", required = False,type = int, default=30, max_value=100, min_value=1)
 @lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
 @lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ")
 @lightbulb.command("admingenerategif", "Generate a series of results")
@@ -985,61 +1011,102 @@ async def todo(ctx: lightbulb.SlashContext) -> None:
     await handle_responses(ctx.bot, ctx.author, message)
 
 #----------------------------------
-#Toggle Negative Prompts Command
+#Settings Commands
 #----------------------------------
-@bot.command()
-@lightbulb.option("option", "Whether or not to append default negative prompts for quality",required=False,type=bool, choices=[True,False])
-@lightbulb.command("togglenegativeprompts", "Enable or disable default negative prompts (Enable for quality boost)")
-@lightbulb.implements(lightbulb.SlashCommand)
-async def todo(ctx: lightbulb.SlashContext) -> None:
+def option_to_bool(option)->bool:
+    try:
+        false_strings = ["off", "false", "no"]
+        true_strings = ["on", "true", "yes"]
+        if str(option).lower() in false_strings:
+            return False
+        elif str(option).lower() in true_strings:
+            return True
+        else: return False
+    except: return False
+def get_admin_list()->list:
     global config
-    if ctx.options.option != None:
-        config["UseDefaultNegativePrompt"] = ctx.options.option
-        save_config()
+    return config["AdminList"].replace(", ","").replace(" ,","").replace(" , ","").split(",")
+def get_user_config(userid:str)->dict:
+    global config
+    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
+    with open('usersettings.json', 'r') as openfile:
+        userconfig = json.load(openfile)
+    if userid in userconfig:
+        return userconfig[userid]
     else:
+        #write a default config to the userid
         load_config()
-        config["UseDefaultNegativePrompt"] = not config["UseDefaultNegativePrompt"]
-        save_config()
-    load_config()
-    embed = hikari.Embed(title="Default negative prompts set to: " + str(config["UseDefaultNegativePrompt"]),colour=hikari.Colour(0xabaeff))
+        userconfig[userid] = {"UseDefaultQualityPrompt" : True,"DefaultQualityPrompt":config["NewUserQualityPrompt"],"UseDefaultNegativePrompt" : True,"DefaultNegativePrompt":config["NewUserNegativePrompt"]}
+        print("User:" + userid + "loaded default user config.")
+        return userconfig[userid]
+def save_user_config(userid:str,saveconfig):
+    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
+    with open('usersettings.json', 'r') as openfile:
+        userconfigs = json.load(openfile)
+        userconfigs[userid] = saveconfig
+    with open("usersettings.json", "w") as outfile:
+        json.dump(userconfigs,outfile)
+        
+
+@bot.command()
+@lightbulb.option("value", "(optional if no key) value to change it to",required=False,type=str)
+@lightbulb.option("key", "(optional) which setting to change",required=False,choices=["UseDefaultQualityPrompt","DefaultQualityPrompt","UseDefaultNegativePrompt","DefaultNegativePrompt",],type=str)
+@lightbulb.command("settings", "View or modify your personal user settings")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def settings(ctx: lightbulb.SlashContext) -> None:
+    userconfig = get_user_config(str(ctx.author.id))
+    if ctx.options.key != None:
+        #Bool settings
+        if ctx.options.key in ["UseDefaultNegativePrompt", "UseDefaultQualityPrompt"]:
+            userconfig[ctx.options.key] = option_to_bool(ctx.options.value)
+        elif ctx.options.key in ["DefaultNegativePrompt","DefaultQualityPrompt"]:
+            userconfig[ctx.options.key] = ctx.options.value
+        else:
+            await ctx.respond("> I don't understand that key!")
+            return
+        save_user_config(str(ctx.author.id),userconfig)
+    embed = hikari.Embed(title="User Settings",colour=ctx.author.accent_color).set_author(name=ctx.member.nickname,icon=ctx.member.avatar_url)
+    for key, value in userconfig.items():
+        embed.add_field(str(key),str(value))
     rows = await generate_rows(ctx.bot)
     response = await ctx.respond(embed,components=rows)
     message = await response.message()
     await handle_responses(ctx.bot, ctx.author, message)
 
-#----------------------------------
-#Settings Command
-#----------------------------------
 @bot.command()
-@lightbulb.option("value", "value to change it to",required=False,type=str)
-@lightbulb.option("key", "which setting to change",required=False,choices=["UseDefaultNegativePrompt","DefaultNegativePrompt","AdminList","TodoString","AnnounceReadyMessage","ReadyMessage"],type=str)
-@lightbulb.command("settings", "View or modify settings")
+@lightbulb.option("value", "(optional if no key) value to change it to",required=False,type=str)
+@lightbulb.option("key", "(optional) which setting to change",required=False,choices=["ShowDefaultPrompts","NewUserNegativePrompt","NewUserQualityPrompt","AdminList","TodoString","AnnounceReadyMessage","ReadyMessage","MaxSteps"],type=str)
+@lightbulb.command("adminsettings", "View or modify settings")
 @lightbulb.implements(lightbulb.SlashCommand)
-async def settings(ctx: lightbulb.SlashContext) -> None:
+async def adminsettings(ctx: lightbulb.SlashContext) -> None:
     global config
     load_config()
     if ctx.options.key != None:
-        #Any user settings
-        if ctx.options.key in ["UseDefaultNegativePrompt"]:
-            if ctx.options.key == "UseDefaultNegativePrompt":
-                    if ctx.options.value.lower() == "false":
-                        config["UseDefaultNegativePrompt"] = False
-                    elif ctx.options.value.lower() == "true":
-                        config["UseDefaultNegativePrompt"] = True
+        if str(ctx.author.id) in get_admin_list():
+            #Bools
+            if ctx.options.key in ["AnnounceReadyMessage", "ShowDefaultPrompts"]:
+                    config[ctx.options.key] = option_to_bool(ctx.options.value)
+            #Ints
+            elif ctx.options.key in ["MaxSteps"]:
+                if int(ctx.options.value) > 1:
+                    if int(ctx.options.value) < 500:
+                        config[ctx.options.key] = int(ctx.options.value)
                     else:
-                        await ctx.respond("> Must be true or false.")
-                        return
-        #Admin only settings
-        elif ctx.options.key in ["AdminList","DefaultNegativePrompt","TodoString","AnnounceReadyMessage","ReadyMessage"]:
-            if str(ctx.author.id) in config["AdminList"].replace(", ","").replace(" ,","").replace(" , ","").split(","):
+                        config[ctx.options.key] = 500
+                else:
+                    config[ctx.options.key] = 1
+            #Strings
+            elif ctx.options.key in ["AdminList","NewUserNegativePrompt","NewUserQualityPrompt","TodoString","ReadyMessage"]:
                 config[ctx.options.key] = ctx.options.value
+            #Invalid Key
             else:
-                await ctx.respond("> Sorry, you don't have permission to change that!")
+                await ctx.respond("> I don't understand that key!")
                 return
         else:
-            await ctx.respond("I don't understand that key!")
+            await ctx.respond("> Sorry, you must have permission to edit these settings!")
             return
         save_config()
+
     load_config()
     embed = hikari.Embed(title="Settings:",colour=hikari.Colour(0xabaeff))
     for key, value in config.items():
@@ -1180,8 +1247,9 @@ async def styleinfo(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("adminupdatecommands", "update commands")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def todo(ctx: lightbulb.SlashContext) -> None:
-    await bot.sync_application_commands()
     await ctx.respond("> Commands Updated.")
+    load_config()
+    await bot.sync_application_commands()
 
 #----------------------------------
 #Quit Command
