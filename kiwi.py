@@ -182,7 +182,7 @@ def crop_max_square(pil_img):
 #----------------------------------
 #Get Embed
 #----------------------------------
-def get_embed(Prompt,NegativePrompt:str, GuideScale, InfSteps, Seed, File, ImageStrength=None, Gifmode=False, Scheduler=None, UserConfig = None):
+def get_embed(Prompt,NegativePrompt:str, GuideScale, InfSteps, Seed, File, ImageStrength=None, Gifmode=False, Scheduler=None, UserConfig = None, imgurl = None):
     global curmodel
     global config
     if(not config["ShowDefaultPrompts"]):
@@ -233,7 +233,8 @@ def get_embed(Prompt,NegativePrompt:str, GuideScale, InfSteps, Seed, File, Image
     else:
         embed.title = "Yabai Diffusion v??? - Result:"
         embed.color = hikari.Colour(0xff985c)
-        
+    if imgurl != None:
+        embed.set_thumbnail(imgurl)
     
     if ((Prompt != None) and (Prompt!= "None") and (Prompt!= "")):
         embed.add_field("Prompt:",Prompt)
@@ -508,7 +509,7 @@ class genImgThreadClass(Thread):
         #Process Result
         self.request.resultImage = image
         image.save(outputDirectory + str(countStr) + ".png", pnginfo=metadata)
-        outEmbed = get_embed(self.request.prompt,self.request.negativePrompt,self.request.guideScale,self.request.infSteps,self.request.seed,outputDirectory + str(countStr) + ".png",self.request.strength,False,self.request.scheduler,self.request.userconfig)
+        outEmbed = get_embed(self.request.prompt,self.request.negativePrompt,self.request.guideScale,self.request.infSteps,self.request.seed,outputDirectory + str(countStr) + ".png",self.request.strength,False,self.request.scheduler,self.request.userconfig,self.request.imgUrl)
         self.parent and self.parent.on_thread_finished(self, outEmbed, self.request, self.request.proxy)
 
 
@@ -531,7 +532,7 @@ tasks.load(bot)
 @bot.listen(hikari.ShardReadyEvent)
 async def ready_listener(_):
     load_config()
-    if config["AnnounceReadyMessage"].lower() == "true":
+    if config["AnnounceReadyMessage"]:
         await bot.rest.create_message(672892614613139471, "> " + config["ReadyMessage"])
      #> I'm awake running waifu diffusion v1.3! Type **/help** for help!
     
