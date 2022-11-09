@@ -685,7 +685,7 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
 @lightbulb.option("imagelink", "(Optional) image link or message ID", required = False, type = str)
 @lightbulb.option("image", "(Optional) image to run diffusion on", required = False,type = hikari.Attachment)
-@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required = False,default = 30, type = int, max_value=config["MaxSteps"], min_value=1)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required = False,default = 15, type = int, max_value=config["MaxSteps"], min_value=1)
 @lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required = False, default = 0, type = int, min_value=0)
 @lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float,default = 7, max_value=100 , min_value=-100)
 @lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False,default ="0")
@@ -821,6 +821,7 @@ async def help(ctx: lightbulb.SlashContext) -> None:
     "\n> You can multiply prompt focus with parenthesis eg: **(**1girl**)** or **(**1girl:1.3**)** **Default: 1.1**"
     "\n> You can reduce focus in line like negative prompts with square brackets eg: **[**1girl**]** or **[**1girl:1.3**]**  **Default: 1.1** "
     "\n> Prompt focus modifiers can be escaped with a **\\\\** eg: **\\\\**(1girl**\\\\**), would be input as (1girl) and not be focused "
+    "\n> __[Nui's Waifu Bible](https://docs.google.com/spreadsheets/d/1qBc5o6-7TIF_amqaEQhK2cNs0yfNkt4260sgh0Tgg50/)__"
     "\n> __[Composition Tags](https://danbooru.donmai.us/wiki_pages/tag_group:image_composition)__"
     "\n> __[Tag Groups](https://danbooru.donmai.us/wiki_pages/tag_groups)__"
     "\n> __[Waifu Diffusion 1.3 Release Notes](https://gist.github.com/harubaru/f727cedacae336d1f7877c4bbe2196e1)__"
@@ -840,7 +841,7 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("image", "image to run diffusion on", required = False,type = hikari.Attachment)
 @lightbulb.option("seed", "(Optional) Seed for diffusion", required = False,type = int, min_value=0)
 @lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, default=7, max_value=100, min_value=-100)
-@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:20)", required = False,type = int, default=30, max_value=100, min_value=1)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required = False,type = int, default=15, max_value=100, min_value=1)
 @lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
 @lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ")
 @lightbulb.command("admingenerategif", "Generate a series of results")
@@ -1040,7 +1041,6 @@ def get_user_config(userid:str)->dict:
         #write a default config to the userid
         load_config()
         userconfig[userid] = {"UseDefaultQualityPrompt" : True,"DefaultQualityPrompt":config["NewUserQualityPrompt"],"UseDefaultNegativePrompt" : True,"DefaultNegativePrompt":config["NewUserNegativePrompt"]}
-        print("User:" + userid + "loaded default user config.")
         return userconfig[userid]
 def save_user_config(userid:str,saveconfig):
     os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
