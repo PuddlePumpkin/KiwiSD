@@ -1034,9 +1034,9 @@ def option_to_bool(option)->bool:
     try:
         false_strings = ["off", "false", "no"]
         true_strings = ["on", "true", "yes"]
-        if str(option).lower() in false_strings:
+        if str(option).lower().strip() in false_strings:
             return False
-        elif str(option).lower() in true_strings:
+        elif str(option).lower().strip() in true_strings:
             return True
         else: return False
     except: return False
@@ -1053,7 +1053,7 @@ def get_user_config(userid:str)->dict:
     else:
         #write a default config to the userid
         load_config()
-        userconfig[userid] = {"UseDefaultQualityPrompt" : True,"DefaultQualityPrompt":config["NewUserQualityPrompt"],"UseDefaultNegativePrompt" : True,"DefaultNegativePrompt":config["NewUserNegativePrompt"]}
+        userconfig[userid] = {"UseDefaultQualityPrompt" : False,"DefaultQualityPrompt":config["NewUserQualityPrompt"],"UseDefaultNegativePrompt" : True,"DefaultNegativePrompt":config["NewUserNegativePrompt"]}
         return userconfig[userid]
 def save_user_config(userid:str,saveconfig):
     os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
@@ -1065,20 +1065,20 @@ def save_user_config(userid:str,saveconfig):
         
 
 @bot.command()
-@lightbulb.option("value", "(optional if no key) value to change it to",required=False,type=str)
+@lightbulb.option("value", "(optional if no setting) value to change it to",required=False,type=str)
 @lightbulb.option("setting", "(optional) which setting to change",required=False,choices=["UseDefaultQualityPrompt","DefaultQualityPrompt","UseDefaultNegativePrompt","DefaultNegativePrompt",],type=str)
 @lightbulb.command("settings", "View or modify your personal user settings")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def settings(ctx: lightbulb.SlashContext) -> None:
     userconfig = get_user_config(str(ctx.author.id))
-    if ctx.options.key != None:
+    if ctx.options.setting != None:
         #Bool settings
-        if ctx.options.key in ["UseDefaultNegativePrompt", "UseDefaultQualityPrompt"]:
-            userconfig[ctx.options.key] = option_to_bool(ctx.options.value)
-        elif ctx.options.key in ["DefaultNegativePrompt","DefaultQualityPrompt"]:
-            userconfig[ctx.options.key] = ctx.options.value
+        if ctx.options.setting in ["UseDefaultNegativePrompt", "UseDefaultQualityPrompt"]:
+            userconfig[ctx.options.setting] = option_to_bool(ctx.options.value)
+        elif ctx.options.setting in ["DefaultNegativePrompt","DefaultQualityPrompt"]:
+            userconfig[ctx.options.setting] = ctx.options.value
         else:
-            await ctx.respond("> I don't understand that key!")
+            await ctx.respond("> I don't understand that setting!")
             return
         save_user_config(str(ctx.author.id),userconfig)
     embed = hikari.Embed(title="User Settings:",colour=ctx.author.accent_color).set_author(name=ctx.member.nickname,icon=ctx.member.avatar_url)
@@ -1097,26 +1097,26 @@ async def settings(ctx: lightbulb.SlashContext) -> None:
 async def adminsettings(ctx: lightbulb.SlashContext) -> None:
     global config
     load_config()
-    if ctx.options.key != None:
+    if ctx.options.setting != None:
         if str(ctx.author.id) in get_admin_list():
             #Bools
-            if ctx.options.key in ["AnnounceReadyMessage", "ShowDefaultPrompts"]:
-                    config[ctx.options.key] = option_to_bool(ctx.options.value)
+            if ctx.options.setting in ["AnnounceReadyMessage", "ShowDefaultPrompts"]:
+                    config[ctx.options.setting] = option_to_bool(ctx.options.value)
             #Ints
-            elif ctx.options.key in ["MaxSteps"]:
+            elif ctx.options.setting in ["MaxSteps"]:
                 if int(ctx.options.value) > 1:
                     if int(ctx.options.value) < 500:
-                        config[ctx.options.key] = int(ctx.options.value)
+                        config[ctx.options.setting] = int(ctx.options.value)
                     else:
-                        config[ctx.options.key] = 500
+                        config[ctx.options.setting] = 500
                 else:
-                    config[ctx.options.key] = 1
+                    config[ctx.options.setting] = 1
             #Strings
-            elif ctx.options.key in ["AdminList","NewUserNegativePrompt","NewUserQualityPrompt","TodoString","ReadyMessage"]:
-                config[ctx.options.key] = ctx.options.value
-            #Invalid Key
+            elif ctx.options.setting in ["AdminList","NewUserNegativePrompt","NewUserQualityPrompt","TodoString","ReadyMessage"]:
+                config[ctx.options.setting] = ctx.options.value
+            #Invalid setting
             else:
-                await ctx.respond("> I don't understand that key!")
+                await ctx.respond("> I don't understand that setting!")
                 return
         else:
             await ctx.respond("> Sorry, you must have permission to edit these settings!")
