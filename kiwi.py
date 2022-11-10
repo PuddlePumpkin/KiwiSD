@@ -142,14 +142,11 @@ def change_pipeline(modelpath):
         del text_encoder
     except:
         pass
+    print("Changing model to: " + modelpath)
     tokenizer = CLIPTokenizer.from_pretrained(modelpaths[modelpath],subfolder="tokenizer", use_auth_token="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")
     text_encoder = CLIPTextModel.from_pretrained(modelpaths[modelpath], subfolder="text_encoder", use_auth_token="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", torch_dtype=torch.float16)
     for file in embedlist:
-        #print(str(file))
         load_learned_embed_in_clip("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/" + str(file), text_encoder, tokenizer)
-    #KLMS scheduler = LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
-    #Euler scheduler = EulerDiscreteScheduler()
-    #DPM++ scheduler = DPMSolverMultistepScheduler.from_config("C:/Users/keira/Desktop/GITHUB/Kiwi/models/waifudiffusion",subfolder="scheduler",solver_order=2,predict_x0=True,thresholding=False,solver_type="dpm_solver",denoise_final=True,  # the influence of this trick is effective for small (e.g. <=10) steps)
     curmodelpath = modelpaths[modelpath]
     if(modelpath=="Stable Diffusion"):
         try:    
@@ -165,7 +162,6 @@ def change_pipeline(modelpath):
             pass
         gc.collect()
         pipe = StableDiffusionPipeline.from_pretrained(modelpaths[modelpath],revision="fp16", custom_pipeline="lpw_stable_diffusion", torch_dtype=torch.float16, text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to("cuda")
-    #pipe.scheduler = scheduler
     pipe.enable_attention_slicing()
 change_pipeline("Waifu Diffusion")
 #----------------------------------
