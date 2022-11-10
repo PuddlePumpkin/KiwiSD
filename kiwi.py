@@ -23,7 +23,6 @@ import traceback
 from urllib.parse import urlparse
 from hikari.api import ActionRowBuilder
 from lightbulb.ext import tasks
-from diffusers import StableDiffusionPipeline
 from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
 from huggingface_hub import hf_hub_download
 import glob
@@ -35,41 +34,46 @@ import json
 #----------------------------------
 #Setup
 #----------------------------------
+os.chdir(str(os.path.abspath(os.path.dirname(__file__))))
 def save_config():
-    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
     global config
     with open("kiwiconfig.json", "w") as outfile:
         json.dump(config,outfile)
 
 def load_config():
     global config
-    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
     with open('kiwiconfig.json', 'r') as openfile:
         config = json.load(openfile)
 
-modelpaths = {
-"Stable Diffusion" : "C:/Users/keira/Desktop/GITHUB/Kiwi/models/stablediffusion",
-"Waifu Diffusion" : "C:/Users/keira/Desktop/GITHUB/Kiwi/models/waifudiffusion",
-"Yabai Diffusion" : "C:/Users/keira/Desktop/GITHUB/Kiwi/models/naidiffusers",
-}
-os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings")
+model_list = {}
+def populate_model_list():
+    global model_list
+    for folder in next(os.walk('./models'))[1]:
+        json_list = list(Path("./models/"+folder).rglob("*[mM][oO][dD][eE][lL].[jJ][sS][oO][nN]"))
+        if len(json_list) == 0:
+            model_list[folder] = {"ModelCommandName":folder, "ModelPath":"./models/" + folder}
+        else:
+            with open(json_list[0], 'r') as openfile:
+                open_json = json.load(openfile)
+                #print(open_json["ModelCommandName"])
+                open_json["ModelPath"] = "./models/" + folder
+                model_list[open_json["ModelCommandName"]] = open_json
+populate_model_list()
+
 embedlist = []
-embedlist = list(Path(".").rglob("*.[bB][iI][nN]"))
+embedlist = list(Path("./embeddings/").rglob("*.[bB][iI][nN]"))
 #embedlist = embedlist + (list(Path(".").rglob("*.[pP][tT]")))
 #print(embedlist)
-curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
 config = {}
 load_config()
 genThread = Thread()
 botBusy = False
 awaitingEmbed = None
 awaitingProxy = None
-curmodelpath = ""
+curmodel = ""
 regentitles = ["I'll try again!... ", "Sorry if I didn't do good enough... ", "I'll try my best to do better... "]
 outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
 titles =  ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
-os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
-
 
 #----------------------------------
 #load embeddings Function
@@ -120,7 +124,7 @@ def load_learned_embed_in_clip(learned_embeds_path, text_encoder, tokenizer, tok
             num_added_tokens = tokenizer.add_tokens(token)
             if num_added_tokens == 0:
                 raise ValueError(f"The tokenizer already contains the token {token}. Please pass a different `token` that is not already in the tokenizer.")
-            print("Token: " + token)
+            print(token)
             # resize the token embeddings
             if not 'string_to_param' in loaded_learned_embeds:
                 text_encoder.resize_token_embeddings(len(tokenizer))
@@ -131,40 +135,32 @@ def load_learned_embed_in_clip(learned_embeds_path, text_encoder, tokenizer, tok
 #----------------------------------
 #Change Pipeline Function
 #----------------------------------
-def change_pipeline(modelpath):
-    global modelpaths
+def change_pipeline(modelname):
     global pipe
-    global curmodelpath
+    global curmodel
     global tokenizer
     global text_encoder
+    global model_list
     try:
         del tokenizer
         del text_encoder
     except:
         pass
-    print("\nChanging model to: " + modelpath)
-    tokenizer = CLIPTokenizer.from_pretrained(modelpaths[modelpath],subfolder="tokenizer", use_auth_token="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")
-    text_encoder = CLIPTextModel.from_pretrained(modelpaths[modelpath], subfolder="text_encoder", use_auth_token="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", torch_dtype=torch.float16)
+    print("\nChanging model to: " + modelname)
+    tokenizer = CLIPTokenizer.from_pretrained(model_list[modelname]["ModelPath"],subfolder="tokenizer", use_auth_token="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")
+    text_encoder = CLIPTextModel.from_pretrained(model_list[modelname]["ModelPath"], subfolder="text_encoder", use_auth_token="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", torch_dtype=torch.float16)
+    print("\nLoading Embeds...")
     for file in embedlist:
-        load_learned_embed_in_clip("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/" + str(file), text_encoder, tokenizer)
-    curmodelpath = modelpaths[modelpath]
-    if(modelpath=="Stable Diffusion"):
-        try:    
-            del pipe
-        except:
-            pass
-        gc.collect()
-        pipe = StableDiffusionPipeline.from_pretrained(modelpaths[modelpath],custom_pipeline="lpw_stable_diffusion",use_auth_token="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",torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
-    else:
-        try:
-            del pipe
-        except:
-            pass
-        gc.collect()
-        pipe = StableDiffusionPipeline.from_pretrained(modelpaths[modelpath],revision="fp16", custom_pipeline="lpw_stable_diffusion", torch_dtype=torch.float16, text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to("cuda")
-    print(modelpath + " loaded.\n")
+        load_learned_embed_in_clip(str(file), text_encoder, tokenizer)
+    curmodel = model_list[modelname]
+    try:    
+        del pipe
+    except:
+        pass
+    gc.collect()
+    pipe = StableDiffusionPipeline.from_pretrained(model_list[modelname]["ModelPath"],custom_pipeline="lpw_stable_diffusion",use_auth_token="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",torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
+    print(modelname + " loaded.\n")
     pipe.enable_attention_slicing()
-change_pipeline("Waifu Diffusion")
 #----------------------------------
 #Filecount Function
 #----------------------------------
@@ -237,19 +233,20 @@ def get_embed(Prompt,NegativePrompt:str, GuideScale, InfSteps, Seed, File, Image
     else:
         footer = ("{:30s}{:30s}".format("Guidance Scale: "+str(GuideScale), "Inference Steps: "+str(InfSteps))+"\n"+"{:30s}{:30s}".format("Seed: "+str(Seed), "Sampler: "+ str(Scheduler)))
     f = hikari.File(File)
-    embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel).set_image(f)
-    if curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png":
-        embed.title = "Stable Diffusion v1.5 - Result:"
+    try:
+        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer, icon = curmodel["ModelThumbnail"]).set_image(f)
+    except:
+        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_footer(text = footer).set_image(f)
+    try:
+        embed.title = curmodel["ModelDetailedName"] + " - Result:"
+    except:
+        embed.title = curmodel["ModelCommandName"] + " - Result:"
+    try:
+        embed.color = hikari.Colour(int(curmodel["ModelColor"],16))
+    except:
         embed.color = hikari.Colour(0xff8f87)
-    elif curmodel == "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png":
-        embed.title = "Waifu Diffusion v1.3 - Result:"
-        embed.color = hikari.Colour(0x56aaf8)
-    else:
-        embed.title = "Yabai Diffusion v??? - Result:"
-        embed.color = hikari.Colour(0xff985c)
     if imgurl != None:
         embed.set_thumbnail(imgurl)
-    
     if ((Prompt != None) and (Prompt!= "None") and (Prompt!= "")):
         embed.add_field("Prompt:",Prompt)
     if ((NegativePrompt != None) and (NegativePrompt!= "None") and (NegativePrompt!= "")):
@@ -360,7 +357,7 @@ class genImgThreadClass(Thread):
     def run(self):
         global outputDirectory
         global pipe
-        global curmodelpath
+        global curmodel
         global botBusy
         #Handle Scheduler
         if(self.request.scheduler==None or self.request.scheduler=="0"):
@@ -376,7 +373,7 @@ class genImgThreadClass(Thread):
         elif self.request.scheduler == "PNDM":
             scheduler = PNDMScheduler(beta_end=0.012,beta_schedule="scaled_linear",beta_start=0.00085,num_train_timesteps=1000,set_alpha_to_one=False,skip_prk_steps=True,steps_offset=1,trained_betas=None)
         elif self.request.scheduler == "DPM++":
-            scheduler = DPMSolverMultistepScheduler.from_config(curmodelpath,subfolder="scheduler",solver_order=2,predict_x0=True,thresholding=False,solver_type="dpm_solver",denoise_final=True)  # the influence of this trick is effective for small (e.g. <=10) steps)
+            scheduler = DPMSolverMultistepScheduler.from_config(curmodel["ModelPath"],subfolder="scheduler",solver_order=2,predict_x0=True,thresholding=False,solver_type="dpm_solver",denoise_final=True)  # the influence of this trick is effective for small (e.g. <=10) steps)
         pipe.scheduler = scheduler
         #Handle prompt
         if(self.request.prompt==None or self.request.prompt=="0"):
@@ -728,8 +725,12 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
         else:
             url = "0"
 
-        #--Embed                  
-        embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://i.imgur.com/21reOYm.gif").set_footer(text = "", icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+        #--Embed
+        try:       
+            embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://i.imgur.com/21reOYm.gif").set_footer(text = "", icon = curmodel["ModelThumbnail"]).set_image("https://i.imgur.com/ZCalIbz.gif")
+        except:
+            embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://i.imgur.com/21reOYm.gif").set_image("https://i.imgur.com/ZCalIbz.gif")
+
         respProxy = await ctx.respond(embed)
         #-------
         threadmanager = threadManager()
@@ -866,7 +867,7 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
         await ctx.respond("> Sorry, kiwi is busy!")
         return
     botBusy = True
-    outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/animation/"
+    outputDirectory = "./animation/"
     try:
         embed = hikari.Embed(title=("Animation in progress, This may take a while..."),colour=hikari.Colour(0xFFFFFF)).set_thumbnail("https://i.imgur.com/21reOYm.gif")
         await ctx.respond(embed)
@@ -977,34 +978,20 @@ async def deletelast(ctx: lightbulb.SlashContext) -> None:
 #Change Model Command
 #----------------------------------
 @bot.command()
-@lightbulb.option("model", "which model to load",choices=["Stable Diffusion","Waifu Diffusion","Yabai Diffusion"],required=True)
+@lightbulb.option("model", "which model to load",choices=model_list.keys(),required=True)
 @lightbulb.command("changemodel", "switches model between stable diffusion / waifu diffusion / yabai diffusion")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def changemodel(ctx: lightbulb.SlashContext) -> None:
     global pipe
-    global curmodel
     global botBusy
+    global model_list
     if botBusy:
         await ctx.respond("> Sorry, kiwi is busy!")
         return
     botBusy = True
-    if ctx.options.model.startswith("S"):
-        await ctx.respond("> **Loading Stable Diffusion v1.5**")
-        change_pipeline("Stable Diffusion")
-        await ctx.edit_last_response("> **Loaded Stable Diffusion v1.5**")
-        curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png"
-    elif ctx.options.model.startswith("W"):
-        await ctx.respond("> **Loading Waifu Diffusion v1.3**")
-        change_pipeline('Waifu Diffusion')
-        await ctx.edit_last_response("> **Loaded Waifu Diffusion v1.3**")
-        curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1034513266719866950/WD-01.png"
-    elif ctx.options.model.startswith("Y"):
-        await ctx.respond("> **Loading Yabai Diffusion v???**")
-        change_pipeline('Yabai Diffusion')
-        await ctx.edit_last_response("> **Loaded Yabai Diffusion v???**")
-        curmodel = "https://cdn.discordapp.com/attachments/672892614613139471/1038241897514283109/YD-01.png"
-    else:
-        await ctx.respond("> **I don't understand** <:scootcry:1033114138366443600>")
+    await ctx.respond("> **Loading "+ model_list[ctx.options.model]["ModelCommandName"] + "**")
+    change_pipeline(ctx.options.model)
+    await ctx.edit_last_response("> **Loaded Stable Diffusion v1.5**")
     botBusy = False
 
 #----------------------------------
@@ -1045,7 +1032,6 @@ def get_admin_list()->list:
     return config["AdminList"].replace(", ","").replace(" ,","").replace(" , ","").split(",")
 def get_user_config(userid:str)->dict:
     global config
-    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
     with open('usersettings.json', 'r') as openfile:
         userconfig = json.load(openfile)
     if userid in userconfig:
@@ -1056,7 +1042,6 @@ def get_user_config(userid:str)->dict:
         userconfig[userid] = {"UseDefaultQualityPrompt" : False,"DefaultQualityPrompt":config["NewUserQualityPrompt"],"UseDefaultNegativePrompt" : True,"DefaultNegativePrompt":config["NewUserNegativePrompt"]}
         return userconfig[userid]
 def save_user_config(userid:str,saveconfig):
-    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
     with open('usersettings.json', 'r') as openfile:
         userconfigs = json.load(openfile)
         userconfigs[userid] = saveconfig
@@ -1142,19 +1127,16 @@ async def styles(ctx: lightbulb.SlashContext) -> None:
     global embedlist
     SDembedliststr = ""
     WDembedliststr = ""
-    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/sd")
-    identifierlist = list(Path(".").rglob("**/*token_identifier*"))
+    identifierlist = list(Path("./embeddings/sd/").rglob("**/*token_identifier*"))
     for file in identifierlist:
         fileOpened = open(str(file),"r")
         SDembedliststr = SDembedliststr + fileOpened.readline() + "\n"
         fileOpened.close()
-    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/wd")
-    identifierlist = list(Path(".").rglob("**/*token_identifier*"))
+    identifierlist = list(Path("./embeddings/wd/").rglob("**/*token_identifier*"))
     for file in identifierlist:
         fileOpened = open(str(file),"r")
         WDembedliststr = WDembedliststr + fileOpened.readline() + "\n"
         fileOpened.close()
-    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/")
     embed = hikari.Embed(title="Style list:",colour=hikari.Colour(0xabaeff),description="These embeddings trained via textual inversion are currently loaded, add them exactly as listed in your prompt to have an effect on the output, styles may work best at beginning of the prompt, and characters/objects after.")
     embed.add_field("Waifu Diffusion:",WDembedliststr)
     embed.add_field("Stable Diffusion:",SDembedliststr)
@@ -1184,22 +1166,19 @@ def image_grid(imgs, rows, cols):
 @lightbulb.implements(lightbulb.SlashCommand)
 async def styleinfo(ctx: lightbulb.SlashContext) -> None:
     #find matching embedding folder
-    os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings")
-    identifierlist = list(Path(".").rglob("**/*token_identifier*"))
+    identifierlist = list(Path("./embeddings/").rglob("**/*token_identifier*"))
     for file in identifierlist:
-        os.chdir("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings")
         fileOpened = open(str(file),"r")
         if fileOpened.readline() == ctx.options.style:
             fileOpened.close()
             #fileOpened = open(str(file.parent) + "\\README.md","r")
             embed = hikari.Embed(title=ctx.options.style + " - Training Dataset:",colour=hikari.Colour(0xabaeff))
-            savedpath = "C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/" + str(file.parent)
+            savedpath = "./embeddings/" + str(file.parent)
             if not os.path.exists(str(file.parent) + "\\imageStored.txt"):
                 #print(Path("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/" + str(file.parent) + "/concept_images/"))
-                os.chdir(Path("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/" + str(file.parent) + "/concept_images/"))
                 imagepathlist = []
                 imagelimitCounter = 0
-                for filename in os.listdir():
+                for filename in os.listdir(Path("./embeddings/" + str(file.parent) + "/concept_images/")):
                     if imagelimitCounter<9:
                         imagepathlist.append(filename)
                         imagelimitCounter = imagelimitCounter + 1
@@ -1247,8 +1226,7 @@ async def styleinfo(ctx: lightbulb.SlashContext) -> None:
                 embed.set_image(fileOpened.readline())
             proxy = await ctx.respond(embed)
             proxyresponse = await proxy.message()
-            os.chdir(savedpath)
-            fileOpened = open("imageStored.txt","w")
+            fileOpened = open(str(savedpath)+"imageStored.txt","w")
             fileOpened.writelines(proxyresponse.embeds[0].image.url)
             return
         else:
