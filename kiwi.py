@@ -51,7 +51,7 @@ def populate_model_list():
     for folder in next(os.walk('./models'))[1]:
         json_list = list(Path("./models/"+folder).rglob("*[mM][oO][dD][eE][lL].[jJ][sS][oO][nN]"))
         if len(json_list) == 0:
-            model_list[folder] = {"ModelCommandName":folder, "ModelPath":"./models/" + folder}
+            model_list[folder] = {"ModelCommandName":folder, "ModelPath":"./models/" + folder, "ModelDetailedName":folder}
         else:
             with open(json_list[0], 'r') as openfile:
                 open_json = json.load(openfile)
@@ -72,7 +72,7 @@ awaitingEmbed = None
 awaitingProxy = None
 curmodel = ""
 regentitles = ["I'll try again!... ", "Sorry if I didn't do good enough... ", "I'll try my best to do better... "]
-outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
+outputDirectory = "./results/"
 titles =  ["I'll try to make that for you!...", "Maybe I could make that...", "I'll try my best!...", "This might be tricky to make..."]
 
 #----------------------------------
@@ -444,15 +444,6 @@ class genImgThreadClass(Thread):
             else:
                 self.request.strength = None
                 
-
-        #Handle seed
-        if(self.request.seed==0 or self.request.seed==None):
-            self.request.seed = random.randint(1,100000000)
-            #if self.request.regenerate:
-            #    if self.previous_request.seed != None:
-            #        self.request.seed = self.previous_request.seed
-        generator = torch.Generator("cuda").manual_seed(self.request.seed)  
-
         #Handle Width
         if(self.request.width==0 or self.request.width== "0" or self.request.width==None):
                 self.request.width = 512
@@ -467,6 +458,11 @@ class genImgThreadClass(Thread):
                     if self.previous_request.height != None:
                         self.request.height = self.previous_request.height
         
+        #Handle seed
+        if(self.request.seed==0 or self.request.seed==None):
+            self.request.seed = random.randint(1,100000000)
+        generator = torch.Generator("cuda").manual_seed(self.request.seed)
+
         #handle overprocess
         if self.request.regenerate:
             if self.previous_request.overProcess != None:
@@ -711,8 +707,11 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
     if botBusy:
         await ctx.respond("> Sorry, kiwi is busy!")
         return
+    if curmodel == None or curmodel == "":
+        await ctx.respond("> Please load a model with **/changemodel**")
+        return
     botBusy = True
-    outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
+    outputDirectory = "./results/"
     try:
         if(ctx.options.image != None):
             url = ctx.options.image.url
@@ -768,16 +767,18 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.implements(lightbulb.SlashCommand)
 async def regenerate(ctx: lightbulb.SlashContext) -> None:
     global curmodel
-    global regentitles
+    global titles
     global outputDirectory
     global botBusy
-    global config
     global previous_request
     if botBusy:
         await ctx.respond("> Sorry, kiwi is busy!")
         return
+    if curmodel == None or curmodel == "":
+        await ctx.respond("> Please load a model with **/changemodel**")
+        return
     botBusy = True
-    outputDirectory = "C:/Users/keira/Desktop/GITHUB/Kiwi/results/"
+    outputDirectory = "./results/"
     try:
         if(ctx.options.image != None):
             url = ctx.options.image.url
@@ -790,13 +791,18 @@ async def regenerate(ctx: lightbulb.SlashContext) -> None:
         else:
             url = "0"
 
-        #--Embed                  
-        embed = hikari.Embed(title=random.choice(regentitles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://media.discordapp.net/stickers/976356216215334953.webp").set_footer(text = "", icon = curmodel).set_image("https://i.imgur.com/ZCalIbz.gif")
+        #--Embed
+        try:       
+            embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://i.imgur.com/21reOYm.gif").set_footer(text = "", icon = curmodel["ModelThumbnail"]).set_image("https://i.imgur.com/ZCalIbz.gif")
+        except:
+            embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://i.imgur.com/21reOYm.gif").set_image("https://i.imgur.com/ZCalIbz.gif")
+
         respProxy = await ctx.respond(embed)
         #-------
         threadmanager = threadManager()
+        userconfig = get_user_config(str(ctx.author.id))
         load_config()
-        requestObject = imageRequest(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,config,regenerate=True,scheduler=ctx.options.sampler)
+        requestObject = imageRequest(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,scheduler=ctx.options.sampler,userconfig=userconfig,regenerate=True)
         thread = threadmanager.New_Thread(requestObject,previous_request)
         thread.start()
     except Exception:
@@ -989,9 +995,12 @@ async def changemodel(ctx: lightbulb.SlashContext) -> None:
         await ctx.respond("> Sorry, kiwi is busy!")
         return
     botBusy = True
-    await ctx.respond("> **Loading "+ model_list[ctx.options.model]["ModelCommandName"] + "**")
+    embed = hikari.Embed(title="Loading "+ model_list[ctx.options.model]["ModelDetailedName"],colour=hikari.Colour(0xff1100))
+    await ctx.respond(embed)
     change_pipeline(ctx.options.model)
-    await ctx.edit_last_response("> **Loaded Stable Diffusion v1.5**")
+    embed.color = hikari.Colour(0x00ff1a)
+    embed.title = "Loaded "+ model_list[ctx.options.model]["ModelDetailedName"]
+    await ctx.edit_last_response(embed)
     botBusy = False
 
 #----------------------------------
@@ -1175,7 +1184,6 @@ async def styleinfo(ctx: lightbulb.SlashContext) -> None:
             embed = hikari.Embed(title=ctx.options.style + " - Training Dataset:",colour=hikari.Colour(0xabaeff))
             savedpath = "./embeddings/" + str(file.parent)
             if not os.path.exists(str(file.parent) + "\\imageStored.txt"):
-                #print(Path("C:/Users/keira/Desktop/GITHUB/Kiwi/embeddings/" + str(file.parent) + "/concept_images/"))
                 imagepathlist = []
                 imagelimitCounter = 0
                 for filename in os.listdir(Path("./embeddings/" + str(file.parent) + "/concept_images/")):
