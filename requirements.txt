@@ -14,4 +14,3 @@ transformers
 scipy
 ftfy
 accelerate
-joblib

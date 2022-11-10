@@ -135,6 +135,13 @@ def change_pipeline(modelpath):
     global modelpaths
     global pipe
     global curmodelpath
+    global tokenizer
+    global text_encoder
+    try:
+        del tokenizer
+        del text_encoder
+    except:
+        pass
     tokenizer = CLIPTokenizer.from_pretrained(modelpaths[modelpath],subfolder="tokenizer", use_auth_token="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")
     text_encoder = CLIPTextModel.from_pretrained(modelpaths[modelpath], subfolder="text_encoder", use_auth_token="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", torch_dtype=torch.float16)
     for file in embedlist:
@@ -145,8 +152,12 @@ def change_pipeline(modelpath):
     #DPM++ scheduler = DPMSolverMultistepScheduler.from_config("C:/Users/keira/Desktop/GITHUB/Kiwi/models/waifudiffusion",subfolder="scheduler",solver_order=2,predict_x0=True,thresholding=False,solver_type="dpm_solver",denoise_final=True,  # the influence of this trick is effective for small (e.g. <=10) steps)
     curmodelpath = modelpaths[modelpath]
     if(modelpath=="Stable Diffusion"):
+        del pipe
+        gc.collect()
         pipe = StableDiffusionPipeline.from_pretrained(modelpaths[modelpath],custom_pipeline="lpw_stable_diffusion",use_auth_token="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",torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
     else:
+        del pipe
+        gc.collect()
         pipe = StableDiffusionPipeline.from_pretrained(modelpaths[modelpath],revision="fp16", custom_pipeline="lpw_stable_diffusion", torch_dtype=torch.float16, text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to("cuda")
     #pipe.scheduler = scheduler
     pipe.enable_attention_slicing()
@@ -678,7 +689,6 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
 #Generate Command
 #----------------------------------
 @bot.command
-@lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("sampler", "(Optional) Which scheduler to use", required = False,type = str, default = "DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
@@ -1053,7 +1063,7 @@ def save_user_config(userid:str,saveconfig):
 
 @bot.command()
 @lightbulb.option("value", "(optional if no key) value to change it to",required=False,type=str)
-@lightbulb.option("key", "(optional) which setting to change",required=False,choices=["UseDefaultQualityPrompt","DefaultQualityPrompt","UseDefaultNegativePrompt","DefaultNegativePrompt",],type=str)
+@lightbulb.option("setting", "(optional) which setting to change",required=False,choices=["UseDefaultQualityPrompt","DefaultQualityPrompt","UseDefaultNegativePrompt","DefaultNegativePrompt",],type=str)
 @lightbulb.command("settings", "View or modify your personal user settings")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def settings(ctx: lightbulb.SlashContext) -> None:
@@ -1078,7 +1088,7 @@ async def settings(ctx: lightbulb.SlashContext) -> None:
 
 @bot.command()
 @lightbulb.option("value", "(optional if no key) value to change it to",required=False,type=str)
-@lightbulb.option("key", "(optional) which setting to change",required=False,choices=["ShowDefaultPrompts","NewUserNegativePrompt","NewUserQualityPrompt","AdminList","TodoString","AnnounceReadyMessage","ReadyMessage","MaxSteps"],type=str)
+@lightbulb.option("setting", "(optional) which setting to change",required=False,choices=["ShowDefaultPrompts","NewUserNegativePrompt","NewUserQualityPrompt","AdminList","TodoString","AnnounceReadyMessage","ReadyMessage","MaxSteps"],type=str)
 @lightbulb.command("adminsettings", "View or modify settings")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def adminsettings(ctx: lightbulb.SlashContext) -> None:
