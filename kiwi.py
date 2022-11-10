@@ -142,7 +142,7 @@ def change_pipeline(modelpath):
         del text_encoder
     except:
         pass
-    print("Changing model to: " + modelpath)
+    print("\nChanging model to: " + modelpath)
     tokenizer = CLIPTokenizer.from_pretrained(modelpaths[modelpath],subfolder="tokenizer", use_auth_token="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")
     text_encoder = CLIPTextModel.from_pretrained(modelpaths[modelpath], subfolder="text_encoder", use_auth_token="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", torch_dtype=torch.float16)
     for file in embedlist:
@@ -162,6 +162,7 @@ def change_pipeline(modelpath):
             pass
         gc.collect()
         pipe = StableDiffusionPipeline.from_pretrained(modelpaths[modelpath],revision="fp16", custom_pipeline="lpw_stable_diffusion", torch_dtype=torch.float16, text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to("cuda")
+    print(modelpath + " loaded.\n")
     pipe.enable_attention_slicing()
 change_pipeline("Waifu Diffusion")
 #----------------------------------
