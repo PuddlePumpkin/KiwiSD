@@ -595,15 +595,19 @@ async def checkForCompletion():
     global awaitingAuthor
     global botBusy
     if awaitingEmbed!=None and awaitingProxy!=None:
-        emy = awaitingEmbed
+        emb = awaitingEmbed
         prx = awaitingProxy
-        rows = await generate_rows(bot)
+        ath = awaitingAuthor
         awaitingEmbed = None
         awaitingProxy = None
-        message = await prx.edit(emy,components=rows)
-        await handle_responses(bot, awaitingAuthor, message)
+        awaitingAuthor = None
+        rows = await generate_rows(bot)
+        message = await prx.edit(emb,components=rows)
+        asyncio.create_task(firehandleresponses(bot,ath,message))
         botBusy = False
-        
+
+async def firehandleresponses(bot, ath, message):
+    await handle_responses(bot, ath, message)
 #----------------------------------
 #Image to Command
 #----------------------------------
