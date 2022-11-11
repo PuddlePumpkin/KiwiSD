@@ -70,6 +70,7 @@ genThread = Thread()
 botBusy = False
 awaitingEmbed = None
 awaitingProxy = None
+awaitingAuthor = None
 curmodel = ""
 regentitles = ["I'll try again!... ", "Sorry if I didn't do good enough... ", "I'll try my best to do better... "]
 outputDirectory = "./results/"
@@ -263,37 +264,14 @@ async def generate_rows(bot: lightbulb.BotApp):
     rows.append(row)
     return rows
 
-async def handle_responses(
-    bot: lightbulb.BotApp,
-    author: hikari.User,
-    message: hikari.Message,
-) -> None:
+async def handle_responses(bot: lightbulb.BotApp,author: hikari.User,message: hikari.Message,) -> None:
     """Watches for events, and handles responding to them."""
-
-    # Now we need to check if the user who ran the command interacts
-    # with our buttons, we stop watching after 60 seconds of
-    # inactivity.
-    with bot.stream(hikari.InteractionCreateEvent, 60).filter(
-        # Here we filter out events we don't care about.
-        lambda e: (
-            # A component interaction is a button interaction.
-            isinstance(e.interaction, hikari.ComponentInteraction)
-            # Make sure the command author hit the button.
-            and e.interaction.user == author
-            # Make sure the button was attached to our message.
-            and e.interaction.message == message
-        )
-    ) as stream:
+    with bot.stream(hikari.InteractionCreateEvent, 60).filter(lambda e:(isinstance(e.interaction, hikari.ComponentInteraction) and e.interaction.user == author and e.interaction.message == message)) as stream:
         async for event in stream:
             cid = event.interaction.custom_id
-            # If we haven't responded to the interaction yet, we
-            # need to create the initial response. Otherwise, we
-            # need to edit the initial response.
             await bot.rest.delete_message(672892614613139471,message)
             return
     # Once were back outside the stream loop, it's been 2 minutes since
-    # the last interaction and it's time now to remove the buttons from
-    # the message to prevent further interaction.
     await message.edit(
         # Set components to an empty list to get rid of them.
         components=[]
@@ -315,7 +293,7 @@ def remove_duplicates(string:str)->str:
     return s.join(result)
 
 class imageRequest(object):
-    def __init__(self,Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,resultImage=None,regenerate=False, overProcess=False, scheduler=None, userconfig=None):
+    def __init__(self,Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,resultImage=None,regenerate=False, overProcess=False, scheduler=None, userconfig=None, author = None):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
@@ -331,19 +309,22 @@ class imageRequest(object):
         self.overProcess = overProcess
         self.scheduler = scheduler
         self.userconfig = userconfig
+        self.author = author
 
 previous_request = imageRequest()
 
 class threadManager(object):
     def New_Thread(self, request:imageRequest = None, previous_request:imageRequest = None):
         return genImgThreadClass(parent=self, request=request, previous_request=previous_request)
-    def on_thread_finished(self, thread, data:hikari.Embed, request:imageRequest, proxy:lightbulb.ResponseProxy):
+    def on_thread_finished(self, thread, data:hikari.Embed, request:imageRequest, proxy:lightbulb.ResponseProxy, author:hikari.User):
         global awaitingProxy
         global awaitingEmbed
         global previous_request
+        global awaitingAuthor
         previous_request = request
         awaitingProxy = proxy
         awaitingEmbed = data
+        awaitingAuthor = author
 
 class genImgThreadClass(Thread):
     #----------------------------------
@@ -519,7 +500,7 @@ class genImgThreadClass(Thread):
         image.save(outputDirectory + str(countStr) + ".png", pnginfo=metadata)
         botBusy = False
         outEmbed = get_embed(self.request.prompt,self.request.negativePrompt,self.request.guideScale,self.request.infSteps,self.request.seed,outputDirectory + str(countStr) + ".png",self.request.strength,False,self.request.scheduler,self.request.userconfig,self.request.imgUrl)
-        self.parent and self.parent.on_thread_finished(self, outEmbed, self.request, self.request.proxy)
+        self.parent and self.parent.on_thread_finished(self, outEmbed, self.request, self.request.proxy, self.request.author)
 
 
 
@@ -611,13 +592,16 @@ async def metadata(ctx: lightbulb.SlashContext) -> None:
 async def checkForCompletion():
     global awaitingProxy
     global awaitingEmbed
+    global awaitingAuthor
     global botBusy
     if awaitingEmbed!=None and awaitingProxy!=None:
         emy = awaitingEmbed
         prx = awaitingProxy
+        rows = await generate_rows(bot)
         awaitingEmbed = None
         awaitingProxy = None
-        await prx.edit(emy)
+        message = await prx.edit(emy,components=rows)
+        await handle_responses(bot, awaitingAuthor, message)
         botBusy = False
         
 #----------------------------------
@@ -735,7 +719,7 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
         threadmanager = threadManager()
         userconfig = get_user_config(str(ctx.author.id))
         load_config()
-        requestObject = imageRequest(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,scheduler=ctx.options.sampler,userconfig=userconfig)
+        requestObject = imageRequest(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,scheduler=ctx.options.sampler,userconfig=userconfig,author=ctx.author)
         thread = threadmanager.New_Thread(requestObject,previous_request)
         thread.start()
     except Exception:
@@ -834,7 +818,6 @@ async def help(ctx: lightbulb.SlashContext) -> None:
     "\n**~~                        ~~ Other ~~                        ~~**"
     "\n> **/styles**: displays a list of loaded textual inversions"
     "\n> **/styleinfo**: displays the training images of a TI"
-    "\n> **/deletelast**: Deletes the last bot message in this channel, for deleting nsfw without admin perms."
     "\n> **/ping**: Checks connection"
     "\n**~~                          ~~ Tips ~~                          ~~**"
     "\n> More prompts (separated by commas) often result in better images, especially composition prompts."
@@ -940,45 +923,6 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
         await ctx.edit_last_response(embed)
         botBusy = False
         return
-
-#----------------------------------
-#Delete Last Command
-#----------------------------------
-@bot.command()
-@lightbulb.command("deletelast", "delete previous message in channel.")
-@lightbulb.implements(lightbulb.SlashCommand)
-async def deletelast(ctx: lightbulb.SlashContext) -> None:
-    """Purge a certain amount of messages from a channel."""
-    if not ctx.guild_id:
-        await ctx.respond("This command can only be used in a server.")
-        return
-
-    # Fetch messages that are not older than 14 days in the channel the command is invoked in
-    # Messages older than 14 days cannot be deleted by bots, so this is a necessary precaution
-    messages = (
-        await ctx.app.rest.fetch_messages(ctx.channel_id)
-        .take_until(lambda m:  m.author.id == "1032466644070572032")
-        .limit(10)
-        #.take_until(lambda m: datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=14) > m.created_at)
-    )
-    found = False
-    if messages:
-        for m in messages:
-            print(m.author.id)
-            if str(m.author.id) == "1032466644070572032":
-                print("Deleted a message!")
-                await ctx.app.rest.delete_message(ctx.channel_id, m)
-                found = True
-                break
-        if found:
-            await ctx.respond(f"> I'm sorry if I was too lewd >///<!")
-            #else:
-            #await ctx.respond(f"Could not find any message in the array!")
-            await asyncio.sleep(3)
-            await ctx.delete_last_response()
-
-    else:
-        await ctx.respond("Sorry >~< I couldnt find any messages I sent recently!")
 
 #----------------------------------
 #Change Model Command
@@ -1186,9 +1130,9 @@ async def styleinfo(ctx: lightbulb.SlashContext) -> None:
             if not os.path.exists(str(file.parent) + "\\imageStored.txt"):
                 imagepathlist = []
                 imagelimitCounter = 0
-                for filename in os.listdir(Path("./embeddings/" + str(file.parent) + "/concept_images/")):
+                for filename in os.listdir(Path(str(file.parent) + "/concept_images/")):
                     if imagelimitCounter<9:
-                        imagepathlist.append(filename)
+                        imagepathlist.append(str(file.parent) + "/concept_images/" + str(filename))
                         imagelimitCounter = imagelimitCounter + 1
                     else:
                         break
