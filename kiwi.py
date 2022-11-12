@@ -16,7 +16,7 @@ import requests
 from PIL.PngImagePlugin import PngInfo
 from PIL import Image
 from torch import autocast, negative
-from diffusers import StableDiffusionPipeline
+from diffusers import DiffusionPipeline
 from io import BytesIO
 import random
 import traceback
@@ -38,7 +38,7 @@ os.chdir(str(os.path.abspath(os.path.dirname(__file__))))
 def save_config():
     global config
     with open("kiwiconfig.json", "w") as outfile:
-        json.dump(config,outfile)
+        json.dump(config,outfile,indent=4)
 
 def load_config():
     global config
@@ -159,7 +159,7 @@ def change_pipeline(modelname):
     except:
         pass
     gc.collect()
-    pipe = StableDiffusionPipeline.from_pretrained(model_list[modelname]["ModelPath"],custom_pipeline="lpw_stable_diffusion",use_auth_token="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",torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
+    pipe = DiffusionPipeline.from_pretrained(model_list[modelname]["ModelPath"],custom_pipeline="lpw_stable_diffusion",use_auth_token="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",torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
     print(modelname + " loaded.\n")
     pipe.enable_attention_slicing()
 #----------------------------------
@@ -293,13 +293,14 @@ def remove_duplicates(string:str)->str:
     return s.join(result)
 
 class imageRequest(object):
-    def __init__(self,Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,resultImage=None,regenerate=False, overProcess=False, scheduler=None, userconfig=None, author = None):
+    def __init__(self,Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,resultImage=None,regenerate=False, overProcess=False, scheduler=None, userconfig=None, author = None, InpaintUrl = None):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
         self.seed = Seed
         self.guideScale = GuideScale
         self.imgUrl = ImgUrl
+        self.inpaintUrl = InpaintUrl
         self.strength = Strength
         self.width = Width
         self.height = Height
@@ -327,9 +328,7 @@ class threadManager(object):
         awaitingAuthor = author
 
 class genImgThreadClass(Thread):
-    #----------------------------------
-    #Generate Image Function
-    #----------------------------------
+    '''thread class for generation'''
     def __init__(self, parent=None, request:imageRequest = None, previous_request:imageRequest = None):
         self.parent = parent
         self.request = request
@@ -408,7 +407,7 @@ class genImgThreadClass(Thread):
                     self.request.guideScale = self.previous_request.guideScale
 
         #Handle Stength
-        if(self.request.strength=="0" or self.request.strength==None):
+        if(self.request.strength==None):
             self.request.strength = 0.25
             if self.request.regenerate:
                 if self.previous_request.strength != None:
@@ -424,7 +423,14 @@ class genImgThreadClass(Thread):
                     self.request.strength = None
             else:
                 self.request.strength = None
-                
+        
+        #Handle inpaint ImgUrl
+        if(self.request.inpaintUrl=="0" or self.request.inpaintUrl==None): 
+            self.request.inpaintUrl = None
+            if self.request.regenerate:
+                if self.previous_request.inpaintUrl != None:
+                    self.request.inpaintUrl = self.previous_request.inpaintUrl
+
         #Handle Width
         if(self.request.width==0 or self.request.width== "0" or self.request.width==None):
                 self.request.width = 512
@@ -463,6 +469,16 @@ class genImgThreadClass(Thread):
             print("Loading image from previous_request.resultImage")
             init_image = self.previous_request.resultImage
 
+        #Load inpaint Image
+        if self.request.inpaintUrl != None:
+            inpaint_image = None
+            print("Loading inpaint mask from url: " + self.request.inpaintUrl)
+            response = requests.get(self.request.inpaintUrl)
+            inpaint_image = Image.open(BytesIO(response.content)).convert("RGB")
+            #Crop and resize
+            inpaint_image = crop_max_square(inpaint_image)
+            inpaint_image = inpaint_image.resize((512, 512),Image.Resampling.LANCZOS)
+
         #Check for duplicate tokens
         if self.request.prompt != None:
             self.request.prompt = remove_duplicates(self.request.prompt)
@@ -487,10 +503,15 @@ class genImgThreadClass(Thread):
             def dummy_checker(images, **kwargs): return images, False
             pipe.safety_checker = dummy_checker
             if self.request.strength != None:
-                image = pipe(self.request.prompt,height = self.request.height, width = self.request.width, generator = generator, init_image = init_image, negative_prompt=self.request.negativePrompt, strength=(1-self.request.strength), guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps).images[0]
+                if self.request.inpaintUrl == None:
+                    print("Strength = " + str(1-self.request.strength))
+                    image = pipe.img2img(prompt = self.request.prompt,height = self.request.height, width = self.request.width, generator = generator, init_image = init_image, negative_prompt=self.request.negativePrompt, strength=(1-(self.request.strength*0.89)), guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps).images[0]
+                else:
+                    image = pipe.inpaint(prompt = self.request.prompt,height = self.request.height, width = self.request.width, generator = generator, init_image = init_image, negative_prompt=self.request.negativePrompt, strength=(1-(self.request.strength*0.89)), mask_image = inpaint_image, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps).images[0]
+
                 metadata.add_text("Img2Img Strength", str(self.request.strength))
             else:
-                image = pipe(self.request.prompt,height = self.request.height, width = self.request.width, generator = generator, init_image = init_image, negative_prompt=self.request.negativePrompt, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps).images[0]
+                image = pipe.text2img(prompt = self.request.prompt,height = self.request.height, width = self.request.width, generator = generator, init_image = init_image, negative_prompt=self.request.negativePrompt, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps).images[0]
         countStr = str(filecount()+1)
         while os.path.exists(outputDirectory + str(countStr) + ".png"):
             countStr = int(countStr)+1
@@ -542,7 +563,7 @@ async def ping(ctx: lightbulb.SlashContext) -> None:
 #----------------------------------
 @bot.command
 @lightbulb.option("image", "input image", required = False,type = hikari.Attachment)
-@lightbulb.option("imagelink", "image link or message ID", required = False, type = str)
+@lightbulb.option("image_link", "image link or message ID", required = False, type = str)
 @lightbulb.command("metadata", "check metadata of an image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def metadata(ctx: lightbulb.SlashContext) -> None:
@@ -551,13 +572,13 @@ async def metadata(ctx: lightbulb.SlashContext) -> None:
         mdataimage = Image.open(BytesIO(datas)).convert("RGB")
         mdataimage = mdataimage.resize((512, 512))
         url = ctx.options.image.url
-    elif(ctx.options.imagelink != None):
-        if(is_url(ctx.options.imagelink)):
-            response = requests.get(ctx.options.imagelink)
-            url = ctx.options.imagelink
+    elif(ctx.options.image_link != None):
+        if(is_url(ctx.options.image_link)):
+            response = requests.get(ctx.options.image_link)
+            url = ctx.options.image_link
             mdataimage = Image.open(BytesIO(response.content)).convert("RGB")
         else:
-            messageIdResponse = await ctx.app.rest.fetch_message(ctx.channel_id,ctx.options.imagelink)
+            messageIdResponse = await ctx.app.rest.fetch_message(ctx.channel_id,ctx.options.image_link)
             datas = await hikari.Attachment.read(messageIdResponse.embeds[0].image)
             mdataimage = Image.open(BytesIO(datas)).convert("RGB")
             mdataimage = mdataimage.resize((512, 512))
@@ -613,7 +634,7 @@ async def firehandleresponses(bot, ath, message):
 #----------------------------------
 @bot.command
 @lightbulb.option("image", "input image", required = False, type = hikari.Attachment)
-@lightbulb.option("imagelink", "image link or message ID", required = False, type = str)
+@lightbulb.option("image_link", "image link or message ID", required = False, type = str)
 @lightbulb.command("imagetocommand", "parses metadata to a command to send to get the same image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
@@ -623,13 +644,13 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
             mdataimage = Image.open(BytesIO(datas)).convert("RGB")
             mdataimage = mdataimage.resize((512, 512))
             url = ctx.options.image.url
-        elif(ctx.options.imagelink != None):
-            if(is_url(ctx.options.imagelink)):
-                response = requests.get(ctx.options.imagelink)
-                url = ctx.options.imagelink
+        elif(ctx.options.image_link != None):
+            if(is_url(ctx.options.image_link)):
+                response = requests.get(ctx.options.image_link)
+                url = ctx.options.image_link
                 mdataimage = Image.open(BytesIO(response.content)).convert("RGB")
             else:
-                messageIdResponse = await ctx.app.rest.fetch_message(ctx.channel_id,ctx.options.imagelink)
+                messageIdResponse = await ctx.app.rest.fetch_message(ctx.channel_id,ctx.options.image_link)
                 datas = await hikari.Attachment.read(messageIdResponse.embeds[0].image)
                 mdataimage = Image.open(BytesIO(datas)).convert("RGB")
                 mdataimage = mdataimage.resize((512, 512))
@@ -669,24 +690,8 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
             await ctx.respond(embed)
         return
 
-#----------------------------------
-#Generate Command
-#----------------------------------
-@bot.command
-@lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
-@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
-@lightbulb.option("sampler", "(Optional) Which scheduler to use", required = False,type = str, default = "DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
-@lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
-@lightbulb.option("imagelink", "(Optional) image link or message ID", required = False, type = str)
-@lightbulb.option("image", "(Optional) image to run diffusion on", required = False,type = hikari.Attachment)
-@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required = False,default = 15, type = int, max_value=config["MaxSteps"], min_value=1)
-@lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required = False, default = 0, type = int, min_value=0)
-@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float,default = 7, max_value=100 , min_value=-100)
-@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False,default ="0")
-@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = True,default ="0")
-@lightbulb.command("generate", "runs diffusion on an input image")
-@lightbulb.implements(lightbulb.SlashCommand)
-async def generate(ctx: lightbulb.SlashContext) -> None:
+async def processRequest(ctx: lightbulb.SlashContext, regenerate:bool):
+    '''process ctx into a image request'''
     global curmodel
     global titles
     global outputDirectory
@@ -703,14 +708,19 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
     try:
         if(ctx.options.image != None):
             url = ctx.options.image.url
-        elif(ctx.options.imagelink != None):
-            if(is_url(ctx.options.imagelink)):
-                url = ctx.options.imagelink
+        elif(ctx.options.image_link != None):
+            if(is_url(ctx.options.image_link)):
+                url = ctx.options.image_link
             else:
-                messageIdResponse = await ctx.app.rest.fetch_message(ctx.channel_id,ctx.options.imagelink)
+                messageIdResponse = await ctx.app.rest.fetch_message(ctx.channel_id,ctx.options.image_link)
                 url = messageIdResponse.embeds[0].image.url
         else:
             url = "0"
+
+        if(ctx.options.inpaint_mask != None):
+            inpainturl = ctx.options.inpaint_mask.url
+        else:
+            inpainturl = "0"
 
         #--Embed
         try:       
@@ -723,7 +733,7 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
         threadmanager = threadManager()
         userconfig = get_user_config(str(ctx.author.id))
         load_config()
-        requestObject = imageRequest(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,scheduler=ctx.options.sampler,userconfig=userconfig,author=ctx.author)
+        requestObject = imageRequest(ctx.options.prompt,ctx.options.negative_prompt,ctx.options.steps,ctx.options.seed,ctx.options.guidance_scale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,scheduler=ctx.options.sampler,userconfig=userconfig,author=ctx.author, InpaintUrl=inpainturl,regenerate=regenerate)
         thread = threadmanager.New_Thread(requestObject,previous_request)
         thread.start()
     except Exception:
@@ -735,6 +745,26 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
         await handle_responses(ctx.bot, ctx.author, message)
         botBusy = False
         return
+#----------------------------------
+#Generate Command
+#----------------------------------
+@bot.command
+@lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
+@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
+@lightbulb.option("sampler", "(Optional) Which scheduler to use", required = False,type = str, default = "DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
+@lightbulb.option("inpaint_mask", "(Optional) mask to block off for image inpainting (white = replace, black = dont touch)", required = False,type = hikari.Attachment)
+@lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)", required = False,type = float)
+@lightbulb.option("image_link", "(Optional) image link or message ID", required = False, type = str)
+@lightbulb.option("image", "(Optional) image to run diffusion on", required = False,type = hikari.Attachment)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required = False,default = 15, type = int, max_value=config["MaxSteps"], min_value=1)
+@lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required = False, default = 0, type = int, min_value=0)
+@lightbulb.option("guidance_scale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float,default = 7, max_value=100 , min_value=-100)
+@lightbulb.option("negative_prompt", "(Optional)Prompt for diffusion to avoid.",required = False,default ="0")
+@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = True,default ="0")
+@lightbulb.command("generate", "runs diffusion on an input image")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def generate(ctx: lightbulb.SlashContext) -> None:
+    await processRequest(ctx,False)
 
 #----------------------------------
 #ReGenerate Command
@@ -743,65 +773,19 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int,choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int,choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("sampler", "(Optional) Which scheduler to use", required = False,type = str, default = "DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
-@lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,type = float)
-@lightbulb.option("imagelink", "(Optional) image link or message ID", required = False, type = str)
+@lightbulb.option("inpaint_mask", "(Optional) mask to block off for image inpainting (white = replace, black = dont touch)", required = False,type = hikari.Attachment)
+@lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)", required = False,type = float)
+@lightbulb.option("image_link", "(Optional) image link or message ID", required = False, type = str)
 @lightbulb.option("image", "(Optional) image to run diffusion on", required = False,type = hikari.Attachment)
 @lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required = False,type = int, max_value=config["MaxSteps"], min_value=1)
 @lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required = False, default = 0, type = int, min_value=0)
 @lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, max_value=100, min_value=-100)
-@lightbulb.option("negativeprompt", "(Optional) Prompt for diffusion to avoid.",required = False)
+@lightbulb.option("negative_prompt", "(Optional) Prompt for diffusion to avoid.",required = False)
 @lightbulb.option("prompt", "(Optional) A detailed description of desired output, or booru tags, separated by commas. ",required = False)
 @lightbulb.command("regenerate", "Regenerates diffusion from last input and optionally any changed inputs.")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def regenerate(ctx: lightbulb.SlashContext) -> None:
-    global curmodel
-    global titles
-    global outputDirectory
-    global botBusy
-    global previous_request
-    if botBusy:
-        await ctx.respond("> Sorry, kiwi is busy!")
-        return
-    if curmodel == None or curmodel == "":
-        await ctx.respond("> Please load a model with **/changemodel**")
-        return
-    botBusy = True
-    outputDirectory = "./results/"
-    try:
-        if(ctx.options.image != None):
-            url = ctx.options.image.url
-        elif(ctx.options.imagelink != None):
-            if(is_url(ctx.options.imagelink)):
-                url = ctx.options.imagelink
-            else:
-                messageIdResponse = await ctx.app.rest.fetch_message(ctx.channel_id,ctx.options.imagelink)
-                url = messageIdResponse.embeds[0].image.url
-        else:
-            url = "0"
-
-        #--Embed
-        try:       
-            embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://i.imgur.com/21reOYm.gif").set_footer(text = "", icon = curmodel["ModelThumbnail"]).set_image("https://i.imgur.com/ZCalIbz.gif")
-        except:
-            embed = hikari.Embed(title=random.choice(titles),colour=hikari.Colour(0x56aaf8)).set_thumbnail("https://i.imgur.com/21reOYm.gif").set_image("https://i.imgur.com/ZCalIbz.gif")
-
-        respProxy = await ctx.respond(embed)
-        #-------
-        threadmanager = threadManager()
-        userconfig = get_user_config(str(ctx.author.id))
-        load_config()
-        requestObject = imageRequest(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.steps,ctx.options.seed,ctx.options.guidescale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,scheduler=ctx.options.sampler,userconfig=userconfig,regenerate=True)
-        thread = threadmanager.New_Thread(requestObject,previous_request)
-        thread.start()
-    except Exception:
-        traceback.print_exc()
-        embed = hikari.Embed(title="Sorry, something went wrong! <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
-        rows = await generate_rows(ctx.bot)
-        response = await ctx.edit_last_response(embed,components=rows)
-        message = await response.message()
-        await handle_responses(ctx.bot, ctx.author, message)
-        botBusy = False
-        return
+    await processRequest(ctx,True)
 
 
 #----------------------------------
@@ -847,7 +831,7 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,default=0.25,type = float, max_value=1, min_value=0)
 @lightbulb.option("image", "image to run diffusion on", required = False,type = hikari.Attachment)
 @lightbulb.option("seed", "(Optional) Seed for diffusion", required = False,type = int, min_value=0)
-@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, default=7, max_value=100, min_value=-100)
+@lightbulb.option("guidance_scale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, default=7, max_value=100, min_value=-100)
 @lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required = False,type = int, default=15, max_value=100, min_value=1)
 @lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
 @lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ")
@@ -870,7 +854,7 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
             genUrl = "0"
         curstep = ctx.options.start
         infsteps = ctx.options.steps
-        guidance = ctx.options.guidescale
+        guidance = ctx.options.guidance_scale
         strength = ctx.options.strength
         stepcount = 0
         imageList = []
@@ -888,7 +872,7 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
                             strength = curstep 
                         else:
                             strength = 1
-                    WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,infsteps,ctx.options.seed,guidance,genUrl,strength)
+                    WdGenerateImage(ctx.options.prompt,ctx.options.negative_prompt,infsteps,ctx.options.seed,guidance,genUrl,strength)
                     imageList.append(prevResultImage)
             else:
                 raise Exception("step not matching")
@@ -906,7 +890,7 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
                             strength = curstep 
                         else:
                             strength = 1
-                    WdGenerateImage(ctx.options.prompt,ctx.options.negativeprompt,infsteps,ctx.options.seed,guidance,genUrl,strength)
+                    WdGenerateImage(ctx.options.prompt,ctx.options.negative_prompt,infsteps,ctx.options.seed,guidance,genUrl,strength)
                     imageList.append(prevResultImage)
             else:
                 raise Exception("step not matching: " + str(ctx.options.animstep))
@@ -915,7 +899,7 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
         file_stats = os.stat(file_name)
         if((file_stats.st_size / (1024 * 1024)) < 8):
             print("Anim Complete, sending gif.")
-            await ctx.edit_last_response(get_embed(ctx.options.prompt,ctx.options.negativeprompt,ctx.options.guidescale,ctx.options.steps,ctx.options.seed,outputDirectory + "resultgif.gif",ctx.options.strength,True))
+            await ctx.edit_last_response(get_embed(ctx.options.prompt,ctx.options.negative_prompt,ctx.options.guidance_scale,ctx.options.steps,ctx.options.seed,outputDirectory + "resultgif.gif",ctx.options.strength,True))
         else:
             print("Anim Complete, Gif too big.")
             embed = hikari.Embed(title=("Animation Complete. (Gif file too large for upload)"),colour=hikari.Colour(0xFFFFFF))
@@ -1003,7 +987,7 @@ def save_user_config(userid:str,saveconfig):
         userconfigs = json.load(openfile)
         userconfigs[userid] = saveconfig
     with open("usersettings.json", "w") as outfile:
-        json.dump(userconfigs,outfile)
+        json.dump(userconfigs,outfile,indent=4)
         
 
 @bot.command()
@@ -1039,7 +1023,7 @@ async def settings(ctx: lightbulb.SlashContext) -> None:
 async def adminsettings(ctx: lightbulb.SlashContext) -> None:
     global config
     load_config()
-    if ctx.options.setting != None:
+    if ctx.options.setting != None and ctx.options.value != None:
         if str(ctx.author.id) in get_admin_list():
             #Bools
             if ctx.options.setting in ["AnnounceReadyMessage", "ShowDefaultPrompts"]:
@@ -1064,7 +1048,6 @@ async def adminsettings(ctx: lightbulb.SlashContext) -> None:
             await ctx.respond("> Sorry, you must have permission to edit these settings!")
             return
         save_config()
-
     load_config()
     embed = hikari.Embed(title="Settings:",colour=hikari.Colour(0xabaeff))
     for key, value in config.items():

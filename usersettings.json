@@ -1,1 +1,14 @@
-{"126854698769580032": {"UseDefaultQualityPrompt": true, "DefaultQualityPrompt": "masterpiece, best quality", "UseDefaultNegativePrompt": true, "DefaultNegativePrompt": "((bad anatomy)), ((bad hands)), missing finger, extra digits, ((mutated hands and fingers)), (poorly drawn face), ((mutation)), ((deformed face)), (ugly), ((bad proportions)), ((extra limbs)), extra face, (double head), (extra head), ((extra feet)), monster, logo, humpbacked, ((jpeg artifacts))"}, "200731901378560000": {"UseDefaultQualityPrompt": true, "DefaultQualityPrompt": "masterpiece, best quality", "UseDefaultNegativePrompt": false, "DefaultNegativePrompt": "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts,signature, watermark, username, blurry, artist name"}}
+{
+    "126854698769580032": {
+        "UseDefaultQualityPrompt": true,
+        "DefaultQualityPrompt": "masterpiece, best quality",
+        "UseDefaultNegativePrompt": true,
+        "DefaultNegativePrompt": "((bad anatomy)), ((bad hands)), missing finger, extra digits, ((mutated hands and fingers)), (poorly drawn face), ((mutation)), ((deformed face)), (ugly), ((bad proportions)), ((extra limbs)), extra face, (double head), (extra head), ((extra feet)), monster, logo, humpbacked, ((jpeg artifacts))"
+    },
+    "200731901378560000": {
+        "UseDefaultQualityPrompt": true,
+        "DefaultQualityPrompt": "masterpiece, best quality",
+        "UseDefaultNegativePrompt": false,
+        "DefaultNegativePrompt": "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts,signature, watermark, username, blurry, artist name"
+    }
+}
