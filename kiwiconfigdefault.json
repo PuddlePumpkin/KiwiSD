@@ -1,5 +1,6 @@
 {
     "EnableNsfwFilter":true,
+    "NsfwMessage":"Sorry... the result image may have contained something lewd >///<",
     "ShowDefaultPrompts": false,
     "TodoString": "",
     "AdminList": "",
