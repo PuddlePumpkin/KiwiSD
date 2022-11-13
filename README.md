@@ -15,7 +15,7 @@ Enter a detailed prompt and an image to generate a new one like it, strength cha
 - **Inpainting:**
 Enter a detailed prompt, an input image, and a black and white image mask, the white parts of the mask will be painted over with diffusion, high strength means the inpainting area will mostly be the same as the input image.
 - **Textual inversion inference:**
-Automatically loads TI embeds placed in the embeddings folder, must be in hugging face concepts .bin or the folder containing it from their repository, does *not* currently support .pt embeds because I am not smart enough to implement them.
+Automatically loads TI embeds placed in the embeddings folder, must be in hugging face concepts .bin or the folder containing it from their repository, does ***not*** currently support .pt embeds because I am not smart enough to implement them.
 - **Prompt weighting:**
 You can multiply prompt focus in line with parenthesis eg: **(**1girl**)** or **(**1girl:1.3**)** **Default: 1.1**
 You can reduce focus in line like negative prompts with square brackets eg: **[**1girl**]** or **[**1girl:1.3**]**  **Default: 1.1**
