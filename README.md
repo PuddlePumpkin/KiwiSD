@@ -1,8 +1,12 @@
 # Kiwi
 
-<p align=center><img width="200" height="200" src="/docs/kiwipfp.png"></p>Kiwi is a huggingface diffusers based discord bot for use with stable diffusion and other models
+<p align=center><img width="200" height="200" src="/docs/kiwipfp.png"></p><p align=center>Kiwi is a hikari lightbulb discord bot for prompting diffusion models through huggingface's diffusers library</p>
 
-## Commands
+### Recommended Models:
+[Stable Diffusion v1.5](https://huggingface.co/runwayml/stable-diffusion-v1-5)
+[Waifu Diffusion v1.3](https://huggingface.co/hakurei/waifu-diffusion-v1-3)
+place model weights .ckpt files or the repository folder containing a diffusers format model in the kiwi/models folder
+# Commands
 ### Generation
 - **/generate:** Generates a image from a detailed description, or booru tags separated by commas. optionally input an image for image to image generation, or a mask and an image for inpainting, note inpainting works poorly with default sampler, use klms instead
 - **/regenerate:** Re-generates last entered prompt
