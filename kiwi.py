@@ -37,6 +37,19 @@ import convertckpt
 #Setup
 #----------------------------------
 os.chdir(str(os.path.abspath(os.path.dirname(__file__))))
+bottoken = ""
+with open('kiwitoken.json', 'r') as openfile:
+    tokendict = json.load(openfile)
+    if tokendict["bottoken"] != "" and tokendict["bottoken"] != None:
+        bottoken = tokendict["bottoken"]
+    else:
+        try:
+            bottoken = os.environ["kiwitoken"]
+        except:
+            pass
+if bottoken == None or bottoken == "":
+    sys.exit("\nYou need a bot token, see readme.md for usage instructions")
+
 def load_config():
     '''loads admin config file'''
     global config
@@ -258,7 +271,7 @@ async def handle_responses(bot: lightbulb.BotApp,author: hikari.User,message: hi
     with bot.stream(hikari.InteractionCreateEvent, 60).filter(lambda e:(isinstance(e.interaction, hikari.ComponentInteraction) and e.interaction.user == author and e.interaction.message == message)) as stream:
         async for event in stream:
             cid = event.interaction.custom_id
-            await bot.rest.delete_message(672892614613139471,message)
+            await bot.rest.delete_message(message.channel_id,message)
             return
     # Once were back outside the stream loop, it's been 2 minutes since
     await message.edit(
@@ -541,7 +554,7 @@ class genImgThreadClass(Thread):
 #Instantiate a Bot instance
 #----------------------------------
 bot = lightbulb.BotApp(
-    token="***REMOVED***",
+    token=bottoken,
     prefix="-",
     default_enabled_guilds=672718048343490581,
     intents=hikari.Intents.ALL,
@@ -549,15 +562,6 @@ bot = lightbulb.BotApp(
     )
 tasks.load(bot)
 
-#----------------------------------    
-#Bot Ready Event
-#----------------------------------
-@bot.listen(hikari.ShardReadyEvent)
-async def ready_listener(_):
-    load_config()
-    if config["AnnounceReadyMessage"]:
-        await bot.rest.create_message(672892614613139471, "> " + config["ReadyMessage"])
-     #> I'm awake running waifu diffusion v1.3! Type **/help** for help!
     
 
 
