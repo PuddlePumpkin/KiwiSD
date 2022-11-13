@@ -164,6 +164,11 @@ def change_pipeline(modelname):
     pipe = DiffusionPipeline.from_pretrained(model_list[modelname]["ModelPath"],custom_pipeline="lpw_stable_diffusion",use_auth_token="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",torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
     print(modelname + " loaded.\n")
     pipe.enable_attention_slicing()
+if config["AutoLoadedModel"]!="None":
+    if config["AutoLoadedModel"] in model_list:
+        change_pipeline(config["AutoLoadedModel"])
+    else:
+        print("Auto loaded model not found...")
 #----------------------------------
 #Filecount Function
 #----------------------------------
@@ -935,12 +940,17 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
 #----------------------------------
 @bot.command()
 @lightbulb.option("model", "which model to load",choices=model_list.keys(),required=True)
-@lightbulb.command("changemodel", "switches model between stable diffusion / waifu diffusion / yabai diffusion")
+@lightbulb.command("changemodel", "changes the loaded model")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def changemodel(ctx: lightbulb.SlashContext) -> None:
     global pipe
     global botBusy
     global model_list
+    load_config()
+    if not config["AllowNonAdminChangeModel"]: 
+        if not str(ctx.author.id) in get_admin_list():
+            await ctx.respond("> Sorry, you must be marked as admin to change the model!")
+            return
     if botBusy:
         await ctx.respond("> Sorry, kiwi is busy!")
         return
@@ -1040,7 +1050,7 @@ async def settings(ctx: lightbulb.SlashContext) -> None:
 
 @bot.command()
 @lightbulb.option("value", "(optional if no key) value to change it to",required=False,type=str)
-@lightbulb.option("setting", "(optional) which setting to change",required=False,choices=["EnableNsfwFilter","NsfwMessage","ShowDefaultPrompts","NewUserNegativePrompt","NewUserQualityPrompt","AdminList","TodoString","AnnounceReadyMessage","ReadyMessage","MaxSteps"],type=str)
+@lightbulb.option("setting", "(optional) which setting to change",required=False,choices=["EnableNsfwFilter","NsfwMessage","ShowDefaultPrompts","NewUserNegativePrompt","NewUserQualityPrompt","AdminList","TodoString","MaxSteps","AllowNonAdminChangeModel","AutoLoadedModel"],type=str)
 @lightbulb.command("adminsettings", "View or modify settings")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def adminsettings(ctx: lightbulb.SlashContext) -> None:
@@ -1049,7 +1059,7 @@ async def adminsettings(ctx: lightbulb.SlashContext) -> None:
     if ctx.options.setting != None and ctx.options.value != None:
         if str(ctx.author.id) in get_admin_list():
             #Bools
-            if ctx.options.setting in ["AnnounceReadyMessage", "ShowDefaultPrompts", "EnableNsfwFilter"]:
+            if ctx.options.setting in ["ShowDefaultPrompts", "EnableNsfwFilter", "AllowNonAdminChangeModel"]:
                     config[ctx.options.setting] = option_to_bool(ctx.options.value)
             #Ints
             elif ctx.options.setting in ["MaxSteps"]:
@@ -1061,7 +1071,7 @@ async def adminsettings(ctx: lightbulb.SlashContext) -> None:
                 else:
                     config[ctx.options.setting] = 1
             #Strings
-            elif ctx.options.setting in ["NsfwMessage","AdminList","NewUserNegativePrompt","NewUserQualityPrompt","TodoString","ReadyMessage"]:
+            elif ctx.options.setting in ["NsfwMessage","AdminList","NewUserNegativePrompt","NewUserQualityPrompt","TodoString","AutoLoadedModel"]:
                 config[ctx.options.setting] = ctx.options.value
             #Invalid setting
             else:

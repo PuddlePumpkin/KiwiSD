@@ -1,4 +1,6 @@
 {
+    "AutoLoadedModel" : "None",
+    "AllowNonAdminChangeModel" : true,
     "EnableNsfwFilter":true,
     "NsfwMessage":"Sorry... the result image may have contained something lewd >///<",
     "ShowDefaultPrompts": false,
@@ -6,7 +8,5 @@
     "AdminList": "",
     "MaxSteps": 50,
     "NewUserQualityPrompt": "masterpiece, best quality",
-    "NewUserNegativePrompt": "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts,signature, watermark, username, blurry, artist name",
-    "AnnounceReadyMessage": true,
-    "ReadyMessage": "I'm awake! Type **/help** for help!"
+    "NewUserNegativePrompt": "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts,signature, watermark, username, blurry, artist name"
 }
