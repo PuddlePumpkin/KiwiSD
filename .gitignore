@@ -161,3 +161,4 @@ cython_debug/
 todo.txt
 *.pt
 testing.py
+kiwiconfig.json

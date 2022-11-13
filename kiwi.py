@@ -29,21 +29,29 @@ import glob
 from pathlib import Path
 from diffusers import DDIMScheduler, LMSDiscreteScheduler, PNDMScheduler, EulerDiscreteScheduler, DDPMScheduler, DPMSolverMultistepScheduler
 import json
+import shutil
 
 
 #----------------------------------
 #Setup
 #----------------------------------
 os.chdir(str(os.path.abspath(os.path.dirname(__file__))))
+
+
+def load_config():
+    '''loads admin config file'''
+    global config
+    if not os.path.exists(str("kiwiconfig.json")):
+        shutil.copy2("kiwiconfigdefault.json","kiwiconfig.json")
+    with open('kiwiconfig.json', 'r') as openfile:
+        config = json.load(openfile)
+
 def save_config():
+    '''Saves admin config file'''
     global config
     with open("kiwiconfig.json", "w") as outfile:
         json.dump(config,outfile,indent=4)
 
-def load_config():
-    global config
-    with open('kiwiconfig.json', 'r') as openfile:
-        config = json.load(openfile)
 
 model_list = {}
 def populate_model_list():
