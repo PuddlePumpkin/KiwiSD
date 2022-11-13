@@ -1,6 +1,6 @@
 # Kiwi
-![](/docs/kiwipfp.png)
-Kiwi is a huggingface diffusers based discord bot for use with stable diffusion and other models
+
+<p align=center><img width="200" height="200" src="/docs/kiwipfp.png"></p>Kiwi is a huggingface diffusers based discord bot for use with stable diffusion and other models
 
 ## Commands
 ### Generation
