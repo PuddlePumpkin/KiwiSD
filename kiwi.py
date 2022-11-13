@@ -967,6 +967,7 @@ async def todo(ctx: lightbulb.SlashContext) -> None:
 #Settings Commands
 #----------------------------------
 def option_to_bool(option)->bool:
+    '''Converts string to bool from various wordings'''
     try:
         false_strings = ["off", "false", "no"]
         true_strings = ["on", "true", "yes"]
@@ -994,6 +995,7 @@ def load_user_config(userid:str)->dict:
         userconfig[userid] = {"UseDefaultQualityPrompt" : False,"DefaultQualityPrompt":config["NewUserQualityPrompt"],"UseDefaultNegativePrompt" : True,"DefaultNegativePrompt":config["NewUserNegativePrompt"]}
         return userconfig[userid]
 def save_user_config(userid:str,saveconfig):
+    '''Saves a user setting to the json file'''
     with open('usersettings.json', 'r') as openfile:
         userconfigs = json.load(openfile)
         userconfigs[userid] = saveconfig
