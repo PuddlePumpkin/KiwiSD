@@ -20,6 +20,7 @@ Automatically loads TI embeds placed in the embeddings folder, must be in huggin
 You can multiply prompt focus in line with parenthesis eg: **(**1girl**)** or **(**1girl:1.3**)** **Default: 1.1**
 You can reduce focus in line like negative prompts with square brackets eg: **[**1girl**]** or **[**1girl:1.3**]**  **Default: 1.1**
 <p align=center><img width="700" height="323" src="/docs/examples.png"></p>
+
 ### Recommended Models:
 - [Stable Diffusion v1.5](https://huggingface.co/runwayml/stable-diffusion-v1-5)
 - [Waifu Diffusion v1.3](https://huggingface.co/hakurei/waifu-diffusion-v1-3)
