@@ -23,6 +23,9 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - [Stable Diffusion v1.5](https://huggingface.co/runwayml/stable-diffusion-v1-5)
 - [Waifu Diffusion v1.3](https://huggingface.co/hakurei/waifu-diffusion-v1-3)
 # Usage
+- With python installed, open cmd, cd to kiwi's directory, type python -m venv venv (or python3)
+- navigate to venv/scripts/activate and drag the blank activate file into cmd and press enter
+- type pip install -r requirements.txt
 - Place model weights .ckpt file or the repository folder containing a diffusers format model in the kiwi/models folder, .ckpt models will take a moment to convert the first time.
 - go to the discord applications page [Here](https://discord.com/developers/applications), create a new application, give it a unique name
 - Go to the "bot" section -> click "add bot" -> click "reset token", this token can only be viewed once without having to reset it so take note of it. **disable public bot unless you know what you're doing**, tick the intent switches on
