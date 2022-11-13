@@ -163,3 +163,5 @@ todo.txt
 testing.py
 kiwiconfig.json
 usersettings.json
+*.ckpt
+.v1-inference.yaml

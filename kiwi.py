@@ -30,14 +30,13 @@ from pathlib import Path
 from diffusers import DDIMScheduler, LMSDiscreteScheduler, PNDMScheduler, EulerDiscreteScheduler, DDPMScheduler, DPMSolverMultistepScheduler
 import json
 import shutil
+import convertckpt
 
 
 #----------------------------------
 #Setup
 #----------------------------------
 os.chdir(str(os.path.abspath(os.path.dirname(__file__))))
-
-
 def load_config():
     '''loads admin config file'''
     global config
@@ -52,10 +51,26 @@ def save_config():
     with open("kiwiconfig.json", "w") as outfile:
         json.dump(config,outfile,indent=4)
 
+def convert_ckpt(ckptpath,vaepath = None, dump_path = None):
+    convertckpt.convertmodel(ckptpath,vaepath, dump_path=dump_path)
 
 model_list = {}
 def populate_model_list():
     global model_list
+    ckptlist = list(Path("./models/").rglob("*.[cC][kK][pP][tT]"))
+    for ckpt in ckptlist:
+        try:
+            if not os.path.exists("./models/" + str(ckpt.stem) + "/"):
+                if os.path.exists("./models/" + str(ckpt.stem) + ".vae.pt"):
+                    print("\nConverting with vae: " + str(ckpt).replace("\\","/") + "\n")
+                    convert_ckpt(str(ckpt),"./models/" + str(ckpt.stem) + ".vae.pt",dump_path="models/" + str(ckpt.stem) + "/")
+                else:
+                    print("\nConverting model without vae: " + str(ckpt).replace("\\","/") + "\n")
+                    convert_ckpt(str(ckpt),dump_path="models/" + str(ckpt.stem) + "/")
+                print("\nConversion Complete: " + str(ckpt).replace("\\","/"))
+                print("Diffusers Model Path: " + "models/" + str(ckpt.stem) + "/")
+        except:
+            print("Failed to convert model: " + str(ckpt))
     for folder in next(os.walk('./models'))[1]:
         json_list = list(Path("./models/"+folder).rglob("*[mM][oO][dD][eE][lL].[jJ][sS][oO][nN]"))
         if len(json_list) == 0:
@@ -66,12 +81,13 @@ def populate_model_list():
                 #print(open_json["ModelCommandName"])
                 open_json["ModelPath"] = "./models/" + folder
                 model_list[open_json["ModelCommandName"]] = open_json
+
+
+
 populate_model_list()
 
 embedlist = []
 embedlist = list(Path("./embeddings/").rglob("*.[bB][iI][nN]"))
-#embedlist = embedlist + (list(Path(".").rglob("*.[pP][tT]")))
-#print(embedlist)
 config = {}
 load_config()
 genThread = Thread()
@@ -89,57 +105,22 @@ titles =  ["I'll try to make that for you!...", "Maybe I could make that...", "I
 #----------------------------------
 def load_learned_embed_in_clip(learned_embeds_path, text_encoder, tokenizer, token=None):
     loaded_learned_embeds = torch.load(learned_embeds_path, map_location="cpu")
-    # separate token and the embeds
-    if isinstance(loaded_learned_embeds,torch.Tensor):
-        return
-        trained_token = "<"+str(Path(learned_embeds_path).name)+">"
-        print(trained_token)
-        loaded_embeds = torch.load(learned_embeds_path, map_location="cpu")
-        dtype = text_encoder.get_input_embeddings().weight.dtype
-        loaded_embeds.to(dtype)
-        num_added_tokens = tokenizer.add_tokens(trained_token)
-        if num_added_tokens == 0:
-            raise ValueError(f'tokenizer already contains the token {trained_token}')
+    trained_token = list(loaded_learned_embeds.keys())[0]
+    embedsS = loaded_learned_embeds[trained_token]
+    dtype = text_encoder.get_input_embeddings().weight.dtype
+    embedsS.to(dtype)
+    # add the token in tokenizer
+    token = token if token is not None else trained_token
+    num_added_tokens = tokenizer.add_tokens(token)
+    if num_added_tokens == 0:
+        raise ValueError(f"The tokenizer already contains the token {token}. Please pass a different `token` that is not already in the tokenizer.")
+    print(token)
+    # resize the token embeddings
+    if not 'string_to_param' in loaded_learned_embeds:
         text_encoder.resize_token_embeddings(len(tokenizer))
-        token_id = tokenizer.convert_tokens_to_ids(trained_token)
-        text_encoder.get_input_embeddings().weight.data[token_id] = loaded_embeds
-    else:
-        trained_token = list(loaded_learned_embeds.keys())[0]
-        if trained_token == "string_to_token":
-            return
-            embedding_path = learned_embeds_path
-            loaded_embeds = torch.load(embedding_path, map_location="cpu")
-            print("<"+str(Path(learned_embeds_path).name)+">\n")
-            string_to_token = loaded_embeds['string_to_token']
-            string_to_param = loaded_embeds['string_to_param']
-            token = list(string_to_token.keys())[0]
-            print(f'got key {token}')
-            embeds = string_to_param[token]
-            dtype = text_encoder.get_input_embeddings().weight.dtype
-            embeds.to(dtype)
-            token = "<"+str(Path(learned_embeds_path).name)+">"
-            num_added_tokens = tokenizer.add_tokens(token)
-            if num_added_tokens == 0:
-                raise ValueError(f'tokenizer already contains the token {token}')
-            text_encoder.resize_token_embeddings(len(tokenizer))
-            token_id = tokenizer.convert_tokens_to_ids(token)
-            text_encoder.get_input_embeddings().weight.data[token_id] = embeds
-        else:
-            embedsS = loaded_learned_embeds[trained_token]
-            dtype = text_encoder.get_input_embeddings().weight.dtype
-            embedsS.to(dtype)
-            # add the token in tokenizer
-            token = token if token is not None else trained_token
-            num_added_tokens = tokenizer.add_tokens(token)
-            if num_added_tokens == 0:
-                raise ValueError(f"The tokenizer already contains the token {token}. Please pass a different `token` that is not already in the tokenizer.")
-            print(token)
-            # resize the token embeddings
-            if not 'string_to_param' in loaded_learned_embeds:
-                text_encoder.resize_token_embeddings(len(tokenizer))
-            # get the id for the token and assign the embeds
-            token_id = tokenizer.convert_tokens_to_ids(token)
-            text_encoder.get_input_embeddings().weight.data[token_id] = embedsS
+    # get the id for the token and assign the embeds
+    token_id = tokenizer.convert_tokens_to_ids(token)
+    text_encoder.get_input_embeddings().weight.data[token_id] = embedsS
 
 #----------------------------------
 #Change Pipeline Function

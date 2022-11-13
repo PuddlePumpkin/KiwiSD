@@ -1,4 +1,5 @@
 {
+    "EnableNsfwFilter":true,
     "ShowDefaultPrompts": false,
     "TodoString": "",
     "AdminList": "",
