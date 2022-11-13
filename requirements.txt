@@ -13,5 +13,5 @@ prompt-toolkit == 3.0.32
 transformers == 4.24.0
 scipy == 1.9.3
 ftfy == 6.1.1
-accelerate == 0.13.2
+accelerate == 0.14.dev0
 wget == 3.2
