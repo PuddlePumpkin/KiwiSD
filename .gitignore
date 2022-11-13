@@ -1,5 +1,6 @@
 #Personal
-*.png
+results/*.png
+animation/*.png
 lpw_stable_diffusion/
 sd/
 wd/
