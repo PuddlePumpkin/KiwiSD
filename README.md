@@ -4,9 +4,6 @@ Kiwi
 
 <p align=center><img width="200" height="200" src="/docs/kiwipfp.png"></p><p align=center>Kiwi is a hikari lightbulb discord bot for prompting diffusion models through huggingface's diffusers library</p>
 
-### Recommended Models:
-[Stable Diffusion v1.5](https://huggingface.co/runwayml/stable-diffusion-v1-5)
-[Waifu Diffusion v1.3](https://huggingface.co/hakurei/waifu-diffusion-v1-3)
 
 # Features
 - **Models:**
@@ -23,6 +20,9 @@ Automatically loads TI embeds placed in the embeddings folder, must be in huggin
 - **Prompt weighting:**
 You can multiply prompt focus in line with parenthesis eg: **(**1girl**)** or **(**1girl:1.3**)** **Default: 1.1**
 You can reduce focus in line like negative prompts with square brackets eg: **[**1girl**]** or **[**1girl:1.3**]**  **Default: 1.1**
+### Recommended Models:
+- [Stable Diffusion v1.5](https://huggingface.co/runwayml/stable-diffusion-v1-5)
+- [Waifu Diffusion v1.3](https://huggingface.co/hakurei/waifu-diffusion-v1-3)
 # Usage
 - Place model weights .ckpt file or the repository folder containing a diffusers format model in the kiwi/models folder, .ckpt models will take a moment to convert the first time.
 - go to the discord applications page [Here](https://discord.com/developers/applications), create a new application, give it a unique name
