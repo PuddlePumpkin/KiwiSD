@@ -23,18 +23,18 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - [Stable Diffusion v1.5](https://huggingface.co/runwayml/stable-diffusion-v1-5)
 - [Waifu Diffusion v1.3](https://huggingface.co/hakurei/waifu-diffusion-v1-3)
 # Usage
-- With python installed, open cmd, cd to kiwi's directory, type python -m venv venv (or python3)
+- With python installed, open cmd, cd to kiwi's directory, enter python -m venv venv (or python3)
 - navigate to venv/scripts/activate and drag the blank activate file into cmd and press enter
-- type pip install -r requirements.txt
+- enter pip install -r requirements.txt
 - Place model weights .ckpt file or the repository folder containing a diffusers format model in the kiwi/models folder, .ckpt models will take a moment to convert the first time.
 - go to the discord applications page [Here](https://discord.com/developers/applications), create a new application, give it a unique name
 - Go to the "bot" section -> click "add bot" -> click "reset token", this token can only be viewed once without having to reset it so take note of it. **disable public bot unless you know what you're doing**, tick the intent switches on
 - Go to "OAuth2" section -> URL Generator, click bot scope -> click administrator permission, or specific permissions if you know them, copy and paste generated link into your browser or message it to who has permission to invite the bot to your discord.
-- paste your token into the bottoken field of kiwitoken.json *or* set a kiwitoken environment variable to the token (on windows, open cmd, open kiwi/venv/scripts/, drag the blank activate file into cmd and press enter, type "set kiwitoken=YOURBOTTOKEN" and press enter.)
+- paste your token into the bottoken field of kiwitoken.json *or* set a kiwitoken environment variable to the token (on windows, open cmd, open kiwi/venv/scripts/, drag the blank activate file into cmd and press enter, enter "set kiwitoken=YOURBOTTOKEN".)
 - copy your user id to the AdminList field of kiwiconfig.json or kiwiconfigdefault.json to allow you access to change **/adminsettings** options (user id's can usually be accessed via right click in discord)
 - start the bot with **kiwi.bat**
-- Type /changemodel and select your model to load
-- Type /generate to start prompting
+- Enter /changemodel and select your model to load
+- Enter /generate to start prompting
 # Commands
 ### Generation
 - **/generate:** Generates a image from a detailed description, or booru tags separated by commas. optionally input an image for image to image generation, or a mask and an image for inpainting, note inpainting works poorly with default sampler, use klms instead
