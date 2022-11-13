@@ -739,7 +739,7 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate:bool):
         respProxy = await ctx.respond(embed)
         #-------
         threadmanager = threadManager()
-        userconfig = get_user_config(str(ctx.author.id))
+        userconfig = load_user_config(str(ctx.author.id))
         load_config()
         requestObject = imageRequest(ctx.options.prompt,ctx.options.negative_prompt,ctx.options.steps,ctx.options.seed,ctx.options.guidance_scale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,scheduler=ctx.options.sampler,userconfig=userconfig,author=ctx.author, InpaintUrl=inpainturl,regenerate=regenerate)
         thread = threadmanager.New_Thread(requestObject,previous_request)
@@ -979,8 +979,11 @@ def option_to_bool(option)->bool:
 def get_admin_list()->list:
     global config
     return config["AdminList"].replace(", ","").replace(" ,","").replace(" , ","").split(",")
-def get_user_config(userid:str)->dict:
+def load_user_config(userid:str)->dict:
+    '''Load a user config from the specified user id'''
     global config
+    if not os.path.exists(str("usersettings.json")):
+        shutil.copy2("usersettingsdefault.json","usersettings.json")
     with open('usersettings.json', 'r') as openfile:
         userconfig = json.load(openfile)
     if userid in userconfig:
@@ -1004,7 +1007,7 @@ def save_user_config(userid:str,saveconfig):
 @lightbulb.command("settings", "View or modify your personal user settings")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def settings(ctx: lightbulb.SlashContext) -> None:
-    userconfig = get_user_config(str(ctx.author.id))
+    userconfig = load_user_config(str(ctx.author.id))
     if ctx.options.setting != None:
         #Bool settings
         if ctx.options.setting in ["UseDefaultNegativePrompt", "UseDefaultQualityPrompt"]:
