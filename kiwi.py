@@ -1167,7 +1167,7 @@ async def styleinfo(ctx: lightbulb.SlashContext) -> None:
             #fileOpened = open(str(file.parent) + "\\README.md","r")
             embed = hikari.Embed(title=ctx.options.style + " - Training Dataset:",colour=hikari.Colour(0xabaeff))
             savedpath = "./embeddings/" + str(file.parent)
-            if not os.path.exists(str(file.parent) + "\\imageStored.txt"):
+            if not os.path.exists(str(file.parent) + "/imageStored.txt"):
                 imagepathlist = []
                 imagelimitCounter = 0
                 for filename in os.listdir(Path(str(file.parent) + "/concept_images/")):
@@ -1192,14 +1192,14 @@ async def styleinfo(ctx: lightbulb.SlashContext) -> None:
                             break
                     resultImage = image_grid(clippedimagelist,3,3)
                     resultImage = resultImage.resize((512, 512),Image.Resampling.LANCZOS)
-                    resultImage.save("conceptgrid.PNG")
-                    embed.set_image("conceptgrid.PNG")
+                    resultImage.save(str(file.parent)+"/conceptgrid.PNG")
+                    embed.set_image(str(file.parent)+"/conceptgrid.PNG")
                 elif len(imagesopened) <= 3:
                     if len(imagesopened)>0:
                         resultImage = image_grid(imagesopened,1,len(imagesopened))
                         resultImage = resultImage.resize((512, 512),Image.Resampling.LANCZOS)
-                        resultImage.save("conceptgrid.PNG")
-                        embed.set_image("conceptgrid.PNG")
+                        resultImage.save(str(file.parent)+"/conceptgrid.PNG")
+                        embed.set_image(str(file.parent)+"/conceptgrid.PNG")
                 elif len(imagesopened) >= 4:
                     clippedimagelist = []
                     count = 0
@@ -1211,14 +1211,14 @@ async def styleinfo(ctx: lightbulb.SlashContext) -> None:
                             break
                     resultImage = image_grid(clippedimagelist,2,2)
                     resultImage = resultImage.resize((512, 512),Image.Resampling.LANCZOS)
-                    resultImage.save("conceptgrid.PNG")
-                    embed.set_image("conceptgrid.PNG")
+                    resultImage.save(str(file.parent)+"/conceptgrid.PNG")
+                    embed.set_image(str(file.parent)+"/conceptgrid.PNG")
             else:
-                fileOpened = open(str(file.parent) + "\\imageStored.txt","r")
+                fileOpened = open(str(file.parent) + "/imageStored.txt","r")
                 embed.set_image(fileOpened.readline())
             proxy = await ctx.respond(embed)
             proxyresponse = await proxy.message()
-            fileOpened = open(str(savedpath)+"imageStored.txt","w")
+            fileOpened = open(str(file.parent)+"/imageStored.txt","w")
             fileOpened.writelines(proxyresponse.embeds[0].image.url)
             return
         else:

@@ -166,3 +166,4 @@ kiwiconfig.json
 usersettings.json
 *.ckpt
 .v1-inference.yaml
+conceptgrid.PNG
