@@ -428,6 +428,8 @@ class genImgThreadClass(Thread):
                     self.request.imgUrl = self.previous_request.imgUrl
                 else:
                     self.request.strength = None
+            elif self.request.overProcess:
+                pass
             else:
                 self.request.strength = None
         
@@ -713,7 +715,7 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
             await ctx.respond(embed)
         return
 
-async def processRequest(ctx: lightbulb.SlashContext, regenerate:bool):
+async def processRequest(ctx: lightbulb.SlashContext, regenerate:bool, overProcess:bool = False):
     '''process ctx into a image request'''
     global curmodel
     global titles
@@ -756,7 +758,7 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate:bool):
         threadmanager = threadManager()
         userconfig = load_user_config(str(ctx.author.id))
         load_config()
-        requestObject = imageRequest(ctx.options.prompt,ctx.options.negative_prompt,ctx.options.steps,ctx.options.seed,ctx.options.guidance_scale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,scheduler=ctx.options.sampler,userconfig=userconfig,author=ctx.author, InpaintUrl=inpainturl,regenerate=regenerate)
+        requestObject = imageRequest(ctx.options.prompt,ctx.options.negative_prompt,ctx.options.steps,ctx.options.seed,ctx.options.guidance_scale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,scheduler=ctx.options.sampler,userconfig=userconfig,author=ctx.author, InpaintUrl=inpainturl,regenerate=regenerate, overProcess=overProcess)
         thread = threadmanager.New_Thread(requestObject,previous_request)
         thread.start()
     except Exception:
@@ -788,6 +790,24 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate:bool):
 @lightbulb.implements(lightbulb.SlashCommand)
 async def generate(ctx: lightbulb.SlashContext) -> None:
     await processRequest(ctx,False)
+
+#----------------------------------
+#Overgenerate Command
+#----------------------------------
+@bot.command
+@lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
+@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
+@lightbulb.option("sampler", "(Optional) Which scheduler to use", required = False,type = str, default = "DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
+@lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)", required = False,type = float)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required = False,default = 15, type = int, max_value=config["MaxSteps"], min_value=1)
+@lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required = False, default = 0, type = int, min_value=0)
+@lightbulb.option("guidance_scale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float,default = 7, max_value=100 , min_value=-100)
+@lightbulb.option("negative_prompt", "(Optional)Prompt for diffusion to avoid.",required = False,default ="0")
+@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = True,default ="0")
+@lightbulb.command("overgenerate", "runs diffusion on the result of the previous diffusion")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def overgenerate(ctx: lightbulb.SlashContext) -> None:
+    await processRequest(ctx,False,True)
 
 #----------------------------------
 #ReGenerate Command
