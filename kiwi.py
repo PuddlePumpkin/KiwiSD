@@ -1062,7 +1062,7 @@ def load_user_config(userid:str)->dict:
     else:
         #write a default config to the userid
         load_config()
-        userconfig[userid] = {"UseDefaultQualityPrompt" : False,"DefaultQualityPrompt":config["NewUserQualityPrompt"],"UseDefaultNegativePrompt" : True,"DefaultNegativePrompt":config["NewUserNegativePrompt"]}
+        userconfig[userid] = {"UseDefaultQualityPrompt" : False,"DefaultQualityPrompt":config["NewUserQualityPrompt"],"UseDefaultNegativePrompt" : False,"DefaultNegativePrompt":config["NewUserNegativePrompt"]}
         return userconfig[str(userid)]
 def save_user_config(userid:str,saveconfig):
     '''Saves a user setting to the json file'''
