@@ -1030,7 +1030,7 @@ async def todo(ctx: lightbulb.SlashContext) -> None:
     rows = await generate_rows(ctx.bot)
     response = await ctx.respond(embed,components=rows)
     message = await response.message()
-    await handle_responses(ctx.bot, ctx.author, message,autodelete=True)
+    await handle_responses(ctx.bot, ctx.author, message,autodelete=False)
 
 #----------------------------------
 #Settings Commands
