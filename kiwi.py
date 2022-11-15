@@ -112,6 +112,8 @@ botBusy = False
 awaitingEmbed = None
 awaitingProxy = None
 awaitingAuthor = None
+awaitingFrame = None
+activeAnimRequest = None
 curmodel = ""
 regentitles = ["I'll try again!... ", "Sorry if I didn't do good enough... ", "I'll try my best to do better... "]
 outputDirectory = "./results/"
@@ -326,7 +328,7 @@ def remove_duplicates(string:str)->str:
     return s.join(result)
 
 class imageRequest(object):
-    def __init__(self,Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,resultImage=None,regenerate=False, overProcess=False, scheduler=None, userconfig=None, author = None, InpaintUrl = None):
+    def __init__(self,Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,resultImage=None,regenerate=False, overProcess=False, scheduler=None, userconfig=None, author = None, InpaintUrl = None,isAnimation = False):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
@@ -344,9 +346,9 @@ class imageRequest(object):
         self.scheduler = scheduler
         self.userconfig = userconfig
         self.author = author
+        self.isAnimation = isAnimation
 
 previous_request = imageRequest()
-
 class threadManager(object):
     def New_Thread(self, request:imageRequest = None, previous_request:imageRequest = None):
         return genImgThreadClass(parent=self, request=request, previous_request=previous_request)
@@ -355,6 +357,12 @@ class threadManager(object):
         global awaitingEmbed
         global previous_request
         global awaitingAuthor
+        global animationFrames
+        global awaitingFrame
+        if request.isAnimation:
+            awaitingFrame = request.resultImage
+            previous_request = request
+            return
         previous_request = request
         awaitingProxy = proxy
         awaitingEmbed = data
@@ -659,13 +667,60 @@ async def metadata(ctx: lightbulb.SlashContext) -> None:
     message = await response.message()
     await handle_responses(ctx.bot, ctx.author, message,autodelete=True)
 
-
-@tasks.task(s=2, auto_start=True)
-async def checkForCompletion():
+#----------------------------------
+#Thread result listener
+#----------------------------------
+startbool= False
+ThreadCompletionSpeed = 2
+@tasks.task(s=ThreadCompletionSpeed, auto_start=True)
+async def ThreadCompletionLoop():
     global awaitingProxy
     global awaitingEmbed
     global awaitingAuthor
     global botBusy
+    global activeAnimRequest
+    global animationFrames
+    global awaitingFrame
+    global startbool
+    global ThreadCompletionSpeed
+    if activeAnimRequest!=None:
+        ThreadCompletionSpeed = 0.5
+        if(awaitingFrame!=None):
+            animationFrames.append(awaitingFrame)
+        if(awaitingFrame!=None or startbool):
+            if activeAnimRequest.currentstep < activeAnimRequest.endframe:
+                activeAnimRequest.currentstep = activeAnimRequest.currentstep + activeAnimRequest.animstep
+                activeAnimRequest.animstep
+                threadmanager = threadManager()
+                load_config()
+                if activeAnimRequest.animkey == "guidescale":
+                    requestObject = imageRequest(activeAnimRequest.prompt,activeAnimRequest.negativePrompt,activeAnimRequest.infSteps,activeAnimRequest.seed,activeAnimRequest.currentstep,activeAnimRequest.imgUrl,activeAnimRequest.strength,activeAnimRequest.width,activeAnimRequest.height,activeAnimRequest.proxy,scheduler=activeAnimRequest.scheduler,userconfig=activeAnimRequest.userconfig,author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl,regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess,isAnimation=True)
+                if activeAnimRequest.animkey == "steps":
+                    requestObject = imageRequest(activeAnimRequest.prompt,activeAnimRequest.negativePrompt,int(activeAnimRequest.currentstep),activeAnimRequest.seed,activeAnimRequest.guideScale,activeAnimRequest.imgUrl,activeAnimRequest.strength,activeAnimRequest.width,activeAnimRequest.height,activeAnimRequest.proxy,scheduler=activeAnimRequest.scheduler,userconfig=activeAnimRequest.userconfig,author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl,regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess,isAnimation=True)
+                if activeAnimRequest.animkey == "strength":
+                    requestObject = imageRequest(activeAnimRequest.prompt,activeAnimRequest.negativePrompt,activeAnimRequest.infSteps,activeAnimRequest.seed,activeAnimRequest.guideScale,activeAnimRequest.imgUrl,activeAnimRequest.currentstep,activeAnimRequest.width,activeAnimRequest.height,activeAnimRequest.proxy,scheduler=activeAnimRequest.scheduler,userconfig=activeAnimRequest.userconfig,author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl,regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess,isAnimation=True)
+                thread = threadmanager.New_Thread(requestObject,previous_request)
+                thread.start()
+                awaitingFrame = None
+                startbool = False
+            else:
+                animationFrames[0].save(outputDirectory + "resultgif.gif",save_all=True, append_images=animationFrames[1:], duration=86, loop=0)
+                file_name = outputDirectory + "resultgif.gif"
+                file_stats = os.stat(file_name)
+                if((file_stats.st_size / (1024 * 1024)) < 8):
+                    print("Anim Complete, sending gif.")
+                    embed = hikari.Embed(title=("Animation Result:"),colour=hikari.Colour(0xFFFFFF)).set_image(outputDirectory + "resultgif.gif")
+                    await activeAnimRequest.proxy.edit(embed)
+                else:
+                    print("Anim Complete, Gif too big.")
+                    embed = hikari.Embed(title=("Animation Complete. (Gif file too large for upload)"),colour=hikari.Colour(0xFFFFFF))
+                    await activeAnimRequest.proxy.edit(embed)
+                activeAnimRequest = None
+                awaitingFrame = None
+                botBusy = False
+                return
+        return
+    ThreadCompletionSpeed = 2
     if awaitingEmbed!=None and awaitingProxy!=None:
         emb = awaitingEmbed
         prx = awaitingProxy
@@ -894,6 +949,35 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 #----------------------------------
 #Admin Generate Gif Command
 #----------------------------------
+class animationRequest(object):
+    def __init__(self,Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,resultImage=None,regenerate=False, overProcess=False, scheduler=None, userconfig=None, author = None, InpaintUrl = None,isAnimation = False,startframe=None,endframe=None,animkey=None,animstep=None):
+        self.prompt = Prompt
+        self.negativePrompt = NegativePrompt
+        self.infSteps = InfSteps
+        self.seed = Seed
+        self.guideScale = GuideScale
+        self.imgUrl = ImgUrl
+        self.inpaintUrl = InpaintUrl
+        self.strength = Strength
+        self.width = Width
+        self.height = Height
+        self.proxy = Proxy
+        self.resultImage = resultImage
+        self.regenerate = regenerate
+        self.overProcess = overProcess
+        self.scheduler = scheduler
+        self.userconfig = userconfig
+        self.author = author
+        self.startframe = startframe
+        self.endframe = endframe
+        self.animkey = animkey
+        self.animstep = animstep
+        self.currentstep = startframe
+
+async def processAnimationRequest(ctx: lightbulb.SlashContext, regenerate:bool, overProcess:bool = False):
+    '''process ctx into a image request'''
+
+animationFrames = []
 @bot.command
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.option("animstep", "step value", required = True,type = float)
@@ -910,73 +994,52 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("admingenerategif", "Generate a series of results")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
-    global outputDirectory
     global botBusy
+    global animationFrames
+    global curmodel
+    global titles
+    global outputDirectory
+    global previous_request
+    animationFrames = []
     if botBusy:
         await respond_with_autodelete("Sorry, Kiwi is busy, please try again later!",ctx)
         return
     botBusy = True
-    outputDirectory = "./animation/"
     try:
         embed = hikari.Embed(title=("Animation in progress, This may take a while..."),colour=hikari.Colour(0xFFFFFF)).set_thumbnail("https://i.imgur.com/21reOYm.gif")
-        await ctx.respond(embed)
-        if ctx.options.image != None:
-            genUrl = ctx.options.image.url
-        else:
-            genUrl = "0"
-        curstep = ctx.options.start
-        infsteps = ctx.options.steps
-        guidance = ctx.options.guidance_scale
-        strength = ctx.options.strength
-        stepcount = 0
-        imageList = []
-        if ctx.options.end > ctx.options.start:
-            if ctx.options.animstep > 0:
-                while curstep <= ctx.options.end:
-                    stepcount=stepcount + 1
-                    curstep = curstep + ctx.options.animstep
-                    if ctx.options.key == "guidescale":
-                        guidance = float(curstep)
-                    elif ctx.options.key == "steps":
-                        infsteps = int(curstep)
-                    elif ctx.options.key == "strength":
-                        if ((strength + float(ctx.options.animstep))<=1):
-                            strength = curstep 
-                        else:
-                            strength = 1
-                    WdGenerateImage(ctx.options.prompt,ctx.options.negative_prompt,infsteps,ctx.options.seed,guidance,genUrl,strength)
-                    imageList.append(prevResultImage)
+        respProxy = await ctx.respond(embed)
+    except:pass
+    if curmodel == None or curmodel == "":
+        await respond_with_autodelete("Please load a model with /changemodel",ctx)
+        return
+    botBusy = True
+    outputDirectory = "./animation/"
+    try:
+        if(ctx.options.image != None):
+            url = ctx.options.image.url
+        elif(ctx.options.image_link != None):
+            if(is_url(ctx.options.image_link)):
+                url = ctx.options.image_link
             else:
-                raise Exception("step not matching")
+                messageIdResponse = await ctx.app.rest.fetch_message(ctx.channel_id,ctx.options.image_link)
+                url = messageIdResponse.embeds[0].image.url
         else:
-            if ctx.options.animstep < 0:
-                while curstep >= ctx.options.end:
-                    stepcount=stepcount + 1
-                    curstep = curstep + ctx.options.animstep
-                    if ctx.options.key == "guidescale":
-                        guidance = float(curstep)
-                    elif ctx.options.key == "steps":
-                        infsteps = int(curstep)
-                    elif ctx.options.key == "strength":
-                        if ((strength + float(ctx.options.animstep))>=0):
-                            strength = curstep 
-                        else:
-                            strength = 1
-                    WdGenerateImage(ctx.options.prompt,ctx.options.negative_prompt,infsteps,ctx.options.seed,guidance,genUrl,strength)
-                    imageList.append(prevResultImage)
-            else:
-                raise Exception("step not matching: " + str(ctx.options.animstep))
-        imageList[0].save(outputDirectory + "resultgif.gif",save_all=True, append_images=imageList[1:], duration=86, loop=0)
-        file_name = outputDirectory + "resultgif.gif"
-        file_stats = os.stat(file_name)
-        if((file_stats.st_size / (1024 * 1024)) < 8):
-            print("Anim Complete, sending gif.")
-            await ctx.edit_last_response(get_embed(ctx.options.prompt,ctx.options.negative_prompt,ctx.options.guidance_scale,ctx.options.steps,ctx.options.seed,outputDirectory + "resultgif.gif",ctx.options.strength,True))
+            url = "0"
+        if(ctx.options.inpaint_mask != None):
+            inpainturl = ctx.options.inpaint_mask.url
         else:
-            print("Anim Complete, Gif too big.")
-            embed = hikari.Embed(title=("Animation Complete. (Gif file too large for upload)"),colour=hikari.Colour(0xFFFFFF))
-            await ctx.edit_last_response(embed)
+            inpainturl = "0"
+        userconfig = load_user_config(str(ctx.author.id))
+        load_config()
+        global activeAnimRequest
+        activeAnimRequest = animationRequest(ctx.options.prompt,ctx.options.negative_prompt,ctx.options.steps,ctx.options.seed,ctx.options.guidance_scale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,scheduler=ctx.options.sampler,userconfig=userconfig,author=ctx.author, InpaintUrl=inpainturl,regenerate=False, overProcess=False,startframe=ctx.options.start,endframe=ctx.options.end,animkey=ctx.options.key,animstep=ctx.options.animstep)
+        global startbool
+        startbool = True
+    except Exception:
+        traceback.print_exc()
+        await respond_with_autodelete("Sorry, something went wrong! <:scootcry:1033114138366443600>",ctx)
         botBusy = False
+        return
     except Exception:
         traceback.print_exc()
         embed = hikari.Embed(title="Sorry, something went wrong! <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
