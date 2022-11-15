@@ -44,6 +44,8 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - **/overgenerate:** Diffuses from last diffusion result
 ### Settings
 - **/changemodel:** changes the loaded model, must be used after bot is started if a default model is not set
+- **/togglequalityprompt:** toggles whether or not to use the user's default quality prompt.
+- **/togglenegativeprompt:** toggles whether or not to use the user's default negative prompt.
 - **/settings:** displays a list of settings and optionally change them
 - **/adminsettings:** displays a list of admin settings and optionally changes them **your discord user id (just a bunch of numbers) must be in kiwiconfig.json to modify these.**
 - **/adminupdatecommands:** refreshes commands

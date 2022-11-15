@@ -47,6 +47,7 @@ with open('kiwitoken.json', 'r') as openfile:
             bottoken = os.environ["kiwitoken"]
         except:
             pass
+    openfile.close()
 if bottoken == None or bottoken == "":
     sys.exit("\nYou need a bot token, see readme.md for usage instructions")
 
@@ -57,12 +58,14 @@ def load_config():
         shutil.copy2("kiwiconfigdefault.json","kiwiconfig.json")
     with open('kiwiconfig.json', 'r') as openfile:
         config = json.load(openfile)
+        openfile.close()
 
 def save_config():
     '''Saves admin config file'''
     global config
     with open("kiwiconfig.json", "w") as outfile:
         json.dump(config,outfile,indent=4)
+        outfile.close()
 
 def convert_ckpt(ckptpath,vaepath = None, dump_path = None):
     convertckpt.convertmodel(ckptpath,vaepath, dump_path=dump_path)
@@ -94,6 +97,7 @@ def populate_model_list():
                 #print(open_json["ModelCommandName"])
                 open_json["ModelPath"] = "./models/" + folder
                 model_list[open_json["ModelCommandName"]] = open_json
+                openfile.close()
 
 
 
@@ -267,22 +271,44 @@ async def generate_rows(bot: lightbulb.BotApp):
     rows = []
     row = bot.rest.build_action_row()
     label = "🗑️"
-    row.add_button(hikari.ButtonStyle.SECONDARY,label).set_label(label).add_to_container()
+    row.add_button(hikari.ButtonStyle.SECONDARY,"delete").set_label(label).add_to_container()
+    rows.append(row)
+    return rows
+async def generate_toggle_rows(bot: lightbulb.BotApp,quality:bool):
+    rows = []
+    row = bot.rest.build_action_row()
+    label = "🗑️"
+    label1 = "🟢"
+    if not quality:
+        row.add_button(hikari.ButtonStyle.SECONDARY,"toggle").set_label(label1).add_to_container()
+    else:
+        row.add_button(hikari.ButtonStyle.SECONDARY,"togglequality").set_label(label1).add_to_container()
+    row.add_button(hikari.ButtonStyle.SECONDARY,"delete").set_label(label).add_to_container()
     rows.append(row)
     return rows
 
-async def handle_responses(bot: lightbulb.BotApp,author: hikari.User,message: hikari.Message,) -> None:
+async def handle_responses(bot: lightbulb.BotApp,author: hikari.User,message: hikari.Message,ctx:lightbulb.SlashContext=None, autodelete:bool=False) -> None:
     """Watches for events, and handles responding to them."""
     with bot.stream(hikari.InteractionCreateEvent, 60).filter(lambda e:(isinstance(e.interaction, hikari.ComponentInteraction) and e.interaction.user == author and e.interaction.message == message)) as stream:
         async for event in stream:
             cid = event.interaction.custom_id
-            await bot.rest.delete_message(message.channel_id,message)
-            return
-    # Once were back outside the stream loop, it's been 2 minutes since
-    await message.edit(
-        # Set components to an empty list to get rid of them.
-        components=[]
-    )
+            if cid == "toggle":
+                embed = togprompts(False,ctx)
+            elif cid == "togglequality":
+                embed = togprompts(True,ctx)
+            elif cid == "delete":
+                await bot.rest.delete_message(message.channel_id,message)
+                return
+            try:
+                await event.interaction.create_initial_response(hikari.ResponseType.MESSAGE_UPDATE,embed=embed)
+            except hikari.NotFoundError:
+                await event.interaction.edit_initial_response(embed=embed)
+    #1 minute, remove buttons
+    if autodelete:
+        await bot.rest.delete_message(message.channel_id,message)
+    else:
+        await message.edit(components=[])
+
 def remove_duplicates(string:str)->str:
     separated = string.replace(", ",",")
     separated = separated.strip()
@@ -473,7 +499,7 @@ class genImgThreadClass(Thread):
             init_image = Image.open(BytesIO(response.content)).convert("RGB")
             #Crop and resize
             init_image = crop_max_square(init_image)
-            init_image = init_image.resize((512, 512),Image.Resampling.LANCZOS)
+            init_image = init_image.resize((self.request.width, self.request.height),Image.Resampling.LANCZOS)
         if self.request.overProcess:
             print("Loading image from previous_request.resultImage")
             init_image = self.previous_request.resultImage
@@ -486,7 +512,7 @@ class genImgThreadClass(Thread):
             inpaint_image = Image.open(BytesIO(response.content)).convert("RGB")
             #Crop and resize
             inpaint_image = crop_max_square(inpaint_image)
-            inpaint_image = inpaint_image.resize((512, 512),Image.Resampling.LANCZOS)
+            inpaint_image = inpaint_image.resize((self.request.width, self.request.height),Image.Resampling.LANCZOS)
 
         #Check for duplicate tokens
         if self.request.prompt != None:
@@ -579,7 +605,7 @@ tasks.load(bot)
 @lightbulb.command("ping", "checks the bot is alive")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def ping(ctx: lightbulb.SlashContext) -> None:
-    await ctx.respond("Pong!")
+    await respond_with_autodelete("Pong!",ctx,0x00ff1a)
 
 #----------------------------------
 #Metadata Command
@@ -631,7 +657,7 @@ async def metadata(ctx: lightbulb.SlashContext) -> None:
     rows = await generate_rows(ctx.bot)
     response = await ctx.respond(embed,components=rows)
     message = await response.message()
-    await handle_responses(ctx.bot, ctx.author, message)
+    await handle_responses(ctx.bot, ctx.author, message,autodelete=True)
 
 
 @tasks.task(s=2, auto_start=True)
@@ -707,13 +733,20 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
         rows = await generate_rows(ctx.bot)
         response = await ctx.respond(embed,components=rows)
         message = await response.message()
-        await handle_responses(ctx.bot, ctx.author, message)
+        await handle_responses(ctx.bot, ctx.author, message,autodelete=True)
     except Exception:
         traceback.print_exc()
         embed = hikari.Embed(title="Sorry, something went wrong! <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
         if (not await ctx.edit_last_response(embed)):
             await ctx.respond(embed)
         return
+
+async def respond_with_autodelete(text:str,ctx:lightbulb.SlashContext,color=0xff0015):
+    embed = hikari.Embed(title=text,colour=hikari.Colour(color))
+    rows = await generate_rows(ctx.bot)
+    response = await ctx.respond(embed,components=rows)
+    message = await response.message()
+    await handle_responses(ctx.bot, ctx.author, message,autodelete=True)
 
 async def processRequest(ctx: lightbulb.SlashContext, regenerate:bool, overProcess:bool = False):
     '''process ctx into a image request'''
@@ -723,10 +756,10 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate:bool, overProce
     global botBusy
     global previous_request
     if botBusy:
-        await ctx.respond("> Sorry, kiwi is busy!")
+        await respond_with_autodelete("Sorry, Kiwi is busy, please try again later!",ctx)
         return
     if curmodel == None or curmodel == "":
-        await ctx.respond("> Please load a model with **/changemodel**")
+        await respond_with_autodelete("Please load a model with /changemodel",ctx)
         return
     botBusy = True
     outputDirectory = "./results/"
@@ -763,11 +796,7 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate:bool, overProce
         thread.start()
     except Exception:
         traceback.print_exc()
-        embed = hikari.Embed(title="Sorry, something went wrong! <:scootcry:1033114138366443600>",colour=hikari.Colour(0xFF0000))
-        rows = await generate_rows(ctx.bot)
-        response = await ctx.edit_last_response(embed,components=rows)
-        message = await response.message()
-        await handle_responses(ctx.bot, ctx.author, message)
+        await respond_with_autodelete("Sorry, something went wrong! <:scootcry:1033114138366443600>",ctx)
         botBusy = False
         return
 #----------------------------------
@@ -884,7 +913,7 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
     global outputDirectory
     global botBusy
     if botBusy:
-        await ctx.respond("> Sorry, kiwi is busy!")
+        await respond_with_autodelete("Sorry, Kiwi is busy, please try again later!",ctx)
         return
     botBusy = True
     outputDirectory = "./animation/"
@@ -969,10 +998,10 @@ async def changemodel(ctx: lightbulb.SlashContext) -> None:
     load_config()
     if not config["AllowNonAdminChangeModel"]: 
         if not str(ctx.author.id) in get_admin_list():
-            await ctx.respond("> Sorry, you must be marked as admin to change the model!")
+            await respond_with_autodelete("Sorry, you must be marked as admin to change the model!",ctx)
             return
     if botBusy:
-        await ctx.respond("> Sorry, kiwi is busy!")
+        await respond_with_autodelete("Sorry, Kiwi is busy, please try again later!",ctx)
         return
     botBusy = True
     embed = hikari.Embed(title="Loading "+ model_list[ctx.options.model]["ModelDetailedName"],colour=hikari.Colour(0xff1100))
@@ -1006,7 +1035,7 @@ async def todo(ctx: lightbulb.SlashContext) -> None:
 #----------------------------------
 #Settings Commands
 #----------------------------------
-def option_to_bool(option)->bool:
+def string_to_bool(option)->bool:
     '''Converts string to bool from various wordings'''
     try:
         false_strings = ["off", "false", "no"]
@@ -1027,20 +1056,23 @@ def load_user_config(userid:str)->dict:
         shutil.copy2("usersettingsdefault.json","usersettings.json")
     with open('usersettings.json', 'r') as openfile:
         userconfig = json.load(openfile)
+        openfile.close()
     if userid in userconfig:
         return userconfig[userid]
     else:
         #write a default config to the userid
         load_config()
         userconfig[userid] = {"UseDefaultQualityPrompt" : False,"DefaultQualityPrompt":config["NewUserQualityPrompt"],"UseDefaultNegativePrompt" : True,"DefaultNegativePrompt":config["NewUserNegativePrompt"]}
-        return userconfig[userid]
+        return userconfig[str(userid)]
 def save_user_config(userid:str,saveconfig):
     '''Saves a user setting to the json file'''
     with open('usersettings.json', 'r') as openfile:
         userconfigs = json.load(openfile)
-        userconfigs[userid] = saveconfig
+        userconfigs[str(userid)] = saveconfig
+        openfile.close()
     with open("usersettings.json", "w") as outfile:
         json.dump(userconfigs,outfile,indent=4)
+        outfile.close()
         
 
 @bot.command()
@@ -1053,11 +1085,10 @@ async def settings(ctx: lightbulb.SlashContext) -> None:
     if ctx.options.setting != None:
         #Bool settings
         if ctx.options.setting in ["UseDefaultNegativePrompt", "UseDefaultQualityPrompt"]:
-            userconfig[ctx.options.setting] = option_to_bool(ctx.options.value)
+            userconfig[ctx.options.setting] = string_to_bool(ctx.options.value)
         elif ctx.options.setting in ["DefaultNegativePrompt","DefaultQualityPrompt"]:
             userconfig[ctx.options.setting] = ctx.options.value
         else:
-            await ctx.respond("> I don't understand that setting!")
             return
         save_user_config(str(ctx.author.id),userconfig)
     embed = hikari.Embed(title="User Settings:",colour=ctx.author.accent_color).set_author(name=ctx.member.nickname,icon=ctx.member.avatar_url)
@@ -1066,7 +1097,7 @@ async def settings(ctx: lightbulb.SlashContext) -> None:
     rows = await generate_rows(ctx.bot)
     response = await ctx.respond(embed,components=rows)
     message = await response.message()
-    await handle_responses(ctx.bot, ctx.author, message)
+    await handle_responses(ctx.bot, ctx.author, message,autodelete=True)
 
 @bot.command()
 @lightbulb.option("value", "(optional if no key) value to change it to",required=False,type=str)
@@ -1080,7 +1111,7 @@ async def adminsettings(ctx: lightbulb.SlashContext) -> None:
         if str(ctx.author.id) in get_admin_list():
             #Bools
             if ctx.options.setting in ["ShowDefaultPrompts", "EnableNsfwFilter", "AllowNonAdminChangeModel"]:
-                    config[ctx.options.setting] = option_to_bool(ctx.options.value)
+                    config[ctx.options.setting] = string_to_bool(ctx.options.value)
             #Ints
             elif ctx.options.setting in ["MaxSteps"]:
                 if int(ctx.options.value) > 1:
@@ -1095,10 +1126,10 @@ async def adminsettings(ctx: lightbulb.SlashContext) -> None:
                 config[ctx.options.setting] = ctx.options.value
             #Invalid setting
             else:
-                await ctx.respond("> I don't understand that setting!")
+                await respond_with_autodelete("I dont understand that setting...",ctx)
                 return
         else:
-            await ctx.respond("> Sorry, you must have permission to edit these settings!")
+            await respond_with_autodelete("You must be marked as admin to change these settings...",ctx)
             return
         save_config()
     load_config()
@@ -1108,7 +1139,7 @@ async def adminsettings(ctx: lightbulb.SlashContext) -> None:
     rows = await generate_rows(ctx.bot)
     response = await ctx.respond(embed,components=rows)
     message = await response.message()
-    await handle_responses(ctx.bot, ctx.author, message)
+    await handle_responses(ctx.bot, ctx.author, message,autodelete=True)
 
 #----------------------------------
 #Styles Command
@@ -1223,7 +1254,7 @@ async def styleinfo(ctx: lightbulb.SlashContext) -> None:
             return
         else:
             fileOpened.close()
-    await ctx.respond("> Style not found...")
+    await respond_with_autodelete("Style not found...",ctx)
 
 #----------------------------------
 #Admin update commands Command
@@ -1233,7 +1264,7 @@ async def styleinfo(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("adminupdatecommands", "update commands")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def todo(ctx: lightbulb.SlashContext) -> None:
-    await ctx.respond("> Commands Updated.")
+    await respond_with_autodelete("Commands updated.",ctx,0x00ff1a)
     load_config()
     await bot.sync_application_commands()
 
@@ -1249,6 +1280,61 @@ async def quit(ctx: lightbulb.SlashContext) -> None:
     await bot.close()
     await asyncio.sleep(1)
     await quit(1)
+
+#----------------------------------
+#Toggle Negatives Command
+#----------------------------------
+def set_bool_user_setting(userid:str,setting:str,value:bool):
+    '''Sets a user setting to specified bool'''
+    userconfig = load_user_config(userid)
+    userconfig[setting] = value
+    save_user_config(userid,userconfig)
+
+def get_bool_user_setting(userid:str,setting:str)->bool:
+    '''Gets a bool user setting'''
+    userconfig = load_user_config(userid)
+    return userconfig[setting]
+
+def togprompts(positive:bool, ctx:lightbulb.SlashContext)->hikari.Embed:
+    if positive:
+        setting = "UseDefaultQualityPrompt"
+    else:
+        setting = "UseDefaultNegativePrompt"
+    get_bool_user_setting(ctx.user.id,setting)
+    set_bool_user_setting(ctx.user.id,setting,not get_bool_user_setting(ctx.user.id,setting))
+    if positive:
+        if get_bool_user_setting(ctx.user.id,setting):
+            embed = hikari.Embed(title="Your default quality prompt is now enabled. :white_check_mark:",colour=hikari.Colour(0x09ff00))
+        else:
+            embed = hikari.Embed(title="Your default quality prompt is now disabled. :x:",colour=hikari.Colour(0xff0015))
+        embed.set_footer("Type \"/settings setting:DefaultQualityPrompt value:\" to change it's text")
+    else:
+        if get_bool_user_setting(ctx.user.id,setting):
+            embed = hikari.Embed(title="Your default negative prompt is now enabled. :white_check_mark:",colour=hikari.Colour(0x09ff00))
+        else:
+            embed = hikari.Embed(title="Your default negative prompt is now disabled. :x:",colour=hikari.Colour(0xff0015))
+        embed.set_footer("Type \"/settings setting:DefaultNegativePrompt value:\" to change it's text")
+    return embed
+
+@bot.command
+@lightbulb.command("togglenegativeprompt", "toggles your user setting for using default negative prompt")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def togglenegativeprompts(ctx: lightbulb.SlashContext) -> None:
+    embed = togprompts(False,ctx)
+    rows = await generate_toggle_rows(ctx.bot,False)
+    response = await ctx.respond(embed,components=rows)
+    message = await response.message()
+    await handle_responses(ctx.bot, ctx.author, message,ctx,True)
+
+@bot.command
+@lightbulb.command("togglequalityprompt", "toggles your user setting for using default quality prompt")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def togglenegativeprompts(ctx: lightbulb.SlashContext) -> None:
+    embed = togprompts(True,ctx)
+    rows = await generate_toggle_rows(ctx.bot,True)
+    response = await ctx.respond(embed,components=rows)
+    message = await response.message()
+    await handle_responses(ctx.bot, ctx.author, message,ctx,True)
 
 bot.run()
 sys.exit()
