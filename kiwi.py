@@ -267,6 +267,7 @@ def get_embed(Prompt,NegativePrompt:str, GuideScale, InfSteps, Seed, File, Image
         embed.add_field("Negative Prompt:",NegativePrompt)
     if(Gifmode):
         embed.set_footer(None)
+        embed.set_image(File)
     return embed
 
 async def generate_rows(bot: lightbulb.BotApp):
@@ -582,7 +583,6 @@ class genImgThreadClass(Thread):
         #Process Result
         self.request.resultImage = image
         image.save(outputDirectory + str(countStr) + ".png", pnginfo=metadata)
-        botBusy = False
         if not nsfwDetected:
             outEmbed = get_embed(self.request.prompt,self.request.negativePrompt,self.request.guideScale,self.request.infSteps,self.request.seed,outputDirectory + str(countStr) + ".png",self.request.strength,False,self.request.scheduler,self.request.userconfig,self.request.imgUrl)
         else:
@@ -709,7 +709,11 @@ async def ThreadCompletionLoop():
                 file_stats = os.stat(file_name)
                 if((file_stats.st_size / (1024 * 1024)) < 8):
                     print("Anim Complete, sending gif.")
-                    embed = hikari.Embed(title=("Animation Result:"),colour=hikari.Colour(0xFFFFFF)).set_image(outputDirectory + "resultgif.gif")
+                    #embed = hikari.Embed(title=("Animation Result:"),colour=hikari.Colour(0xFFFFFF)).set_image(outputDirectory + "resultgif.gif")
+                    embed = get_embed(activeAnimRequest.prompt,activeAnimRequest.negativePrompt,activeAnimRequest.guideScale,activeAnimRequest.infSteps,activeAnimRequest.seed,outputDirectory + "resultgif.gif",activeAnimRequest.strength,True,activeAnimRequest.scheduler,activeAnimRequest.userconfig,activeAnimRequest.imgUrl)
+                    embed.set_footer(None)
+                    embed.set_image(outputDirectory + "resultgif.gif")
+                    embed.set_thumbnail(None)
                     await activeAnimRequest.proxy.edit(embed)
                 else:
                     print("Anim Complete, Gif too big.")
@@ -984,14 +988,20 @@ animationFrames = []
 @lightbulb.option("end", "end value", required = True,type = float)
 @lightbulb.option("start", "start value", required = True,type = float)
 @lightbulb.option("key", "which key (guidescale, steps, strength)", required = True,type = str, choices=["guidescale", "steps", "strength"])
-@lightbulb.option("strength", "(Optional) Strength of the input image (Default:0.25)", required = False,default=0.25,type = float, max_value=1, min_value=0)
-@lightbulb.option("image", "image to run diffusion on", required = False,type = hikari.Attachment)
-@lightbulb.option("seed", "(Optional) Seed for diffusion", required = False,type = int, min_value=0)
-@lightbulb.option("guidance_scale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float, default=7, max_value=100, min_value=-100)
-@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required = False,type = int, default=15, max_value=100, min_value=1)
-@lightbulb.option("negativeprompt", "(Optional)Prompt for diffusion to avoid.",required = False)
-@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ")
+@lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
+@lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
+@lightbulb.option("sampler", "(Optional) Which scheduler to use", required = False,type = str, default = "DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
+@lightbulb.option("inpaint_mask", "(Optional) mask to block off for image inpainting (white = replace, black = dont touch)", required = False,type = hikari.Attachment)
+@lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)", required = False,type = float)
+@lightbulb.option("image_link", "(Optional) image link or message ID", required = False, type = str)
+@lightbulb.option("image", "(Optional) image to run diffusion on", required = False,type = hikari.Attachment)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required = False,default = 15, type = int, max_value=config["MaxSteps"], min_value=1)
+@lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required = False, default = 0, type = int, min_value=0)
+@lightbulb.option("guidance_scale", "(Optional) Guidance scale for diffusion (Default:7)", required = False,type = float,default = 7, max_value=100 , min_value=-100)
+@lightbulb.option("negative_prompt", "(Optional)Prompt for diffusion to avoid.",required = False)
+@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ",required = True,default ="0")
 @lightbulb.command("admingenerategif", "Generate a series of results")
+
 @lightbulb.implements(lightbulb.SlashCommand)
 async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
     global botBusy
