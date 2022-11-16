@@ -1,3 +1,4 @@
+import sys
 from calendar import c
 from msilib.schema import Component
 from sqlite3 import Timestamp
@@ -6,7 +7,6 @@ import lightbulb
 import hikari
 from prompt_toolkit import prompt
 import torch
-import sys
 import datetime
 import asyncio
 from threading import Thread
@@ -31,6 +31,7 @@ from diffusers import DDIMScheduler, LMSDiscreteScheduler, PNDMScheduler, EulerD
 import json
 import shutil
 import convertckpt
+sys.path.insert(0, 'C:/Users/keira/Desktop/GITHUB/')
 
 
 #----------------------------------
@@ -203,6 +204,19 @@ def crop_center(pil_img, crop_width, crop_height):
 def crop_max_square(pil_img):
     return crop_center(pil_img, min(pil_img.size), min(pil_img.size))
 
+def crop_and_resize(pil_img:Image.Image,width,height)->Image.Image:
+    imwidth, imheight = pil_img.size
+    pilcopy = pil_img
+    if imwidth>width and imheight>height:
+        pilcopy.thumbnail((width,height),Image.Resampling.LANCZOS)
+    imwidth, imheight = pilcopy.size
+    if imwidth>=width:
+        crop_center(pilcopy,width,imheight)
+    imwidth, imheight = pilcopy.size
+    if imheight>=height:
+        crop_center(pilcopy,imwidth,imheight)
+    imwidth, imheight = pilcopy.size
+    return pilcopy
 #----------------------------------
 #Get Embed
 #----------------------------------
@@ -329,7 +343,7 @@ def remove_duplicates(string:str)->str:
     return s.join(result)
 
 class imageRequest(object):
-    def __init__(self,Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,resultImage=None,regenerate=False, overProcess=False, scheduler=None, userconfig=None, author = None, InpaintUrl = None,isAnimation = False):
+    def __init__(self,Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,resultImage=None,regenerate=False, overProcess=False, scheduler=None, userconfig=None, author = None, InpaintUrl = None,isAnimation = False, gifFrame = None):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
@@ -348,6 +362,7 @@ class imageRequest(object):
         self.userconfig = userconfig
         self.author = author
         self.isAnimation = isAnimation
+        self.gifFrame = gifFrame
 
 previous_request = imageRequest()
 class threadManager(object):
@@ -395,7 +410,7 @@ class genImgThreadClass(Thread):
         elif self.request.scheduler == "PNDM":
             scheduler = PNDMScheduler(beta_end=0.012,beta_schedule="scaled_linear",beta_start=0.00085,num_train_timesteps=1000,set_alpha_to_one=False,skip_prk_steps=True,steps_offset=1,trained_betas=None)
         elif self.request.scheduler == "DPM++":
-            scheduler = DPMSolverMultistepScheduler.from_config(curmodel["ModelPath"],subfolder="scheduler",solver_order=2,predict_x0=True,thresholding=False,solver_type="dpm_solver",denoise_final=True)  # the influence of this trick is effective for small (e.g. <=10) steps)
+            scheduler = DPMSolverMultistepScheduler.from_config(curmodel["ModelPath"],subfolder="scheduler",solver_order=2,predict_epsilon=True,thresholding=False,algorithm_type="dpmsolver++",solver_type="midpoint",denoise_final=True)  # the influence of this trick is effective for small (e.g. <=10) steps)
         pipe.scheduler = scheduler
         #Handle prompt
         if(self.request.prompt==None or self.request.prompt=="0"):
@@ -461,11 +476,11 @@ class genImgThreadClass(Thread):
             if self.request.regenerate:
                 if self.previous_request.imgUrl != None:
                     self.request.imgUrl = self.previous_request.imgUrl
-                else:
+                elif self.request.gifFrame == None:
                     self.request.strength = None
             elif self.request.overProcess:
                 pass
-            else:
+            elif self.request.gifFrame == None:
                 self.request.strength = None
         
         #Handle inpaint ImgUrl
@@ -507,12 +522,24 @@ class genImgThreadClass(Thread):
             response = requests.get(self.request.imgUrl)
             init_image = Image.open(BytesIO(response.content)).convert("RGB")
             #Crop and resize
-            init_image = crop_max_square(init_image)
+            init_image = crop_and_resize(init_image,self.request.width,self.request.height)
             init_image = init_image.resize((self.request.width, self.request.height),Image.Resampling.LANCZOS)
         if self.request.overProcess:
             print("Loading image from previous_request.resultImage")
             init_image = self.previous_request.resultImage
-
+        if self.request.gifFrame!=None:
+            #initialize init image from gif frame
+            init_image = self.request.gifFrame
+            init_image = crop_and_resize(init_image,self.request.width,self.request.height)
+            init_image = init_image.resize((self.request.width, self.request.height),Image.Resampling.LANCZOS)
+            if previous_request != None:
+                if previous_request.resultImage != None:
+                    init_image = init_image.convert('RGBA')
+                    init_image.save(outputDirectory + "in1.png")
+                    converted = previous_request.resultImage.convert('RGBA')
+                    converted.save(outputDirectory + "in2.png")
+                    init_image = Image.blend(init_image,converted,0.1).convert('RGB')
+                    init_image.save(outputDirectory + "in3.png")
         #Load inpaint Image
         if self.request.inpaintUrl != None:
             inpaint_image = None
@@ -520,7 +547,7 @@ class genImgThreadClass(Thread):
             response = requests.get(self.request.inpaintUrl)
             inpaint_image = Image.open(BytesIO(response.content)).convert("RGB")
             #Crop and resize
-            inpaint_image = crop_max_square(inpaint_image)
+            inpaint_image = crop_and_resize(init_image,self.request.width,self.request.height)
             inpaint_image = inpaint_image.resize((self.request.width, self.request.height),Image.Resampling.LANCZOS)
 
         #Check for duplicate tokens
@@ -671,6 +698,7 @@ async def metadata(ctx: lightbulb.SlashContext) -> None:
 #Thread result listener
 #----------------------------------
 startbool= False
+loadedgif = None
 ThreadCompletionSpeed = 2
 @tasks.task(s=ThreadCompletionSpeed, auto_start=True)
 async def ThreadCompletionLoop():
@@ -683,8 +711,48 @@ async def ThreadCompletionLoop():
     global awaitingFrame
     global startbool
     global ThreadCompletionSpeed
+    global loadedgif
     if activeAnimRequest!=None:
         ThreadCompletionSpeed = 0.5
+        if activeAnimRequest.ingif!=None:
+            if(awaitingFrame!=None):
+                    animationFrames.append(awaitingFrame)
+            if(awaitingFrame!=None or startbool):
+                if loadedgif == None:
+                    response = requests.get(activeAnimRequest.ingif.url)
+                    loadedgif = Image.open(BytesIO(response.content))#.convert("RGB")
+                try:
+                    threadmanager = threadManager()
+                    load_config()
+                    loadedgif.seek(loadedgif.tell()+1)
+                    requestObject = imageRequest(activeAnimRequest.prompt,activeAnimRequest.negativePrompt,activeAnimRequest.infSteps,activeAnimRequest.seed,activeAnimRequest.currentstep,activeAnimRequest.imgUrl,activeAnimRequest.strength,activeAnimRequest.width,activeAnimRequest.height,activeAnimRequest.proxy,scheduler=activeAnimRequest.scheduler,userconfig=activeAnimRequest.userconfig,author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl,regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess,isAnimation=True,gifFrame=loadedgif)
+                    thread = threadmanager.New_Thread(requestObject,previous_request)
+                    thread.start()
+                    awaitingFrame = None
+                    startbool = False
+                    return
+                except EOFError:
+                    animationFrames[0].save(outputDirectory + "resultgif.gif",save_all=True, append_images=animationFrames[1:], duration=86, loop=0)
+                    file_name = outputDirectory + "resultgif.gif"
+                    file_stats = os.stat(file_name)
+                    if((file_stats.st_size / (1024 * 1024)) < 8):
+                        print("Anim Complete, sending gif.")
+                        #embed = hikari.Embed(title=("Animation Result:"),colour=hikari.Colour(0xFFFFFF)).set_image(outputDirectory + "resultgif.gif")
+                        embed = get_embed(activeAnimRequest.prompt,activeAnimRequest.negativePrompt,activeAnimRequest.guideScale,activeAnimRequest.infSteps,activeAnimRequest.seed,outputDirectory + "resultgif.gif",activeAnimRequest.strength,True,activeAnimRequest.scheduler,activeAnimRequest.userconfig,activeAnimRequest.imgUrl)
+                        embed.set_footer(None)
+                        embed.set_image(outputDirectory + "resultgif.gif")
+                        embed.set_thumbnail(None)
+                        await activeAnimRequest.proxy.edit(embed)
+                    else:
+                        print("Anim Complete, Gif too big.")
+                        embed = hikari.Embed(title=("Animation Complete. (Gif file too large for upload)"),colour=hikari.Colour(0xFFFFFF))
+                        await activeAnimRequest.proxy.edit(embed)
+                    activeAnimRequest = None
+                    awaitingFrame = None
+                    botBusy = False
+                    loadedgif = None
+                    animationFrames = []
+                    return
         if(awaitingFrame!=None):
             animationFrames.append(awaitingFrame)
         if(awaitingFrame!=None or startbool):
@@ -722,6 +790,7 @@ async def ThreadCompletionLoop():
                 activeAnimRequest = None
                 awaitingFrame = None
                 botBusy = False
+                animationFrames = []
                 return
         return
     ThreadCompletionSpeed = 2
@@ -954,7 +1023,7 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 #Admin Generate Gif Command
 #----------------------------------
 class animationRequest(object):
-    def __init__(self,Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,resultImage=None,regenerate=False, overProcess=False, scheduler=None, userconfig=None, author = None, InpaintUrl = None,isAnimation = False,startframe=None,endframe=None,animkey=None,animstep=None):
+    def __init__(self,Prompt=None,NegativePrompt=None,InfSteps=None,Seed=None,GuideScale=None,ImgUrl=None,Strength=None,Width=None,Height=None,Proxy=None,resultImage=None,regenerate=False, overProcess=False, scheduler=None, userconfig=None, author = None, InpaintUrl = None,isAnimation = True,startframe=None,endframe=None,animkey=None,animstep=None,ingif=None):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
@@ -977,6 +1046,7 @@ class animationRequest(object):
         self.animkey = animkey
         self.animstep = animstep
         self.currentstep = startframe
+        self.ingif = ingif
 
 async def processAnimationRequest(ctx: lightbulb.SlashContext, regenerate:bool, overProcess:bool = False):
     '''process ctx into a image request'''
@@ -991,6 +1061,7 @@ animationFrames = []
 @lightbulb.option("height", "(Optional) height of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("width", "(Optional) width of result (Default:512)", required = False,type = int, default = 512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("sampler", "(Optional) Which scheduler to use", required = False,type = str, default = "DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
+@lightbulb.option("input_gif", "(Optional) gif input", required = False,type = hikari.Attachment)
 @lightbulb.option("inpaint_mask", "(Optional) mask to block off for image inpainting (white = replace, black = dont touch)", required = False,type = hikari.Attachment)
 @lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)", required = False,type = float)
 @lightbulb.option("image_link", "(Optional) image link or message ID", required = False, type = str)
@@ -1011,6 +1082,9 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
     global outputDirectory
     global previous_request
     animationFrames = []
+    if curmodel == None or curmodel == "":
+        await respond_with_autodelete("Please load a model with /changemodel",ctx)
+        return
     if botBusy:
         await respond_with_autodelete("Sorry, Kiwi is busy, please try again later!",ctx)
         return
@@ -1019,9 +1093,7 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
         embed = hikari.Embed(title=("Animation in progress, This may take a while..."),colour=hikari.Colour(0xFFFFFF)).set_thumbnail("https://i.imgur.com/21reOYm.gif")
         respProxy = await ctx.respond(embed)
     except:pass
-    if curmodel == None or curmodel == "":
-        await respond_with_autodelete("Please load a model with /changemodel",ctx)
-        return
+
     botBusy = True
     outputDirectory = "./animation/"
     try:
@@ -1042,7 +1114,7 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
         userconfig = load_user_config(str(ctx.author.id))
         load_config()
         global activeAnimRequest
-        activeAnimRequest = animationRequest(ctx.options.prompt,ctx.options.negative_prompt,ctx.options.steps,ctx.options.seed,ctx.options.guidance_scale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,scheduler=ctx.options.sampler,userconfig=userconfig,author=ctx.author, InpaintUrl=inpainturl,regenerate=False, overProcess=False,startframe=ctx.options.start,endframe=ctx.options.end,animkey=ctx.options.key,animstep=ctx.options.animstep)
+        activeAnimRequest = animationRequest(ctx.options.prompt,ctx.options.negative_prompt,ctx.options.steps,ctx.options.seed,ctx.options.guidance_scale,url,ctx.options.strength,ctx.options.width,ctx.options.height,respProxy,scheduler=ctx.options.sampler,userconfig=userconfig,author=ctx.author, InpaintUrl=inpainturl,regenerate=False, overProcess=False,startframe=ctx.options.start,endframe=ctx.options.end,animkey=ctx.options.key,animstep=ctx.options.animstep,ingif=ctx.options.input_gif)
         global startbool
         startbool = True
     except Exception:

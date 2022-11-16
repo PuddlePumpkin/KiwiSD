@@ -4,6 +4,7 @@ animation/*.png
 lpw_stable_diffusion/
 sd/
 wd/
+diffusers
 models/*/
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -167,3 +168,4 @@ usersettings.json
 *.ckpt
 .v1-inference.yaml
 conceptgrid.PNG
+backyo.txt
