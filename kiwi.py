@@ -532,14 +532,6 @@ class genImgThreadClass(Thread):
             init_image = self.request.gifFrame
             init_image = crop_and_resize(init_image,self.request.width,self.request.height)
             init_image = init_image.resize((self.request.width, self.request.height),Image.Resampling.LANCZOS)
-            if previous_request != None:
-                if previous_request.resultImage != None:
-                    init_image = init_image.convert('RGBA')
-                    init_image.save(outputDirectory + "in1.png")
-                    converted = previous_request.resultImage.convert('RGBA')
-                    converted.save(outputDirectory + "in2.png")
-                    init_image = Image.blend(init_image,converted,0.1).convert('RGB')
-                    init_image.save(outputDirectory + "in3.png")
         #Load inpaint Image
         if self.request.inpaintUrl != None:
             inpaint_image = None
