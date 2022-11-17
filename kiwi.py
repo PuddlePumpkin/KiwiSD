@@ -53,7 +53,7 @@ bot = lightbulb.BotApp(token=bottoken,prefix="-",default_enabled_guilds=67271804
 # Classes
 # ----------------------------------
 class imageRequest(object):
-    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=False, gifFrame=None, doLabel = False, labelKey = None, fontsize = None):
+    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=False, gifFrame=None, doLabel = False, labelKey = None, fontsize = None, success = True):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
@@ -76,6 +76,7 @@ class imageRequest(object):
         self.doLabel = doLabel
         self.labelKey = labelKey
         self.fontsize = fontsize
+        self.success = success
 
 
 class animationRequest(object):
@@ -112,11 +113,10 @@ class threadManager(object):
         return genImgThreadClass(parent=self, request=request, previous_request=previous_request)
 
 
-    def on_thread_finished(self, thread, data: hikari.Embed, request: imageRequest, proxy: lightbulb.ResponseProxy, author: hikari.User):
-        global awaitingProxy
+    def on_thread_finished(self, thread, data: hikari.Embed, request: imageRequest):
         global awaitingEmbed
         global previous_request
-        global awaitingAuthor
+        global awaitingRequest
         global animationFrames
         global awaitingFrame
         if request.isAnimation:
@@ -124,9 +124,8 @@ class threadManager(object):
             previous_request = request
             return
         previous_request = request
-        awaitingProxy = proxy
+        awaitingRequest = request
         awaitingEmbed = data
-        awaitingAuthor = author
 
 
 class genImgThreadClass(Thread):
@@ -144,249 +143,252 @@ class genImgThreadClass(Thread):
         global pipe
         global curmodel
         global botBusy
-        # Handle Scheduler
-        if (self.request.scheduler == None or self.request.scheduler == "0"):
-            self.request.scheduler = "KLMS"
-            if self.request.regenerate:
-                if self.previous_request.scheduler != None:
-                    self.request.scheduler = self.previous_request.scheduler
+        try:
+            # Handle Scheduler
+            if (self.request.scheduler == None or self.request.scheduler == "0"):
+                self.request.scheduler = "KLMS"
+                if self.request.regenerate:
+                    if self.previous_request.scheduler != None:
+                        self.request.scheduler = self.previous_request.scheduler
 
-        if self.request.scheduler == "KLMS":
-            scheduler = LMSDiscreteScheduler(
-                beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
-        elif self.request.scheduler == "Euler":
-            scheduler = EulerDiscreteScheduler(
-                beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
-        elif self.request.scheduler == "PNDM":
-            scheduler = PNDMScheduler(beta_end=0.012, beta_schedule="scaled_linear", beta_start=0.00085,
-                                      num_train_timesteps=1000, set_alpha_to_one=False, skip_prk_steps=True, steps_offset=1, trained_betas=None)
-        elif self.request.scheduler == "DPM++":
-            scheduler = DPMSolverMultistepScheduler.from_config(curmodel["ModelPath"], subfolder="scheduler", solver_order=2, predict_epsilon=True, thresholding=False,
-                                                                algorithm_type="dpmsolver++", solver_type="midpoint", denoise_final=True)  # the influence of this trick is effective for small (e.g. <=10) steps)
-        pipe.scheduler = scheduler
-        # Handle prompt
-        if (self.request.prompt == None or self.request.prompt == "0"):
-            self.request.prompt = ""
-            if self.request.regenerate:
-                if self.previous_request.prompt != None:
-                    self.request.prompt = self.previous_request.prompt
+            if self.request.scheduler == "KLMS":
+                scheduler = LMSDiscreteScheduler(
+                    beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
+            elif self.request.scheduler == "Euler":
+                scheduler = EulerDiscreteScheduler(
+                    beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
+            elif self.request.scheduler == "PNDM":
+                scheduler = PNDMScheduler(beta_end=0.012, beta_schedule="scaled_linear", beta_start=0.00085,
+                                        num_train_timesteps=1000, set_alpha_to_one=False, skip_prk_steps=True, steps_offset=1, trained_betas=None)
+            elif self.request.scheduler == "DPM++":
+                scheduler = DPMSolverMultistepScheduler.from_config(curmodel["ModelPath"], subfolder="scheduler", solver_order=2, predict_epsilon=True, thresholding=False,
+                                                                    algorithm_type="dpmsolver++", solver_type="midpoint", denoise_final=True)  # the influence of this trick is effective for small (e.g. <=10) steps)
+            pipe.scheduler = scheduler
+            # Handle prompt
+            if (self.request.prompt == None or self.request.prompt == "0"):
+                self.request.prompt = ""
+                if self.request.regenerate:
+                    if self.previous_request.prompt != None:
+                        self.request.prompt = self.previous_request.prompt
 
-        # Handle negative prompt
-        if (self.request.negativePrompt == None or self.request.negativePrompt == "0"):
-            self.request.negativePrompt = None
-            if self.request.regenerate:
-                if self.previous_request.negativePrompt != None:
-                    self.request.negativePrompt = self.previous_request.negativePrompt
+            # Handle negative prompt
+            if (self.request.negativePrompt == None or self.request.negativePrompt == "0"):
+                self.request.negativePrompt = None
+                if self.request.regenerate:
+                    if self.previous_request.negativePrompt != None:
+                        self.request.negativePrompt = self.previous_request.negativePrompt
 
-        # Handle Default Negative
-        if not self.request.regenerate:
-            if self.request.userconfig["UseDefaultNegativePrompt"]:
-                if (self.request.negativePrompt != None):
-                    if (self.request.negativePrompt == ""):
+            # Handle Default Negative
+            if not self.request.regenerate:
+                if self.request.userconfig["UseDefaultNegativePrompt"]:
+                    if (self.request.negativePrompt != None):
+                        if (self.request.negativePrompt == ""):
+                            self.request.negativePrompt = self.request.userconfig["DefaultNegativePrompt"]
+                        else:
+                            self.request.negativePrompt = self.request.negativePrompt + \
+                                ", " + \
+                                self.request.userconfig["DefaultNegativePrompt"]
+                    else:
                         self.request.negativePrompt = self.request.userconfig["DefaultNegativePrompt"]
-                    else:
-                        self.request.negativePrompt = self.request.negativePrompt + \
-                            ", " + \
-                            self.request.userconfig["DefaultNegativePrompt"]
-                else:
-                    self.request.negativePrompt = self.request.userconfig["DefaultNegativePrompt"]
 
-        # Handle Default Quality
-        if not self.request.regenerate:
-            if self.request.userconfig["UseDefaultQualityPrompt"]:
-                if (self.request.prompt != None):
-                    if (self.request.prompt == ""):
+            # Handle Default Quality
+            if not self.request.regenerate:
+                if self.request.userconfig["UseDefaultQualityPrompt"]:
+                    if (self.request.prompt != None):
+                        if (self.request.prompt == ""):
+                            self.request.prompt = self.request.userconfig["DefaultQualityPrompt"]
+                        else:
+                            self.request.prompt = self.request.userconfig["DefaultQualityPrompt"] + \
+                                ", " + self.request.prompt
+                    else:
                         self.request.prompt = self.request.userconfig["DefaultQualityPrompt"]
-                    else:
-                        self.request.prompt = self.request.userconfig["DefaultQualityPrompt"] + \
-                            ", " + self.request.prompt
-                else:
-                    self.request.prompt = self.request.userconfig["DefaultQualityPrompt"]
 
-        # Handle infsteps
-        if (self.request.infSteps == "0" or self.request.infSteps == 0 or self.request.infSteps == None):
-            self.request.infSteps = 15
-            if self.request.regenerate:
-                if self.previous_request.infSteps != None:
-                    self.request.infSteps = self.previous_request.infSteps
+            # Handle infsteps
+            if (self.request.infSteps == "0" or self.request.infSteps == 0 or self.request.infSteps == None):
+                self.request.infSteps = 15
+                if self.request.regenerate:
+                    if self.previous_request.infSteps != None:
+                        self.request.infSteps = self.previous_request.infSteps
 
-        # Handle guidescale
-        if (self.request.guideScale == "0" or self.request.guideScale == None):
-            self.request.guideScale = 7.0
-            if self.request.regenerate:
-                if self.previous_request.guideScale != None:
-                    self.request.guideScale = self.previous_request.guideScale
+            # Handle guidescale
+            if (self.request.guideScale == "0" or self.request.guideScale == None):
+                self.request.guideScale = 7.0
+                if self.request.regenerate:
+                    if self.previous_request.guideScale != None:
+                        self.request.guideScale = self.previous_request.guideScale
 
-        # Handle Stength
-        if (self.request.strength == None):
-            self.request.strength = 0.25
-            if self.request.regenerate:
-                if self.previous_request.strength != None:
-                    self.request.strength = self.previous_request.strength
+            # Handle Stength
+            if (self.request.strength == None):
+                self.request.strength = 0.25
+                if self.request.regenerate:
+                    if self.previous_request.strength != None:
+                        self.request.strength = self.previous_request.strength
 
-        # Handle ImgUrl
-        if (self.request.imgUrl == "0" or self.request.imgUrl == None):
-            self.request.imgUrl = None
-            if self.request.regenerate:
-                if self.previous_request.imgUrl != None:
-                    self.request.imgUrl = self.previous_request.imgUrl
+            # Handle ImgUrl
+            if (self.request.imgUrl == "0" or self.request.imgUrl == None):
+                self.request.imgUrl = None
+                if self.request.regenerate:
+                    if self.previous_request.imgUrl != None:
+                        self.request.imgUrl = self.previous_request.imgUrl
+                    elif self.request.gifFrame == None:
+                        self.request.strength = None
+                elif self.request.overProcess:
+                    pass
                 elif self.request.gifFrame == None:
                     self.request.strength = None
-            elif self.request.overProcess:
-                pass
-            elif self.request.gifFrame == None:
-                self.request.strength = None
 
-        # Handle inpaint ImgUrl
-        if (self.request.inpaintUrl == "0" or self.request.inpaintUrl == None):
-            self.request.inpaintUrl = None
+            # Handle inpaint ImgUrl
+            if (self.request.inpaintUrl == "0" or self.request.inpaintUrl == None):
+                self.request.inpaintUrl = None
+                if self.request.regenerate:
+                    if self.previous_request.inpaintUrl != None:
+                        self.request.inpaintUrl = self.previous_request.inpaintUrl
+
+            # Handle Width
+            if (self.request.width == 0 or self.request.width == "0" or self.request.width == None):
+                self.request.width = 512
+                if self.request.regenerate:
+                    if self.previous_request.width != None:
+                        self.request.width = self.previous_request.width
+
+            # Handle Height
+            if (self.request.height == 0 or self.request.height == "0" or self.request.height == None):
+                self.request.height = 512
+                if self.request.regenerate:
+                    if self.previous_request.height != None:
+                        self.request.height = self.previous_request.height
+
+            # Handle seed
+            if (self.request.seed == 0 or self.request.seed == None):
+                self.request.seed = random.randint(1, 100000000)
+            generator = torch.Generator("cuda").manual_seed(self.request.seed)
+
+            # handle overprocess
             if self.request.regenerate:
-                if self.previous_request.inpaintUrl != None:
-                    self.request.inpaintUrl = self.previous_request.inpaintUrl
+                if self.previous_request.overProcess != None:
+                    self.request.overProcess = self.previous_request.overProcess
 
-        # Handle Width
-        if (self.request.width == 0 or self.request.width == "0" or self.request.width == None):
-            self.request.width = 512
-            if self.request.regenerate:
-                if self.previous_request.width != None:
-                    self.request.width = self.previous_request.width
+            # Load Image
+            if self.request.imgUrl == None:
+                init_image = None
+            elif (not self.request.overProcess):
+                print("Loading image from url: " + self.request.imgUrl)
+                response = requests.get(self.request.imgUrl)
+                init_image = Image.open(BytesIO(response.content)).convert("RGB")
+                #Crop and resize
+                init_image = crop_and_resize(
+                    init_image, self.request.width, self.request.height)
+                init_image = init_image.resize(
+                    (self.request.width, self.request.height), Image.Resampling.LANCZOS)
+            if self.request.overProcess:
+                print("Loading image from previous_request.resultImage")
+                init_image = self.previous_request.resultImage
+            if self.request.gifFrame != None:
+                # initialize init image from gif frame
+                init_image = self.request.gifFrame
+                init_image = crop_and_resize(
+                    init_image, self.request.width, self.request.height)
+                init_image = init_image.resize(
+                    (self.request.width, self.request.height), Image.Resampling.LANCZOS)
+                init_image = init_image.convert("RGB")
+            # Load inpaint Image
+            if self.request.inpaintUrl != None:
+                inpaint_image = None
+                print("Loading inpaint mask from url: " + self.request.inpaintUrl)
+                response = requests.get(self.request.inpaintUrl)
+                inpaint_image = Image.open(
+                    BytesIO(response.content)).convert("RGB")
+                #Crop and resize
+                inpaint_image = crop_and_resize(
+                    init_image, self.request.width, self.request.height)
+                inpaint_image = inpaint_image.resize(
+                    (self.request.width, self.request.height), Image.Resampling.LANCZOS)
 
-        # Handle Height
-        if (self.request.height == 0 or self.request.height == "0" or self.request.height == None):
-            self.request.height = 512
-            if self.request.regenerate:
-                if self.previous_request.height != None:
-                    self.request.height = self.previous_request.height
+            # Check for duplicate tokens
+            if self.request.prompt != None:
+                self.request.prompt = remove_duplicates(self.request.prompt)
+            print("Generating:" + self.request.prompt)
+            if self.request.negativePrompt != None:
+                self.request.negativePrompt = remove_duplicates(
+                    self.request.negativePrompt)
+            # Set Metadata
+            metadata = PngInfo()
+            if ((self.request.prompt != None) and (self.request.prompt != "None") and (self.request.prompt != "")):
+                metadata.add_text("Prompt", self.request.prompt)
+            if ((self.request.negativePrompt != None) and (self.request.negativePrompt != "None") and (self.request.negativePrompt != "")):
+                metadata.add_text("Negative Prompt", self.request.negativePrompt)
+            metadata.add_text("Guidance Scale", str(self.request.guideScale))
+            metadata.add_text("Inference Steps", str(self.request.infSteps))
+            metadata.add_text("Seed", str(self.request.seed))
+            metadata.add_text("Width", str(self.request.width))
+            metadata.add_text("Height", str(self.request.height))
+            metadata.add_text("Scheduler", str(self.request.scheduler))
+            try:
+                metadata.add_text("Model", curmodel["ModelDetailedName"])
+            except:
+                metadata.add_text("Model", curmodel["ModelCommandName"])
 
-        # Handle seed
-        if (self.request.seed == 0 or self.request.seed == None):
-            self.request.seed = random.randint(1, 100000000)
-        generator = torch.Generator("cuda").manual_seed(self.request.seed)
-
-        # handle overprocess
-        if self.request.regenerate:
-            if self.previous_request.overProcess != None:
-                self.request.overProcess = self.previous_request.overProcess
-
-        # Load Image
-        if self.request.imgUrl == None:
-            init_image = None
-        elif (not self.request.overProcess):
-            print("Loading image from url: " + self.request.imgUrl)
-            response = requests.get(self.request.imgUrl)
-            init_image = Image.open(BytesIO(response.content)).convert("RGB")
-            #Crop and resize
-            init_image = crop_and_resize(
-                init_image, self.request.width, self.request.height)
-            init_image = init_image.resize(
-                (self.request.width, self.request.height), Image.Resampling.LANCZOS)
-        if self.request.overProcess:
-            print("Loading image from previous_request.resultImage")
-            init_image = self.previous_request.resultImage
-        if self.request.gifFrame != None:
-            # initialize init image from gif frame
-            init_image = self.request.gifFrame
-            init_image = crop_and_resize(
-                init_image, self.request.width, self.request.height)
-            init_image = init_image.resize(
-                (self.request.width, self.request.height), Image.Resampling.LANCZOS)
-            init_image = init_image.convert("RGB")
-        # Load inpaint Image
-        if self.request.inpaintUrl != None:
-            inpaint_image = None
-            print("Loading inpaint mask from url: " + self.request.inpaintUrl)
-            response = requests.get(self.request.inpaintUrl)
-            inpaint_image = Image.open(
-                BytesIO(response.content)).convert("RGB")
-            #Crop and resize
-            inpaint_image = crop_and_resize(
-                init_image, self.request.width, self.request.height)
-            inpaint_image = inpaint_image.resize(
-                (self.request.width, self.request.height), Image.Resampling.LANCZOS)
-
-        # Check for duplicate tokens
-        if self.request.prompt != None:
-            self.request.prompt = remove_duplicates(self.request.prompt)
-        print("Generating:" + self.request.prompt)
-        if self.request.negativePrompt != None:
-            self.request.negativePrompt = remove_duplicates(
-                self.request.negativePrompt)
-        # Set Metadata
-        metadata = PngInfo()
-        if ((self.request.prompt != None) and (self.request.prompt != "None") and (self.request.prompt != "")):
-            metadata.add_text("Prompt", self.request.prompt)
-        if ((self.request.negativePrompt != None) and (self.request.negativePrompt != "None") and (self.request.negativePrompt != "")):
-            metadata.add_text("Negative Prompt", self.request.negativePrompt)
-        metadata.add_text("Guidance Scale", str(self.request.guideScale))
-        metadata.add_text("Inference Steps", str(self.request.infSteps))
-        metadata.add_text("Seed", str(self.request.seed))
-        metadata.add_text("Width", str(self.request.width))
-        metadata.add_text("Height", str(self.request.height))
-        metadata.add_text("Scheduler", str(self.request.scheduler))
-        try:
-            metadata.add_text("Model", curmodel["ModelDetailedName"])
-        except:
-            metadata.add_text("Model", curmodel["ModelCommandName"])
-
-        # Generate
-        nsfwDetected = False
-        with autocast("cuda"):
-            if not config["EnableNsfwFilter"]:
-                def dummy_checker(images, **kwargs): return images, False
-                pipe.safety_checker = dummy_checker
-            if self.request.strength != None:
-                if self.request.inpaintUrl == None:
-                    print("Strength = " + str(1-self.request.strength))
-                    returndict = pipe.img2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, init_image=init_image,
-                                              negative_prompt=self.request.negativePrompt, strength=(1-(self.request.strength*0.89)), guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
-                    image = returndict.images[0]
-                    try:
-                        nsfwDetected = returndict.nsfw_content_detected[0]
-                    except:
-                        nsfwDetected = False
+            # Generate
+            nsfwDetected = False
+            with autocast("cuda"):
+                if not config["EnableNsfwFilter"]:
+                    def dummy_checker(images, **kwargs): return images, False
+                    pipe.safety_checker = dummy_checker
+                if self.request.strength != None:
+                    if self.request.inpaintUrl == None:
+                        print("Strength = " + str(1-self.request.strength))
+                        returndict = pipe.img2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, init_image=init_image,
+                                                negative_prompt=self.request.negativePrompt, strength=(1-(self.request.strength*0.89)), guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
+                        image = returndict.images[0]
+                        try:
+                            nsfwDetected = returndict.nsfw_content_detected[0]
+                        except:
+                            nsfwDetected = False
+                    else:
+                        returndict = pipe.inpaint(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, init_image=init_image, negative_prompt=self.request.negativePrompt, strength=(
+                            1-(self.request.strength*0.89)), mask_image=inpaint_image, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
+                        image = returndict.images[0]
+                        try:
+                            nsfwDetected = returndict.nsfw_content_detected[0]
+                        except:
+                            nsfwDetected = False
+                    metadata.add_text("Img2Img Strength",
+                                    str(self.request.strength))
                 else:
-                    returndict = pipe.inpaint(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, init_image=init_image, negative_prompt=self.request.negativePrompt, strength=(
-                        1-(self.request.strength*0.89)), mask_image=inpaint_image, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
+                    returndict = pipe.text2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, init_image=init_image,
+                                            negative_prompt=self.request.negativePrompt, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
                     image = returndict.images[0]
                     try:
                         nsfwDetected = returndict.nsfw_content_detected[0]
                     except:
                         nsfwDetected = False
-                metadata.add_text("Img2Img Strength",
-                                  str(self.request.strength))
+            countStr = str(filecount()+1)
+            while os.path.exists(outputDirectory + str(countStr) + ".png"):
+                countStr = int(countStr)+1
+            
+            if self.request.doLabel:
+                if self.request.labelKey!=None:
+                    drawobj = ImageDraw.Draw(image)
+                    font = ImageFont.truetype('Gidole-Regular.ttf', self.request.fontsize)
+                    if self.request.labelKey == "guidescale":
+                        drawobj.text((10, 10), "Guidance Scale: " + str(round(self.request.guideScale,2)),font=font, fill =(255, 255, 255))
+                    if self.request.labelKey == "steps":
+                        drawobj.text((10, 10), "Inference Steps: " + str(round(self.request.infSteps,2)),font=font, fill =(255, 255, 255))
+                    if self.request.labelKey == "strength":
+                        drawobj.text((10, 10), "Img2Img Strength: " + str(round(self.request.strength,2)),font=font, fill =(255, 255, 255))
+            # Process Result
+            self.request.resultImage = image
+            image.save(outputDirectory + str(countStr) + ".png", pnginfo=metadata)
+            if not nsfwDetected:
+                outEmbed = get_embed(self.request.prompt, self.request.negativePrompt, self.request.guideScale, self.request.infSteps, self.request.seed,
+                                    outputDirectory + str(countStr) + ".png", self.request.strength, False, self.request.scheduler, self.request.userconfig, self.request.imgUrl)
             else:
-                returndict = pipe.text2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, init_image=init_image,
-                                           negative_prompt=self.request.negativePrompt, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
-                image = returndict.images[0]
-                try:
-                    nsfwDetected = returndict.nsfw_content_detected[0]
-                except:
-                    nsfwDetected = False
-        countStr = str(filecount()+1)
-        while os.path.exists(outputDirectory + str(countStr) + ".png"):
-            countStr = int(countStr)+1
-        
-        if self.request.doLabel:
-            if self.request.labelKey!=None:
-                drawobj = ImageDraw.Draw(image)
-                font = ImageFont.truetype('Gidole-Regular.ttf', self.request.fontsize)
-                if self.request.labelKey == "guidescale":
-                    drawobj.text((10, 10), "Guidance Scale: " + str(round(self.request.guideScale,2)),font=font, fill =(255, 255, 255))
-                if self.request.labelKey == "steps":
-                    drawobj.text((10, 10), "Inference Steps: " + str(round(self.request.infSteps,2)),font=font, fill =(255, 255, 255))
-                if self.request.labelKey == "strength":
-                    drawobj.text((10, 10), "Img2Img Strength: " + str(round(self.request.strength,2)),font=font, fill =(255, 255, 255))
-        # Process Result
-        self.request.resultImage = image
-        image.save(outputDirectory + str(countStr) + ".png", pnginfo=metadata)
-        if not nsfwDetected:
-            outEmbed = get_embed(self.request.prompt, self.request.negativePrompt, self.request.guideScale, self.request.infSteps, self.request.seed,
-                                 outputDirectory + str(countStr) + ".png", self.request.strength, False, self.request.scheduler, self.request.userconfig, self.request.imgUrl)
-        else:
-            outEmbed = hikari.Embed(title=config["NsfwMessage"], colour=hikari.Colour(0xFF0000)).set_footer(
-                "An admin may enable possible nsfw results in /adminsettings... sometimes the detector finds nsfw in sfw results")
-        self.parent and self.parent.on_thread_finished(
-            self, outEmbed, self.request, self.request.proxy, self.request.author)
+                outEmbed = hikari.Embed(title=config["NsfwMessage"], colour=hikari.Colour(0xFF0000)).set_footer(
+                    "An admin may enable possible nsfw results in /adminsettings... sometimes the detector finds nsfw in sfw results")
+            self.parent and self.parent.on_thread_finished(self, outEmbed, self.request)
+        except:
+            self.request.success = False
+            self.parent and self.parent.on_thread_finished(self, None, self.request)
 
 
 # ----------------------------------
@@ -769,8 +771,7 @@ botBusy = False
 startbool = False
 awaitingEmbed = None
 loadedgif = None
-awaitingProxy = None
-awaitingAuthor = None
+awaitingRequest = None
 awaitingFrame = None
 activeAnimRequest = None
 curmodel = ""
@@ -790,9 +791,9 @@ def setup():
             change_pipeline(config["AutoLoadedModel"])
         else:
             print("Auto loaded model not found...")
-    if not os.path.exists("Gidole-Refular.ttf"):
+    if not os.path.exists("Gidole-Regular.ttf"):
         print("Downloading Gidole Regular font credit: https://github.com/larsenwork/Gidole/")
-        wget.download("https://github.com/larsenwork/Gidole/raw/master/Resources/GidoleFont/Gidole-Regular.ttf",out="Gidole-Refular.ttf")
+        wget.download("https://github.com/larsenwork/Gidole/raw/master/Resources/GidoleFont/Gidole-Regular.ttf",out="Gidole-Regular.ttf")
 
 # ----------------------------------
 # Ping Command
@@ -866,9 +867,7 @@ load_config()
 # Thread result listener
 # ----------------------------------
 async def saveResultGif():
-    global awaitingProxy
     global awaitingEmbed
-    global awaitingAuthor
     global botBusy
     global activeAnimRequest
     global animationFrames
@@ -897,9 +896,7 @@ async def saveResultGif():
 ThreadCompletionSpeed = 2
 @tasks.task(s=ThreadCompletionSpeed, auto_start=True)
 async def ThreadCompletionLoop():
-    global awaitingProxy
     global awaitingEmbed
-    global awaitingAuthor
     global botBusy
     global activeAnimRequest
     global animationFrames
@@ -907,6 +904,7 @@ async def ThreadCompletionLoop():
     global startbool
     global ThreadCompletionSpeed
     global loadedgif
+    global awaitingRequest
     if activeAnimRequest != None:
         ThreadCompletionSpeed = 0.5
         if activeAnimRequest.ingif != None:
@@ -1013,13 +1011,24 @@ async def ThreadCompletionLoop():
                     return
         return
     ThreadCompletionSpeed = 2
-    if awaitingEmbed != None and awaitingProxy != None:
+    if awaitingRequest != None:
+        if not awaitingRequest.success:
+            prx = awaitingRequest.proxy
+            ath = awaitingRequest.author
+            awaitingEmbed = None
+            awaitingRequest = None
+            rows = await generate_rows(bot)
+            emb = hikari.Embed(title=("Something went wrong!"), colour=hikari.Colour(0xff1100))
+            message = await prx.edit(emb, components=rows)
+            asyncio.create_task(firehandleresponses(bot, ath, message))
+            botBusy = False
+            return
+    if awaitingEmbed != None and awaitingRequest != None:
         emb = awaitingEmbed
-        prx = awaitingProxy
-        ath = awaitingAuthor
+        prx = awaitingRequest.proxy
+        ath = awaitingRequest.author
         awaitingEmbed = None
-        awaitingProxy = None
-        awaitingAuthor = None
+        awaitingRequest = None
         rows = await generate_rows(bot)
         message = await prx.edit(emb, components=rows)
         asyncio.create_task(firehandleresponses(bot, ath, message))
@@ -1163,9 +1172,9 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
         thread = threadmanager.New_Thread(requestObject, previous_request)
         thread.start()
     except Exception:
-        traceback.print_exc()
-        await respond_with_autodelete("Sorry, something went wrong! <:scootcry:1033114138366443600>", ctx)
         botBusy = False
+        await respond_with_autodelete("Sorry, something went wrong! <:scootcry:1033114138366443600>", ctx)
+        traceback.print_exc()
         return
 
 
@@ -1177,7 +1186,7 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
 @lightbulb.option("width", "(Optional) width of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("sampler", "(Optional) Which scheduler to use", required=False, type=str, default="DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
 @lightbulb.option("inpaint_mask", "(Optional) mask to block off for image inpainting (white = replace, black = dont touch)", required=False, type=hikari.Attachment)
-@lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)", required=False, type=float)
+@lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)",max_value=1,min_value=0, required=False, type=float)
 @lightbulb.option("image_link", "(Optional) image link or message ID", required=False, type=str)
 @lightbulb.option("image", "(Optional) image to run diffusion on", required=False, type=hikari.Attachment)
 @lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required=False, default=15, type=int, max_value=config["MaxSteps"], min_value=1)
@@ -1198,7 +1207,7 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("height", "(Optional) height of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("width", "(Optional) width of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("sampler", "(Optional) Which scheduler to use", required=False, type=str, default="DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
-@lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)", required=False, type=float)
+@lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)", max_value=1,min_value=0,required=False, type=float)
 @lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required=False, default=15, type=int, max_value=config["MaxSteps"], min_value=1)
 @lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required=False, default=0, type=int, min_value=0)
 @lightbulb.option("guidance_scale", "(Optional) Guidance scale for diffusion (Default:7)", required=False, type=float, default=7, max_value=100, min_value=-100)
@@ -1218,7 +1227,7 @@ async def overgenerate(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("width", "(Optional) width of result (Default:512)", required=False, type=int, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("sampler", "(Optional) Which scheduler to use", required=False, type=str, default="DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
 @lightbulb.option("inpaint_mask", "(Optional) mask to block off for image inpainting (white = replace, black = dont touch)", required=False, type=hikari.Attachment)
-@lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)", required=False, type=float)
+@lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)", required=False,max_value=1,min_value=0, type=float)
 @lightbulb.option("image_link", "(Optional) image link or message ID", required=False, type=str)
 @lightbulb.option("image", "(Optional) image to run diffusion on", required=False, type=hikari.Attachment)
 @lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required=False, type=int, max_value=config["MaxSteps"], min_value=1)
@@ -1274,7 +1283,7 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("sampler", "(Optional) Which scheduler to use", required=False, type=str, default="DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
 @lightbulb.option("input_gif", "(Optional) gif input", required=False, type=hikari.Attachment)
 @lightbulb.option("inpaint_mask", "(Optional) mask to block off for image inpainting (white = replace, black = dont touch)", required=False, type=hikari.Attachment)
-@lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)", required=False, type=float)
+@lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)", required=False,max_value=1,min_value=0, type=float)
 @lightbulb.option("image_link", "(Optional) image link or message ID", required=False, type=str)
 @lightbulb.option("image", "(Optional) image to run diffusion on", required=False, type=hikari.Attachment)
 @lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required=False, default=15, type=int, max_value=config["MaxSteps"], min_value=1)
@@ -1284,8 +1293,8 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ", required=True, default="0")
 @lightbulb.option("animation_label_font_size", "font size of the marked label (Default:40)", required=False,default=40, type=float)
 @lightbulb.option("animation_label", "should the key be labeled through animation", required=False,default="No", type=str, choices=["Yes","No"])
+@lightbulb.option("animation_step", "how far to step each frame", required=False, type=float)
 @lightbulb.option("animation_end", "end value", required=False, type=float)
-@lightbulb.option("animation_step", "step value", required=False, type=float)
 @lightbulb.option("animation_start", "start value", required=False, type=float)
 @lightbulb.option("animation_key", "which key (guidescale, steps, strength)", required=False, type=str, choices=["guidescale", "steps", "strength"])
 @lightbulb.command("admingenerategif", "Generate a series of results")
@@ -1335,8 +1344,13 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
             if (is_url(ctx.options.image_link)):
                 url = ctx.options.image_link
             else:
-                messageIdResponse = await ctx.app.rest.fetch_message(ctx.channel_id, ctx.options.image_link)
-                url = messageIdResponse.embeds[0].image.url
+                try:
+                    messageIdResponse = await ctx.app.rest.fetch_message(ctx.channel_id, ctx.options.image_link)
+                    url = messageIdResponse.embeds[0].image.url
+                except:
+                    await respond_with_autodelete("Invalid image link!")
+                    botBusy = False
+                    return
         else:
             url = "0"
         if (ctx.options.inpaint_mask != None):
