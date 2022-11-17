@@ -1025,7 +1025,7 @@ async def ThreadCompletionLoop():
             awaitingEmbed = None
             awaitingRequest = None
             rows = await generate_rows(bot)
-            emb = hikari.Embed(title=("Something went wrong!"), colour=hikari.Colour(0xff1100))
+            emb = hikari.Embed(title=("Sorry, something went wrong!"), colour=hikari.Colour(0xff1100))
             message = await prx.edit(emb, components=rows)
             asyncio.create_task(firehandleresponses(bot, ath, message))
             botBusy = False
@@ -1114,7 +1114,7 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
     except Exception:
         traceback.print_exc()
         embed = hikari.Embed(
-            title="Sorry, something went wrong! ", colour=hikari.Colour(0xFF0000))
+            title="Sorry, something went wrong!", colour=hikari.Colour(0xFF0000))
         if (not await ctx.edit_last_response(embed)):
             await ctx.respond(embed)
         return
@@ -1180,7 +1180,7 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
         thread.start()
     except Exception:
         botBusy = False
-        await respond_with_autodelete("Sorry, something went wrong! ", ctx)
+        await respond_with_autodelete("Sorry, something went wrong!", ctx)
         traceback.print_exc()
         return
 
@@ -1373,7 +1373,7 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
         startbool = True
     except Exception:
         traceback.print_exc()
-        await respond_with_autodelete("Sorry, something went wrong! ", ctx)
+        await respond_with_autodelete("Sorry, something went wrong!", ctx)
         botBusy = False
         return
 
