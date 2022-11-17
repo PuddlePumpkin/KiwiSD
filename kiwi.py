@@ -11,6 +11,7 @@ from pathlib import Path
 from threading import Thread
 from urllib.parse import urlparse
 
+import wget
 import hikari
 import lightbulb
 import requests
@@ -18,6 +19,9 @@ import torch
 from lightbulb.ext import tasks
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
+from PIL import ImageDraw
+from PIL import ImageFont
+from PIL import ImageOps
 from torch import autocast
 from transformers import CLIPTextModel, CLIPTokenizer
 
@@ -49,7 +53,7 @@ bot = lightbulb.BotApp(token=bottoken,prefix="-",default_enabled_guilds=67271804
 # Classes
 # ----------------------------------
 class imageRequest(object):
-    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=False, gifFrame=None, doLabel = False, labelKey = None):
+    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=False, gifFrame=None, doLabel = False, labelKey = None, fontsize = None):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
@@ -71,10 +75,11 @@ class imageRequest(object):
         self.gifFrame = gifFrame
         self.doLabel = doLabel
         self.labelKey = labelKey
+        self.fontsize = fontsize
 
 
 class animationRequest(object):
-    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=True, startframe=None, endframe=None, animkey=None, animstep=None, ingif=None, LabelFrames=False):
+    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=True, startframe=None, endframe=None, animkey=None, animstep=None, ingif=None, LabelFrames=False, fontsize = None):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
@@ -99,11 +104,13 @@ class animationRequest(object):
         self.animstep = animstep
         self.currentstep = startframe
         self.ingif = ingif
+        self.fontsize = fontsize
 
 
 class threadManager(object):
     def New_Thread(self, request: imageRequest = None, previous_request: imageRequest = None):
         return genImgThreadClass(parent=self, request=request, previous_request=previous_request)
+
 
     def on_thread_finished(self, thread, data: hikari.Embed, request: imageRequest, proxy: lightbulb.ResponseProxy, author: hikari.User):
         global awaitingProxy
@@ -130,6 +137,7 @@ class genImgThreadClass(Thread):
         self.request = request
         self.previous_request = previous_request
         super(genImgThreadClass, self).__init__()
+
 
     def run(self):
         global outputDirectory
@@ -282,6 +290,7 @@ class genImgThreadClass(Thread):
                 init_image, self.request.width, self.request.height)
             init_image = init_image.resize(
                 (self.request.width, self.request.height), Image.Resampling.LANCZOS)
+            init_image = init_image.convert("RGB")
         # Load inpaint Image
         if self.request.inpaintUrl != None:
             inpaint_image = None
@@ -356,7 +365,17 @@ class genImgThreadClass(Thread):
         countStr = str(filecount()+1)
         while os.path.exists(outputDirectory + str(countStr) + ".png"):
             countStr = int(countStr)+1
-
+        
+        if self.request.doLabel:
+            if self.request.labelKey!=None:
+                drawobj = ImageDraw.Draw(image)
+                font = ImageFont.truetype('Gidole-Regular.ttf', self.request.fontsize)
+                if self.request.labelKey == "guidescale":
+                    drawobj.text((10, 10), "Guidance Scale: " + str(round(self.request.guideScale,2)),font=font, fill =(255, 255, 255))
+                if self.request.labelKey == "steps":
+                    drawobj.text((10, 10), "Inference Steps: " + str(round(self.request.infSteps,2)),font=font, fill =(255, 255, 255))
+                if self.request.labelKey == "strength":
+                    drawobj.text((10, 10), "Img2Img Strength: " + str(round(self.request.strength,2)),font=font, fill =(255, 255, 255))
         # Process Result
         self.request.resultImage = image
         image.save(outputDirectory + str(countStr) + ".png", pnginfo=metadata)
@@ -576,18 +595,7 @@ def crop_max_square(pil_img):
 
 
 def crop_and_resize(pil_img: Image.Image, width, height) -> Image.Image:
-    imwidth, imheight = pil_img.size
-    pilcopy = pil_img
-    if imwidth > width and imheight > height:
-        pilcopy.thumbnail((width, height), Image.Resampling.LANCZOS)
-    imwidth, imheight = pilcopy.size
-    if imwidth >= width:
-        crop_center(pilcopy, width, imheight)
-    imwidth, imheight = pilcopy.size
-    if imheight >= height:
-        crop_center(pilcopy, imwidth, imheight)
-    imwidth, imheight = pilcopy.size
-    return pilcopy
+    return ImageOps.fit(pil_img,(width,height),Image.Resampling.LANCZOS)
 
 
 def image_grid(imgs, rows, cols):
@@ -782,6 +790,8 @@ def setup():
             change_pipeline(config["AutoLoadedModel"])
         else:
             print("Auto loaded model not found...")
+    if not os.path.exists("Gidole-Refular.ttf"):
+        wget.download("https://github.com/larsenwork/Gidole/raw/master/Resources/GidoleFont/Gidole-Regular.ttf",out="Gidole-Refular.ttf")
 
 # ----------------------------------
 # Ping Command
@@ -876,7 +886,7 @@ async def ThreadCompletionLoop():
                 if loadedgif == None:
                     response = requests.get(activeAnimRequest.ingif.url)
                     loadedgif = Image.open(
-                        BytesIO(response.content))  # .convert("RGB")
+                        BytesIO(response.content))#.convert("RGB")
                 try:
                     threadmanager = threadManager()
                     load_config()
@@ -932,6 +942,10 @@ async def ThreadCompletionLoop():
                 if activeAnimRequest.animkey == "strength":
                     requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.infSteps, activeAnimRequest.seed, activeAnimRequest.guideScale, activeAnimRequest.imgUrl, activeAnimRequest.currentstep, activeAnimRequest.width, activeAnimRequest.height,
                                                  activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True)
+                if string_to_bool(activeAnimRequest.labelframes):
+                    requestObject.doLabel = True
+                    requestObject.labelKey = activeAnimRequest.animkey
+                    requestObject.fontsize = activeAnimRequest.fontsize
                 thread = threadmanager.New_Thread(
                     requestObject, previous_request)
                 thread.start()
@@ -1218,6 +1232,9 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 # ----------------------------------
 @bot.command
 @lightbulb.add_checks(lightbulb.owner_only)
+@lightbulb.option("label_font_size", "font size of the marked label (Default:40)", required=False,default=40, type=float)
+@lightbulb.option("do_label", "should the key be labeled through animation", required=False,default="No", type=str, choices=["Yes","No"])
+@lightbulb.option("animstep", "step value", required=True, type=float)
 @lightbulb.option("animstep", "step value", required=True, type=float)
 @lightbulb.option("end", "end value", required=True, type=float)
 @lightbulb.option("start", "start value", required=True, type=float)
@@ -1280,7 +1297,7 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
         load_config()
         global activeAnimRequest
         activeAnimRequest = animationRequest(ctx.options.prompt, ctx.options.negative_prompt, ctx.options.steps, ctx.options.seed, ctx.options.guidance_scale, url, ctx.options.strength, ctx.options.width, ctx.options.height, respProxy, scheduler=ctx.options.sampler,
-                                             userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=False, overProcess=False, startframe=ctx.options.start, endframe=ctx.options.end, animkey=ctx.options.key, animstep=ctx.options.animstep, ingif=ctx.options.input_gif)
+                                             userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=False, overProcess=False, startframe=ctx.options.start, endframe=ctx.options.end, animkey=ctx.options.key, animstep=ctx.options.animstep, ingif=ctx.options.input_gif,LabelFrames=ctx.options.do_label,fontsize=ctx.options.label_font_size)
         global startbool
         startbool = True
     except Exception:
