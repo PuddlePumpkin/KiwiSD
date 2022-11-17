@@ -791,6 +791,7 @@ def setup():
         else:
             print("Auto loaded model not found...")
     if not os.path.exists("Gidole-Refular.ttf"):
+        print("Downloading Gidole Regular font credit: https://github.com/larsenwork/Gidole/")
         wget.download("https://github.com/larsenwork/Gidole/raw/master/Resources/GidoleFont/Gidole-Regular.ttf",out="Gidole-Refular.ttf")
 
 # ----------------------------------
