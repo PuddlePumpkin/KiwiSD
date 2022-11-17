@@ -11,8 +11,14 @@ Kiwi
 Supports huggingface diffusers models and automatically converts **.ckpt** models to that format
 - **Text to image:**
 Enter a detailed prompt to generate an image. Optionally use a negative prompt of features to avoid
+<p align=center><img src="/docs/examples.png"></p>
+
 - **Image to image:**
 Enter a detailed prompt and an image to generate a new one like it, strength changes the power of the input image over whats generated.
+
+- **Animation:** guickly generate animated gifs driving certain parameters each frame, optionally upload a gif to run img2img on each frame
+<p align=center><img width=312 height=312 src="/docs/example.gif"> <img height=312 src="/docs/example2.gif"></p>
+
 - **Inpainting:**
 Enter a detailed prompt, an input image, and a black and white image mask, the white parts of the mask will be painted over with diffusion, high strength means the inpainting area will mostly be the same as the input image.
 - **Textual inversion inference:**
@@ -20,7 +26,6 @@ Automatically loads TI embeds placed in the embeddings folder, must be in huggin
 - **Prompt weighting:**
 You can multiply prompt focus in line with parenthesis eg: **(**1girl**)** or **(**1girl:1.3**)** **Default: 1.1**
 You can reduce focus in line like negative prompts with square brackets eg: **[**1girl**]** or **[**1girl:1.3**]**  **Default: 1.1**
-<p align=center><img width="700" height="323" src="/docs/examples.png"></p>
 
 ### Recommended Models:
 - [Stable Diffusion v1.5](https://huggingface.co/runwayml/stable-diffusion-v1-5)
@@ -51,8 +56,10 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - **/togglequalityprompt:** toggles whether or not to use the user's default quality prompt.
 - **/togglenegativeprompt:** toggles whether or not to use the user's default negative prompt.
 - **/settings:** displays a list of settings and optionally change them
+### Admin Only
 - **/adminsettings:** displays a list of admin settings and optionally changes them **your discord user id (just a bunch of numbers) must be in kiwiconfig.json to modify these.**
 - **/adminupdatecommands:** refreshes commands
+- **/admingenerategif:** Generates a gif given input options, if file is too big to upload to discord, is saved in kiwi/animation 
 ### Other
 - **/help:** displays command list
 - **/imagetocommand:** takes an input image  or image link / message id and gives 
