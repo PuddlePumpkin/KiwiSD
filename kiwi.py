@@ -49,6 +49,7 @@ if bottoken == None or bottoken == "":
     sys.exit("\nYou need a bot token, see readme.md for usage instructions")
 bot = lightbulb.BotApp(token=bottoken,prefix="-",default_enabled_guilds=672718048343490581,intents=hikari.Intents.ALL,help_class=None)
 
+
 # ----------------------------------
 # Classes
 # ----------------------------------
@@ -397,10 +398,14 @@ class genImgThreadClass(Thread):
 def load_config():
     '''loads admin config file'''
     global config
+    global loadingThumbnail
+    global loadingGif
     if not os.path.exists(str("kiwiconfig.json")):
         shutil.copy2("kiwiconfigdefault.json", "kiwiconfig.json")
     with open('kiwiconfig.json', 'r') as openfile:
         config = json.load(openfile)
+        loadingThumbnail = config["LoadingThumbnail"]
+        loadingGif = config["LoadingGif"]
         openfile.close()
 
 
@@ -775,6 +780,8 @@ awaitingRequest = None
 awaitingFrame = None
 activeAnimRequest = None
 curmodel = ""
+loadingThumbnail = ""
+loadingGif = ""
 embedlist = list(Path("./embeddings/").rglob("*.[bB][iI][nN]"))
 titles = ["I'll try to make that for you!...", "Maybe I could make that...",
           "I'll try my best!...", "This might be tricky to make..."]
@@ -1157,10 +1164,10 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
         # --Embed
         try:
             embed = hikari.Embed(title=random.choice(titles), colour=hikari.Colour(0x56aaf8)).set_thumbnail(
-                "https://i.imgur.com/21reOYm.gif").set_footer(text="", icon=curmodel["ModelThumbnail"]).set_image("https://i.imgur.com/ZCalIbz.gif")
+                loadingThumbnail).set_footer(text="", icon=curmodel["ModelThumbnail"]).set_image(loadingGif)
         except:
             embed = hikari.Embed(title=random.choice(titles), colour=hikari.Colour(0x56aaf8)).set_thumbnail(
-                "https://i.imgur.com/21reOYm.gif").set_image("https://i.imgur.com/ZCalIbz.gif")
+                loadingThumbnail).set_image(loadingGif)
 
         respProxy = await ctx.respond(embed)
         # -------
@@ -1330,7 +1337,7 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
     botBusy = True
     try:
         embed = hikari.Embed(title=("Animation in progress, This may take a while..."), colour=hikari.Colour(
-            0xFFFFFF)).set_thumbnail("https://i.imgur.com/21reOYm.gif")
+            0xFFFFFF)).set_thumbnail(loadingThumbnail)
         respProxy = await ctx.respond(embed)
     except:
         pass
@@ -1458,7 +1465,7 @@ async def settings(ctx: lightbulb.SlashContext) -> None:
 # ----------------------------------
 @bot.command()
 @lightbulb.option("value", "(optional if no key) value to change it to", required=False, type=str)
-@lightbulb.option("setting", "(optional) which setting to change", required=False, choices=["EnableNsfwFilter", "NsfwMessage", "ShowDefaultPrompts", "NewUserNegativePrompt", "NewUserQualityPrompt", "AdminList", "TodoString", "MaxSteps", "AllowNonAdminChangeModel", "AutoLoadedModel"], type=str)
+@lightbulb.option("setting", "(optional) which setting to change", required=False, choices=["EnableNsfwFilter", "NsfwMessage", "ShowDefaultPrompts", "NewUserNegativePrompt", "NewUserQualityPrompt", "AdminList", "TodoString", "MaxSteps", "AllowNonAdminChangeModel", "AutoLoadedModel","LoadingGif", "LoadingThumbnail"], type=str)
 @lightbulb.command("adminsettings", "View or modify settings")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def adminsettings(ctx: lightbulb.SlashContext) -> None:
@@ -1479,7 +1486,7 @@ async def adminsettings(ctx: lightbulb.SlashContext) -> None:
                 else:
                     config[ctx.options.setting] = 1
             # Strings
-            elif ctx.options.setting in ["NsfwMessage", "AdminList", "NewUserNegativePrompt", "NewUserQualityPrompt", "TodoString", "AutoLoadedModel"]:
+            elif ctx.options.setting in ["NsfwMessage", "AdminList", "NewUserNegativePrompt", "NewUserQualityPrompt", "TodoString", "AutoLoadedModel", "LoadingGif", "LoadingThumbnail"]:
                 config[ctx.options.setting] = ctx.options.value
             # Invalid setting
             else:
