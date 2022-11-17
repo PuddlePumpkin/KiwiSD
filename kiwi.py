@@ -16,6 +16,7 @@ import hikari
 import lightbulb
 import requests
 import torch
+import send2trash
 from lightbulb.ext import tasks
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
@@ -879,16 +880,19 @@ async def saveResultGif():
     global activeAnimRequest
     global animationFrames
     global awaitingFrame
-    animationFrames[0].save(outputDirectory + "resultgif.gif", save_all=True,append_images=animationFrames[1:], duration=86, loop=0)
-    file_name = outputDirectory + "resultgif.gif"
+    countStr = 1
+    while os.path.exists(outputDirectory + str(countStr) + ".gif"):
+        countStr = int(countStr)+1
+    file_name = outputDirectory + str(countStr) + ".gif"
+    animationFrames[0].save(file_name, save_all=True,append_images=animationFrames[1:], duration=86, loop=0)
     file_stats = os.stat(file_name)
     if ((file_stats.st_size / (1024 * 1024)) < 8):
         print("Anim Complete, sending gif.")
         #embed = hikari.Embed(title=("Animation Result:"),colour=hikari.Colour(0xFFFFFF)).set_image(outputDirectory + "resultgif.gif")
         embed = get_embed(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.guideScale, activeAnimRequest.infSteps, activeAnimRequest.seed,
-                        outputDirectory + "resultgif.gif", activeAnimRequest.strength, True, activeAnimRequest.scheduler, activeAnimRequest.userconfig, activeAnimRequest.imgUrl)
+                        file_name, activeAnimRequest.strength, True, activeAnimRequest.scheduler, activeAnimRequest.userconfig, activeAnimRequest.imgUrl)
         embed.set_footer(None)
-        embed.set_image(outputDirectory + "resultgif.gif")
+        embed.set_image(file_name)
         embed.set_thumbnail(None)
         await activeAnimRequest.proxy.edit(embed)
     else:
@@ -935,17 +939,19 @@ async def ThreadCompletionLoop():
                     startbool = False
                     return
                 except EOFError:
-                    animationFrames[0].save(outputDirectory + "resultgif.gif", save_all=True,
-                                            append_images=animationFrames[1:], duration=86, loop=0)
-                    file_name = outputDirectory + "resultgif.gif"
+                    countStr = 1
+                    while os.path.exists(outputDirectory + str(countStr) + ".gif"):
+                        countStr = int(countStr)+1
+                    file_name = outputDirectory + str(countStr) + ".gif"
+                    animationFrames[0].save(file_name, save_all=True,append_images=animationFrames[1:], duration=86, loop=0)
                     file_stats = os.stat(file_name)
                     if ((file_stats.st_size / (1024 * 1024)) < 8):
                         print("Anim Complete, sending gif.")
                         #embed = hikari.Embed(title=("Animation Result:"),colour=hikari.Colour(0xFFFFFF)).set_image(outputDirectory + "resultgif.gif")
                         embed = get_embed(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.guideScale, activeAnimRequest.infSteps, activeAnimRequest.seed,
-                                          outputDirectory + "resultgif.gif", activeAnimRequest.strength, True, activeAnimRequest.scheduler, activeAnimRequest.userconfig, activeAnimRequest.imgUrl)
+                                        file_name, activeAnimRequest.strength, True, activeAnimRequest.scheduler, activeAnimRequest.userconfig, activeAnimRequest.imgUrl)
                         embed.set_footer(None)
-                        embed.set_image(outputDirectory + "resultgif.gif")
+                        embed.set_image(file_name)
                         embed.set_thumbnail(None)
                         await activeAnimRequest.proxy.edit(embed)
                     else:
@@ -1332,6 +1338,10 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
             if ctx.options.animation_end >= ctx.options.animation_start:
                 await respond_with_autodelete("Your animation step must be a positive value to match that start and end value.",ctx)
                 return
+    if ctx.options.animation_key == "strength":
+        if ctx.options.image == None and ctx.options.image_link == None:
+            await respond_with_autodelete("To animate on strength, you need an input image for img2img",ctx)
+            return
     if ctx.options.input_gif != None:
         ctx.options.strength = None
     botBusy = True
@@ -1371,6 +1381,9 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
                                              userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=False, overProcess=False, startframe=ctx.options.animation_start, endframe=ctx.options.animation_end, animkey=ctx.options.animation_key, animation_step=ctx.options.animation_step, ingif=ctx.options.input_gif,LabelFrames=ctx.options.animation_label,fontsize=ctx.options.animation_label_font_size)
         global startbool
         startbool = True
+        lastpnglist = list(Path("./animation/").rglob("*.png"))
+        send2trash.send2trash(lastpnglist)
+        #os.remove(lastpnglist[0].absolute)
     except Exception:
         traceback.print_exc()
         await respond_with_autodelete("Sorry, something went wrong!", ctx)
