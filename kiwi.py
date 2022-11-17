@@ -79,7 +79,7 @@ class imageRequest(object):
 
 
 class animationRequest(object):
-    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=True, startframe=None, endframe=None, animkey=None, animstep=None, ingif=None, LabelFrames=False, fontsize = None):
+    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=True, startframe=None, endframe=None, animkey=None, animation_step=None, ingif=None, LabelFrames=False, fontsize = None):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
@@ -101,7 +101,7 @@ class animationRequest(object):
         self.startframe = startframe
         self.endframe = endframe
         self.animkey = animkey
-        self.animstep = animstep
+        self.animation_step = animation_step
         self.currentstep = startframe
         self.ingif = ingif
         self.fontsize = fontsize
@@ -865,6 +865,35 @@ load_config()
 # ----------------------------------
 # Thread result listener
 # ----------------------------------
+async def saveResultGif():
+    global awaitingProxy
+    global awaitingEmbed
+    global awaitingAuthor
+    global botBusy
+    global activeAnimRequest
+    global animationFrames
+    global awaitingFrame
+    animationFrames[0].save(outputDirectory + "resultgif.gif", save_all=True,append_images=animationFrames[1:], duration=86, loop=0)
+    file_name = outputDirectory + "resultgif.gif"
+    file_stats = os.stat(file_name)
+    if ((file_stats.st_size / (1024 * 1024)) < 8):
+        print("Anim Complete, sending gif.")
+        #embed = hikari.Embed(title=("Animation Result:"),colour=hikari.Colour(0xFFFFFF)).set_image(outputDirectory + "resultgif.gif")
+        embed = get_embed(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.guideScale, activeAnimRequest.infSteps, activeAnimRequest.seed,
+                        outputDirectory + "resultgif.gif", activeAnimRequest.strength, True, activeAnimRequest.scheduler, activeAnimRequest.userconfig, activeAnimRequest.imgUrl)
+        embed.set_footer(None)
+        embed.set_image(outputDirectory + "resultgif.gif")
+        embed.set_thumbnail(None)
+        await activeAnimRequest.proxy.edit(embed)
+    else:
+        print("Anim Complete, Gif too big.")
+        embed = hikari.Embed(title=(
+            "Animation Complete. (Gif file too large for upload)"), colour=hikari.Colour(0xFFFFFF))
+        await activeAnimRequest.proxy.edit(embed)
+    activeAnimRequest = None
+    awaitingFrame = None
+    botBusy = False
+    animationFrames = []
 ThreadCompletionSpeed = 2
 @tasks.task(s=ThreadCompletionSpeed, auto_start=True)
 async def ThreadCompletionLoop():
@@ -928,54 +957,60 @@ async def ThreadCompletionLoop():
         if (awaitingFrame != None):
             animationFrames.append(awaitingFrame)
         if (awaitingFrame != None or startbool):
-            if activeAnimRequest.currentstep < activeAnimRequest.endframe:
-                activeAnimRequest.currentstep = activeAnimRequest.currentstep + \
-                    activeAnimRequest.animstep
-                activeAnimRequest.animstep
-                threadmanager = threadManager()
-                load_config()
-                if activeAnimRequest.animkey == "guidescale":
-                    requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.infSteps, activeAnimRequest.seed, activeAnimRequest.currentstep, activeAnimRequest.imgUrl, activeAnimRequest.strength, activeAnimRequest.width, activeAnimRequest.height,
-                                                 activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True)
-                if activeAnimRequest.animkey == "steps":
-                    requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, int(activeAnimRequest.currentstep), activeAnimRequest.seed, activeAnimRequest.guideScale, activeAnimRequest.imgUrl, activeAnimRequest.strength, activeAnimRequest.width, activeAnimRequest.height,
-                                                 activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True)
-                if activeAnimRequest.animkey == "strength":
-                    requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.infSteps, activeAnimRequest.seed, activeAnimRequest.guideScale, activeAnimRequest.imgUrl, activeAnimRequest.currentstep, activeAnimRequest.width, activeAnimRequest.height,
-                                                 activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True)
-                if string_to_bool(activeAnimRequest.labelframes):
-                    requestObject.doLabel = True
-                    requestObject.labelKey = activeAnimRequest.animkey
-                    requestObject.fontsize = activeAnimRequest.fontsize
-                thread = threadmanager.New_Thread(
-                    requestObject, previous_request)
-                thread.start()
-                awaitingFrame = None
-                startbool = False
-            else:
-                animationFrames[0].save(outputDirectory + "resultgif.gif", save_all=True,
-                                        append_images=animationFrames[1:], duration=86, loop=0)
-                file_name = outputDirectory + "resultgif.gif"
-                file_stats = os.stat(file_name)
-                if ((file_stats.st_size / (1024 * 1024)) < 8):
-                    print("Anim Complete, sending gif.")
-                    #embed = hikari.Embed(title=("Animation Result:"),colour=hikari.Colour(0xFFFFFF)).set_image(outputDirectory + "resultgif.gif")
-                    embed = get_embed(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.guideScale, activeAnimRequest.infSteps, activeAnimRequest.seed,
-                                      outputDirectory + "resultgif.gif", activeAnimRequest.strength, True, activeAnimRequest.scheduler, activeAnimRequest.userconfig, activeAnimRequest.imgUrl)
-                    embed.set_footer(None)
-                    embed.set_image(outputDirectory + "resultgif.gif")
-                    embed.set_thumbnail(None)
-                    await activeAnimRequest.proxy.edit(embed)
+            if activeAnimRequest.animation_step > 0:
+                if activeAnimRequest.currentstep < activeAnimRequest.endframe:
+                    activeAnimRequest.currentstep = activeAnimRequest.currentstep + activeAnimRequest.animation_step
+                    activeAnimRequest.animation_step
+                    threadmanager = threadManager()
+                    load_config()
+                    if activeAnimRequest.animkey == "guidescale":
+                        requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.infSteps, activeAnimRequest.seed, activeAnimRequest.currentstep, activeAnimRequest.imgUrl, activeAnimRequest.strength, activeAnimRequest.width, activeAnimRequest.height,
+                                                    activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True)
+                    if activeAnimRequest.animkey == "steps":
+                        requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, int(activeAnimRequest.currentstep), activeAnimRequest.seed, activeAnimRequest.guideScale, activeAnimRequest.imgUrl, activeAnimRequest.strength, activeAnimRequest.width, activeAnimRequest.height,
+                                                    activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True)
+                    if activeAnimRequest.animkey == "strength":
+                        requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.infSteps, activeAnimRequest.seed, activeAnimRequest.guideScale, activeAnimRequest.imgUrl, activeAnimRequest.currentstep, activeAnimRequest.width, activeAnimRequest.height,
+                                                    activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True)
+                    if string_to_bool(activeAnimRequest.labelframes):
+                        requestObject.doLabel = True
+                        requestObject.labelKey = activeAnimRequest.animkey
+                        requestObject.fontsize = activeAnimRequest.fontsize
+                    thread = threadmanager.New_Thread(
+                        requestObject, previous_request)
+                    thread.start()
+                    awaitingFrame = None
+                    startbool = False
                 else:
-                    print("Anim Complete, Gif too big.")
-                    embed = hikari.Embed(title=(
-                        "Animation Complete. (Gif file too large for upload)"), colour=hikari.Colour(0xFFFFFF))
-                    await activeAnimRequest.proxy.edit(embed)
-                activeAnimRequest = None
-                awaitingFrame = None
-                botBusy = False
-                animationFrames = []
-                return
+                    await saveResultGif()
+                    return
+            else:
+                if activeAnimRequest.currentstep > activeAnimRequest.endframe:
+                    activeAnimRequest.currentstep = activeAnimRequest.currentstep + activeAnimRequest.animation_step
+                    activeAnimRequest.animation_step
+                    threadmanager = threadManager()
+                    load_config()
+                    if activeAnimRequest.animkey == "guidescale":
+                        requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.infSteps, activeAnimRequest.seed, activeAnimRequest.currentstep, activeAnimRequest.imgUrl, activeAnimRequest.strength, activeAnimRequest.width, activeAnimRequest.height,
+                                                    activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True)
+                    if activeAnimRequest.animkey == "steps":
+                        requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, int(activeAnimRequest.currentstep), activeAnimRequest.seed, activeAnimRequest.guideScale, activeAnimRequest.imgUrl, activeAnimRequest.strength, activeAnimRequest.width, activeAnimRequest.height,
+                                                    activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True)
+                    if activeAnimRequest.animkey == "strength":
+                        requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.infSteps, activeAnimRequest.seed, activeAnimRequest.guideScale, activeAnimRequest.imgUrl, activeAnimRequest.currentstep, activeAnimRequest.width, activeAnimRequest.height,
+                                                    activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True)
+                    if string_to_bool(activeAnimRequest.labelframes):
+                        requestObject.doLabel = True
+                        requestObject.labelKey = activeAnimRequest.animkey
+                        requestObject.fontsize = activeAnimRequest.fontsize
+                    thread = threadmanager.New_Thread(
+                        requestObject, previous_request)
+                    thread.start()
+                    awaitingFrame = None
+                    startbool = False
+                else:
+                    await saveResultGif()
+                    return
         return
     ThreadCompletionSpeed = 2
     if awaitingEmbed != None and awaitingProxy != None:
@@ -1070,6 +1105,7 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
 
 
 async def respond_with_autodelete(text: str, ctx: lightbulb.SlashContext, color=0xff0015):
+    '''Generate an embed and respond to the context with the input text'''
     embed = hikari.Embed(title=text, colour=hikari.Colour(color))
     rows = await generate_rows(ctx.bot)
     response = await ctx.respond(embed, components=rows)
@@ -1233,13 +1269,6 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 # ----------------------------------
 @bot.command
 @lightbulb.add_checks(lightbulb.owner_only)
-@lightbulb.option("label_font_size", "font size of the marked label (Default:40)", required=False,default=40, type=float)
-@lightbulb.option("do_label", "should the key be labeled through animation", required=False,default="No", type=str, choices=["Yes","No"])
-@lightbulb.option("animstep", "step value", required=True, type=float)
-@lightbulb.option("animstep", "step value", required=True, type=float)
-@lightbulb.option("end", "end value", required=True, type=float)
-@lightbulb.option("start", "start value", required=True, type=float)
-@lightbulb.option("key", "which key (guidescale, steps, strength)", required=True, type=str, choices=["guidescale", "steps", "strength"])
 @lightbulb.option("height", "(Optional) height of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("width", "(Optional) width of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("sampler", "(Optional) Which scheduler to use", required=False, type=str, default="DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
@@ -1253,6 +1282,12 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("guidance_scale", "(Optional) Guidance scale for diffusion (Default:7)", required=False, type=float, default=7, max_value=100, min_value=-100)
 @lightbulb.option("negative_prompt", "(Optional)Prompt for diffusion to avoid.", required=False)
 @lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ", required=True, default="0")
+@lightbulb.option("animation_label_font_size", "font size of the marked label (Default:40)", required=False,default=40, type=float)
+@lightbulb.option("animation_label", "should the key be labeled through animation", required=False,default="No", type=str, choices=["Yes","No"])
+@lightbulb.option("animation_end", "end value", required=False, type=float)
+@lightbulb.option("animation_step", "step value", required=False, type=float)
+@lightbulb.option("animation_start", "start value", required=False, type=float)
+@lightbulb.option("animation_key", "which key (guidescale, steps, strength)", required=False, type=str, choices=["guidescale", "steps", "strength"])
 @lightbulb.command("admingenerategif", "Generate a series of results")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
@@ -1269,6 +1304,20 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
     if botBusy:
         await respond_with_autodelete("Sorry, Kiwi is busy, please try again later!", ctx)
         return
+    if ctx.options.input_gif == None:
+        if ctx.options.animation_step == None or ctx.options.animation_key == None or ctx.options.animation_start == None or ctx.options.animation_end == None:
+            await respond_with_autodelete("Gif generation requires either a input_gif or all the options: animation_key, animation_start, animation_end, and animation_step to be filled.",ctx)
+            return
+        if ctx.options.animation_step >= 0:
+            if ctx.options.animation_end <= ctx.options.animation_start:
+                await respond_with_autodelete("Your animation step must be a negative value to match that start and end value.",ctx)
+                return
+        if ctx.options.animation_step <= 0:
+            if ctx.options.animation_end >= ctx.options.animation_start:
+                await respond_with_autodelete("Your animation step must be a positive value to match that start and end value.",ctx)
+                return
+    if ctx.options.input_gif != None:
+        ctx.options.strength = None
     botBusy = True
     try:
         embed = hikari.Embed(title=("Animation in progress, This may take a while..."), colour=hikari.Colour(
@@ -1298,19 +1347,12 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
         load_config()
         global activeAnimRequest
         activeAnimRequest = animationRequest(ctx.options.prompt, ctx.options.negative_prompt, ctx.options.steps, ctx.options.seed, ctx.options.guidance_scale, url, ctx.options.strength, ctx.options.width, ctx.options.height, respProxy, scheduler=ctx.options.sampler,
-                                             userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=False, overProcess=False, startframe=ctx.options.start, endframe=ctx.options.end, animkey=ctx.options.key, animstep=ctx.options.animstep, ingif=ctx.options.input_gif,LabelFrames=ctx.options.do_label,fontsize=ctx.options.label_font_size)
+                                             userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=False, overProcess=False, startframe=ctx.options.animation_start, endframe=ctx.options.animation_end, animkey=ctx.options.animation_key, animation_step=ctx.options.animation_step, ingif=ctx.options.input_gif,LabelFrames=ctx.options.animation_label,fontsize=ctx.options.animation_label_font_size)
         global startbool
         startbool = True
     except Exception:
         traceback.print_exc()
         await respond_with_autodelete("Sorry, something went wrong! <:scootcry:1033114138366443600>", ctx)
-        botBusy = False
-        return
-    except Exception:
-        traceback.print_exc()
-        embed = hikari.Embed(
-            title="Sorry, something went wrong! <:scootcry:1033114138366443600>", colour=hikari.Colour(0xFF0000))
-        await ctx.edit_last_response(embed)
         botBusy = False
         return
 
