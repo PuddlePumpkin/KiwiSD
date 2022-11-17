@@ -3,6 +3,7 @@ Kiwi
 </h1>
 
 <p align=center><img width="200" height="200" src="/docs/kiwipfp.png"></p><p align=center>Kiwi is a hikari lightbulb discord bot for prompting diffusion models through huggingface's diffusers library</p>
+<p align=center><a href="https://github.com/KeiraTheCat/KiwiSD/blob/main/license"><img src=https://img.shields.io/badge/license-MIT-green></a> <img src="https://img.shields.io/badge/Discord-Puddle%20Pumpkin%238119-ff69b4"></p>
 
 
 # Features
@@ -25,6 +26,7 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - [Stable Diffusion v1.5](https://huggingface.co/runwayml/stable-diffusion-v1-5)
 - [Waifu Diffusion v1.3](https://huggingface.co/hakurei/waifu-diffusion-v1-3)
 # Usage
+- Warning: Kiwi was made by a girl who really sucks at coding, its all one file (kiwi.py), things could break, things might not work, and your house might burn down or worse...
 - Clone kiwi to a directory on your machine.
 - Clone https://github.com/huggingface/diffusers to another directory and copy it's src/diffusers folder into kiwi's directory (this is required because the pip version doesnt yet include the dpm++ solver)
 - With python installed, open cmd, cd to kiwi's directory, enter python -m venv venv (or python3)
