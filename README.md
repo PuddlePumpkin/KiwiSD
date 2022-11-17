@@ -56,8 +56,8 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - **/styles:** displays a list of loaded textual inversion embeddings
 - **/styleinfo:** displays the training images of a TI if they are in the concept_images folder of the embed
 # Credits
-This project properly abides by all exteral package licenses and makes use of multiple third party resources. Kiwi's non derivative source and contents are licensed under the MIT license.
-Largely used packages:
+This project abides by all exteral package licenses and makes use of multiple third party resources. Kiwi's non derivative source and contents are licensed under the MIT license.
+##### Heavily used resources:
 |Package|Link|License|
 |----|----|----|
 |Kiwi|https://github.com/KeiraTheCat/KiwiSD|MIT|
@@ -66,5 +66,7 @@ Largely used packages:
 |Hikari|https://github.com/hikari-py/hikari/|MIT|
 |Hikari-Lightbulb|https://github.com/tandemdude/hikari-lightbulb|LGPLv3|
 See requirements.txt to view other used packages and find their licenses.
+
+This project is not endorsed by or affiliated with any third party entity.
 
 If getting errors may need to change file in torch: `venv/lib/site-packages/torch/distributed/elastic/timer/file_based_local_timer.py` line 81 to `def __init__(self, file_path: str, signal=signal.SIGILL) -> None:`
