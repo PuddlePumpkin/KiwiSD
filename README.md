@@ -57,7 +57,7 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - **/styleinfo:** displays the training images of a TI if they are in the concept_images folder of the embed
 # Credits
 This project abides by all exteral package licenses and makes use of multiple third party resources. Kiwi's non derivative source and contents are licensed under the MIT license.
-##### Heavily used resources:
+#### Heavily used resources:
 |Package|Link|License|
 |----|----|----|
 Kiwi|https://github.com/KeiraTheCat/KiwiSD|MIT
