@@ -48,7 +48,7 @@ with open('kiwitoken.json', 'r') as openfile:
     openfile.close()
 if bottoken == None or bottoken == "":
     sys.exit("\nYou need a bot token, see readme.md for usage instructions")
-bot = lightbulb.BotApp(token=bottoken,prefix="-",default_enabled_guilds=672718048343490581,intents=hikari.Intents.ALL,help_class=None)
+bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None)
 
 
 # ----------------------------------
