@@ -1096,7 +1096,7 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
                 mdataimage.info.get("Scheduler")+" "
         if (str(mdataimage.info.get("Img2Img Strength")) != "None"):
             embed = hikari.Embed(
-                title="This image was generated from an image input <:scootcry:1033114138366443600>", colour=hikari.Colour(0xFF0000))
+                title="This image was generated from an image input ", colour=hikari.Colour(0xFF0000))
             await ctx.respond(embed)
             return
         embed.description = responseStr + "`"
@@ -1107,7 +1107,7 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
     except Exception:
         traceback.print_exc()
         embed = hikari.Embed(
-            title="Sorry, something went wrong! <:scootcry:1033114138366443600>", colour=hikari.Colour(0xFF0000))
+            title="Sorry, something went wrong! ", colour=hikari.Colour(0xFF0000))
         if (not await ctx.edit_last_response(embed)):
             await ctx.respond(embed)
         return
@@ -1173,7 +1173,7 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
         thread.start()
     except Exception:
         botBusy = False
-        await respond_with_autodelete("Sorry, something went wrong! <:scootcry:1033114138366443600>", ctx)
+        await respond_with_autodelete("Sorry, something went wrong! ", ctx)
         traceback.print_exc()
         return
 
@@ -1366,7 +1366,7 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
         startbool = True
     except Exception:
         traceback.print_exc()
-        await respond_with_autodelete("Sorry, something went wrong! <:scootcry:1033114138366443600>", ctx)
+        await respond_with_autodelete("Sorry, something went wrong! ", ctx)
         botBusy = False
         return
 
