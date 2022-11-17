@@ -1,11 +1,3 @@
--f https://download.pytorch.org/whl/cu117
-torch
--f https://download.pytorch.org/whl/cu117
-torchvision
--f https://download.pytorch.org/whl/cu117
-torchaudio
-
-diffusers == 0.7.1
 hikari-lightbulb == 2.2.5
 hikari == 2.0.0.dev111
 asyncio == 3.4.3
@@ -13,6 +5,12 @@ prompt-toolkit == 3.0.32
 transformers == 4.24.0
 scipy == 1.9.3
 ftfy == 6.1.1
-accelerate == 0.14.dev0
+accelerate
 wget == 3.2
-Send2Trash ==1.8.0
+Send2Trash == 1.8.0
+OmegaConf
+
+--extra-index-url https://download.pytorch.org/whl/cu117
+torch
+torchvision
+torchaudio

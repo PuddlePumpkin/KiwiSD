@@ -25,6 +25,8 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - [Stable Diffusion v1.5](https://huggingface.co/runwayml/stable-diffusion-v1-5)
 - [Waifu Diffusion v1.3](https://huggingface.co/hakurei/waifu-diffusion-v1-3)
 # Usage
+- Clone kiwi to a directory on your machine.
+- Clone https://github.com/huggingface/diffusers to another directory and copy it's src/diffusers folder into kiwi's directory (this is required because the pip version doesnt yet include the dpm++ solver)
 - With python installed, open cmd, cd to kiwi's directory, enter python -m venv venv (or python3)
 - navigate to venv/scripts/activate and drag the blank activate file into cmd and press enter
 - enter pip install -r requirements.txt
