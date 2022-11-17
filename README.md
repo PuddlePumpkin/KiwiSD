@@ -60,11 +60,12 @@ This project abides by all exteral package licenses and makes use of multiple th
 ##### Heavily used resources:
 |Package|Link|License|
 |----|----|----|
-|Kiwi|https://github.com/KeiraTheCat/KiwiSD|MIT|
-|Hugging Face Diffusers (Modified conversion script)|https://github.com/huggingface/diffusers|Apache 2.0|
-|Gidole Font|https://github.com/larsenwork/Gidole/|MIT|
-|Hikari|https://github.com/hikari-py/hikari/|MIT|
-|Hikari-Lightbulb|https://github.com/tandemdude/hikari-lightbulb|LGPLv3|
+Kiwi|https://github.com/KeiraTheCat/KiwiSD|MIT
+Hugging Face Diffusers (Modified conversion script)|https://github.com/huggingface/diffusers|Apache 2.0
+Gidole Font|https://github.com/larsenwork/Gidole/|MIT
+Hikari|https://github.com/hikari-py/hikari/|MIT
+Hikari-Lightbulb|https://github.com/tandemdude/hikari-lightbulb|LGPLv3
+
 See requirements.txt to view other used packages and find their licenses.
 
 This project is not endorsed by or affiliated with any third party entity.
