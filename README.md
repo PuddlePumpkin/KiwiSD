@@ -3,7 +3,7 @@ Kiwi
 </h1>
 
 <p align=center><img width="200" height="200" src="/docs/kiwipfp.png"></p><p align=center>Kiwi is a hikari lightbulb discord bot for prompting diffusion models through huggingface's diffusers library</p>
-<p align=center><a href="https://github.com/KeiraTheCat/KiwiSD/blob/main/license"><img src=https://img.shields.io/badge/license-MIT-green></a><a href = "discord:discord.com/users/126854698769580032"><img src="https://img.shields.io/badge/Discord-Puddle%20Pumpkin%238119-ff69b4"></p></a>
+<p align=center><a href="https://github.com/KeiraTheCat/KiwiSD/blob/main/license"><img src=https://img.shields.io/badge/license-MIT-green></a><a href = "discord.com/users/126854698769580032"><img src="https://img.shields.io/badge/Discord-Puddle%20Pumpkin%238119-ff69b4"></p></a>
 
 # Features
 - **Models:**
