@@ -11,7 +11,7 @@ Kiwi
 Supports huggingface diffusers models and automatically converts **.ckpt** models to that format
 - **Text to image:**
 Enter a detailed prompt to generate an image. Optionally use a negative prompt of features to avoid
-<p align=center><img src="/docs/examples.png"></p>
+<p align=center><img height = 312 src="/docs/examples.png"></p>
 
 - **Image to image:**
 Enter a detailed prompt and an image to generate a new one like it, strength changes the power of the input image over whats generated.
