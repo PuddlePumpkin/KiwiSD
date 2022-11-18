@@ -29,7 +29,7 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 ### Recommended Models:
 - [Stable Diffusion v1.5](https://huggingface.co/runwayml/stable-diffusion-v1-5)
 - [Waifu Diffusion v1.3](https://huggingface.co/hakurei/waifu-diffusion-v1-3)
-# Usage
+# Recommended Usage
 - Warning: Kiwi was made by a girl who really sucks at coding, its all one file (kiwi.py), things could break, things might not work, and your house might burn down or worse...
 - Clone kiwi to a directory on your machine.
 - Clone https://github.com/huggingface/diffusers to another directory and copy it's src/diffusers folder into kiwi's directory (this is required because the pip version doesnt yet include the dpm++ solver)
@@ -68,13 +68,14 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 # Credits
 This project abides by all exteral package licenses and makes use of multiple third party resources. Kiwi's non derivative source and contents are licensed under the MIT license.
 #### Heavily used resources:
-|Package|Link|License|
-|----|----|----|
-Kiwi|https://github.com/KeiraTheCat/KiwiSD|MIT
-Hugging Face Diffusers (Modified conversion script)|https://github.com/huggingface/diffusers|Apache 2.0
-Gidole Font|https://github.com/larsenwork/Gidole/|MIT
-Hikari|https://github.com/hikari-py/hikari/|MIT
-Hikari-Lightbulb|https://github.com/tandemdude/hikari-lightbulb|LGPLv3
+|Package|Usage|Link|License|
+|----|----|----|----|
+Kiwi|This Project|https://github.com/KeiraTheCat/KiwiSD|MIT
+[Hugging Face](https://huggingface.co/) Diffusers|Modified conversion script|https://github.com/huggingface/diffusers|Apache 2.0
+Gidole Font|Loads via WGET|https://github.com/larsenwork/Gidole/|MIT
+Hikari|No Source|https://github.com/hikari-py/hikari/|MIT
+Hikari-Lightbulb|No Source|https://github.com/tandemdude/hikari-lightbulb|LGPLv3
+[Pytorch](https://pytorch.org/) (CUDA)|No Source|https://github.com/pytorch/pytorch|[Custom](https://github.com/pytorch/pytorch/blob/master/LICENSE)
 
 See requirements.txt to view other used packages and find their licenses.
 
