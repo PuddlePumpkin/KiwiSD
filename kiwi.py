@@ -25,30 +25,49 @@ from PIL import ImageFont
 from PIL import ImageOps
 from torch import autocast
 from transformers import CLIPTextModel, CLIPTokenizer
+import warnings
 
 import convertckpt
 from diffusers import (DDIMScheduler, DDPMScheduler, DiffusionPipeline,
                        DPMSolverMultistepScheduler, EulerDiscreteScheduler,
                        LMSDiscreteScheduler, PNDMScheduler)
-
-# ----------------------------------
-# Instantiate a Bot instance
-# ----------------------------------
 os.chdir(str(os.path.abspath(os.path.dirname(__file__))))
-bottoken = ""
-with open('kiwitoken.json', 'r') as openfile:
-    tokendict = json.load(openfile)
-    if tokendict["bottoken"] != "" and tokendict["bottoken"] != None:
-        bottoken = tokendict["bottoken"]
-    else:
+model_list = {}
+def populate_model_list():
+    global model_list
+    ckptlist = list(Path("./models/").rglob("*.[cC][kK][pP][tT]"))
+    #Convert Checkpoints
+    for ckpt in ckptlist:
         try:
-            bottoken = os.environ["kiwitoken"]
+            if not os.path.exists("./models/" + str(ckpt.stem) + "/"):
+                if os.path.exists("./models/" + str(ckpt.stem) + ".vae.pt"):
+                    print("\nConverting with vae: " +
+                          str(ckpt).replace("\\", "/") + "\n")
+                    convert_ckpt(str(ckpt), "./models/" + str(ckpt.stem) +
+                                 ".vae.pt", dump_path="models/" + str(ckpt.stem) + "/")
+                else:
+                    print("\nConverting model without vae: " +
+                          str(ckpt).replace("\\", "/") + "\n")
+                    convert_ckpt(str(ckpt), dump_path="models/" +
+                                 str(ckpt.stem) + "/")
+                print("\nConversion Complete: " + str(ckpt).replace("\\", "/"))
+                print("Diffusers Model Path: " +
+                      "models/" + str(ckpt.stem) + "/")
         except:
-            pass
-    openfile.close()
-if bottoken == None or bottoken == "":
-    sys.exit("\nYou need a bot token, see readme.md for usage instructions")
-bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None)
+            print("Failed to convert model: " + str(ckpt))
+    #Iterate model folders
+    for folder in next(os.walk('./models'))[1]:
+        json_list = list(
+            Path("./models/"+folder).rglob("*[mM][oO][dD][eE][lL].[jJ][sS][oO][nN]"))
+        if len(json_list) == 0:
+            model_list[folder] = {"ModelCommandName": folder,"ModelPath": "./models/" + folder, "ModelDetailedName": folder}
+        else:
+            with open(json_list[0], 'r') as openfile:
+                open_json = json.load(openfile)
+                open_json["ModelPath"] = "./models/" + folder
+                model_list[open_json["ModelCommandName"]] = open_json
+                openfile.close()
+populate_model_list()
 
 
 # ----------------------------------
@@ -302,7 +321,7 @@ class genImgThreadClass(Thread):
                     BytesIO(response.content)).convert("RGB")
                 #Crop and resize
                 inpaint_image = crop_and_resize(
-                    init_image, self.request.width, self.request.height)
+                    inpaint_image, self.request.width, self.request.height)
                 inpaint_image = inpaint_image.resize(
                     (self.request.width, self.request.height), Image.Resampling.LANCZOS)
 
@@ -472,43 +491,6 @@ def save_user_config(userid: str, saveconfig):
 # ----------------------------------
 def convert_ckpt(ckptpath, vaepath=None, dump_path=None):
     convertckpt.convertmodel(ckptpath, vaepath, dump_path=dump_path)
-
-
-def populate_model_list():
-    global model_list
-    ckptlist = list(Path("./models/").rglob("*.[cC][kK][pP][tT]"))
-    for ckpt in ckptlist:
-        try:
-            if not os.path.exists("./models/" + str(ckpt.stem) + "/"):
-                if os.path.exists("./models/" + str(ckpt.stem) + ".vae.pt"):
-                    print("\nConverting with vae: " +
-                          str(ckpt).replace("\\", "/") + "\n")
-                    convert_ckpt(str(ckpt), "./models/" + str(ckpt.stem) +
-                                 ".vae.pt", dump_path="models/" + str(ckpt.stem) + "/")
-                else:
-                    print("\nConverting model without vae: " +
-                          str(ckpt).replace("\\", "/") + "\n")
-                    convert_ckpt(str(ckpt), dump_path="models/" +
-                                 str(ckpt.stem) + "/")
-                print("\nConversion Complete: " + str(ckpt).replace("\\", "/"))
-                print("Diffusers Model Path: " +
-                      "models/" + str(ckpt.stem) + "/")
-        except:
-            print("Failed to convert model: " + str(ckpt))
-    for folder in next(os.walk('./models'))[1]:
-        json_list = list(
-            Path("./models/"+folder).rglob("*[mM][oO][dD][eE][lL].[jJ][sS][oO][nN]"))
-        if len(json_list) == 0:
-            model_list[folder] = {"ModelCommandName": folder,
-                                  "ModelPath": "./models/" + folder, "ModelDetailedName": folder}
-        else:
-            with open(json_list[0], 'r') as openfile:
-                open_json = json.load(openfile)
-                # print(open_json["ModelCommandName"])
-                open_json["ModelPath"] = "./models/" + folder
-                model_list[open_json["ModelCommandName"]] = open_json
-                openfile.close()
-
 
 # ----------------------------------
 # load embeddings Function
@@ -768,7 +750,6 @@ def remove_duplicates(string: str) -> str:
 # Globals
 # ----------------------------------
 config = {}
-model_list = {}
 embedlist = []
 animationFrames = []
 previous_request = imageRequest()
@@ -793,7 +774,6 @@ outputDirectory = "./results/"
 # Setup
 # ----------------------------------
 def setup():
-    populate_model_list()
     if config["AutoLoadedModel"] != "None":
         if config["AutoLoadedModel"] in model_list:
             change_pipeline(config["AutoLoadedModel"])
@@ -802,6 +782,33 @@ def setup():
     if not os.path.exists("Gidole-Regular.ttf"):
         print("Downloading Gidole Regular font credit: https://github.com/larsenwork/Gidole/")
         wget.download("https://github.com/larsenwork/Gidole/raw/master/Resources/GidoleFont/Gidole-Regular.ttf",out="Gidole-Regular.ttf")
+
+
+# ----------------------------------
+# Instantiate a Bot instance
+# ----------------------------------
+bottoken = ""
+with open('kiwitoken.json', 'r') as openfile:
+    tokendict = json.load(openfile)
+    if tokendict["bottoken"] != "" and tokendict["bottoken"] != None:
+        bottoken = tokendict["bottoken"]
+    else:
+        try:
+            bottoken = os.environ["kiwitoken"]
+        except:
+            pass
+    if tokendict["guildID"] != None and tokendict["guildID"] != "":
+        guildId = int(tokendict["guildID"])
+    else: 
+        warnings.warn("Commands will not update quickly without a guild ID in kiwitoken.json",UserWarning)
+        guildId = None
+    openfile.close()
+if bottoken == None or bottoken == "":
+    sys.exit("\nYou need a bot token, see readme.md for usage instructions")
+if guildId != None:
+    bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None,default_enabled_guilds=guildId)
+else:    
+    bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None)
 
 # ----------------------------------
 # Ping Command
@@ -1342,8 +1349,9 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
         if ctx.options.image == None and ctx.options.image_link == None:
             await respond_with_autodelete("To animate on strength, you need an input image for img2img",ctx)
             return
-    if ctx.options.input_gif != None:
-        ctx.options.strength = None
+    #if ctx.options.input_gif != None:
+        #try:ctx.options.strength = None
+        #except:pass
     botBusy = True
     try:
         embed = hikari.Embed(title=("Animation in progress, This may take a while..."), colour=hikari.Colour(
