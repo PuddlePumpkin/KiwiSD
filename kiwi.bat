@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set VIRTUAL_ENV=C:\Users\keira\Desktop\GITHUB\Kiwi\venv
+set VIRTUAL_ENV=%CD%\venv
 
 if not defined PROMPT set PROMPT=$P$G
 
@@ -31,4 +31,4 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" %_OLD_CODEPAGE% > nul
     set _OLD_CODEPAGE=
 )
-python "C:\Users\keira\Desktop\GITHUB\kiwi\kiwi.py"
+python "%CD%\kiwi.py"
