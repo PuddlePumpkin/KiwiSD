@@ -2,8 +2,8 @@
 Kiwi
 </h1>
 
-<p align=center><img width="200" height="200" src="/docs/kiwipfp.png"></p><p align=center>Kiwi is a hikari lightbulb discord bot for prompting stable diffusion models through huggingface's diffusers library</p>
-<p align=center><a href="https://github.com/KeiraTheCat/KiwiSD/blob/main/license"><img src=https://img.shields.io/badge/license-MIT-green></a><a href = "https://discord.com/users/126854698769580032"><img src="https://img.shields.io/badge/Discord-Puddle%20Pumpkin%238119-ff69b4"></p></a>
+<p align=center><img width="200" height="200" src="/docs/kiwipfp.png"></p><p align=center>Kiwi is a hikari lightbulb discord bot for prompting stable diffusion models through huggingface's diffusers library.</p><p align=center>I created Kiwi because I wanted to have a <i>"multiplayer"</i> alternative to <a href=https://github.com/AUTOMATIC1111/stable-diffusion-webui>AUTOMATIC1111's webui</a></p>
+<p align=center><a href="https://github.com/PuddlePumpkin/KiwiSD/blob/main/license"><img src=https://img.shields.io/badge/license-MIT-green></a><a href = "https://discord.com/users/126854698769580032"><img src="https://img.shields.io/badge/Discord-Puddle%20Pumpkin%238119-ff69b4"></p></a>
 
 # Features
 - **Models:**
@@ -108,7 +108,7 @@ This project abides by all exteral package licenses and makes use of multiple th
 #### Heavily used resources:
 |Package|Usage|Link|License|
 |----|----|----|----|
-Kiwi|This Project|https://github.com/KeiraTheCat/KiwiSD|MIT
+Kiwi|This Project|https://github.com/PuddlePumpkin/KiwiSD|MIT
 [Hugging Face](https://huggingface.co/) Diffusers|Modified conversion script|https://github.com/huggingface/diffusers|Apache 2.0
 Gidole Font|Loads via WGET|https://github.com/larsenwork/Gidole/|MIT
 Hikari|No Source|https://github.com/hikari-py/hikari/|MIT
