@@ -29,8 +29,10 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 ### Recommended Models:
 - [Stable Diffusion v1.5](https://huggingface.co/runwayml/stable-diffusion-v1-5)
 - [Waifu Diffusion v1.3](https://huggingface.co/hakurei/waifu-diffusion-v1-3)
+
 # Recommended Usage
-<details><summary>WINDOWS</summary>
+***
+<details><summary><b>WINDOWS</b></summary>
 <p>
 
 - Warning: Kiwi was made by a girl who's not really a programmer, things could break, things might not work, and your house might burn down or worse...
@@ -52,7 +54,9 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 </p>
 </details>
 
-<details><summary>LINUX</summary>
+***
+
+<details><summary><b>LINUX</b></summary>
 <p>
 
 - Warning: Kiwi was made by a girl who's not really a programmer, things could break, things might not work, and your house might burn down or worse...
@@ -76,6 +80,8 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - Enter **/generate** to start prompting
 </p>
 </details>
+
+***
 
 # Commands
 ### Generation
