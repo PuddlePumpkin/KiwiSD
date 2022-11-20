@@ -99,7 +99,7 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - **/adminupdatecommands:** refreshes commands
 ### Other
 - **/help:** displays command list
-- **/imagetocommand:** takes an input image  or image link / message id and gives 
+- **/imagetocommand:** takes an input image  or image link / message id and gives you the written command you can paste in for the same result
 - **/metadata:** displays image metadata of an input image or image link / message id
 - **/styles:** displays a list of loaded textual inversion embeddings
 - **/styleinfo:** displays the training images of a TI if they are in the concept_images folder of the embed
