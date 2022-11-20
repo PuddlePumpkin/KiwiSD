@@ -704,23 +704,46 @@ async def generate_toggle_rows(bot: lightbulb.BotApp, quality: bool):
     rows.append(row)
     return rows
 
+async def generate_cancel_rows(bot: lightbulb.BotApp):
+    rows = []
+    row = bot.rest.build_action_row()
+    label = "❌"
+    row.add_button(hikari.ButtonStyle.SECONDARY, "cancel").set_label(label).add_to_container()
+    rows.append(row)
+    return rows
 
 async def handle_responses(bot: lightbulb.BotApp, author: hikari.User, message: hikari.Message, ctx: lightbulb.SlashContext = None, autodelete: bool = False) -> None:
     """Watches for events, and handles responding to them."""
-    with bot.stream(hikari.InteractionCreateEvent, 60).filter(lambda e: (isinstance(e.interaction, hikari.ComponentInteraction) and e.interaction.user == author and e.interaction.message == message)) as stream:
+    with bot.stream(hikari.InteractionCreateEvent, 60).filter(lambda e: (isinstance(e.interaction, hikari.ComponentInteraction) and e.interaction.message == message)) as stream:
+        global activeAnimRequest
+        global awaitingFrame
+        global botBusy
+        global loadedgif
+        global startbool
+        global animationFrames
         async for event in stream:
-            cid = event.interaction.custom_id
-            if cid == "toggle":
-                embed = togprompts(False, ctx)
-            elif cid == "togglequality":
-                embed = togprompts(True, ctx)
-            elif cid == "delete":
-                await bot.rest.delete_message(message.channel_id, message)
-                return
-            try:
-                await event.interaction.create_initial_response(hikari.ResponseType.MESSAGE_UPDATE, embed=embed)
-            except hikari.NotFoundError:
-                await event.interaction.edit_initial_response(embed=embed)
+            if event.interaction.user == author or event.interaction.user in get_admin_list():
+                cid = event.interaction.custom_id
+                if cid == "toggle":
+                    embed = togprompts(False, ctx)
+                elif cid == "togglequality":
+                    embed = togprompts(True, ctx)
+                elif cid == "delete":
+                    await bot.rest.delete_message(message.channel_id, message)
+                    return
+                elif cid == "cancel":
+                    activeAnimRequest = None
+                    awaitingFrame = None
+                    botBusy = False
+                    loadedgif = None
+                    startbool = False
+                    animationFrames = []
+                    await bot.rest.delete_message(message.channel_id, message)
+                    return
+                try:
+                    await event.interaction.create_initial_response(hikari.ResponseType.MESSAGE_UPDATE, embed=embed)
+                except hikari.NotFoundError:
+                    await event.interaction.edit_initial_response(embed=embed)
     # 1 minute, remove buttons
     if autodelete:
         await bot.rest.delete_message(message.channel_id, message)
@@ -1380,12 +1403,14 @@ async def generategif(ctx: lightbulb.SlashContext) -> None:
         #try:ctx.options.strength = None
         #except:pass
     botBusy = True
-    try:
-        embed = hikari.Embed(title=("Animation in progress, This may take a while..."), colour=hikari.Colour(
-            0xFFFFFF)).set_thumbnail(loadingThumbnail)
-        respProxy = await ctx.respond(embed)
-    except:
-        pass
+    #try:
+    embed = hikari.Embed(title=("Animation in progress, This might take a while..."), colour=hikari.Colour(
+        0xFFFFFF)).set_thumbnail(loadingThumbnail)
+    cancelrows = await generate_cancel_rows(ctx.bot)
+    respProxy = await ctx.respond(embed,components=cancelrows)
+    m = await respProxy.message()
+    #except:
+    #    pass
 
     botBusy = True
     outputDirectory = "./animation/"
@@ -1424,6 +1449,7 @@ async def generategif(ctx: lightbulb.SlashContext) -> None:
         await respond_with_autodelete("Sorry, something went wrong!", ctx)
         botBusy = False
         return
+    await handle_responses(ctx.bot, ctx.author, m, autodelete=False)
 
 
 # ----------------------------------
