@@ -17,6 +17,8 @@ import lightbulb
 import requests
 import torch
 import send2trash
+import warnings
+import ffencode
 from lightbulb.ext import tasks
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
@@ -25,7 +27,6 @@ from PIL import ImageFont
 from PIL import ImageOps
 from torch import autocast
 from transformers import CLIPTextModel, CLIPTokenizer
-import warnings
 
 import convertckpt
 from diffusers import (DDIMScheduler, DDPMScheduler, DiffusionPipeline,
@@ -101,7 +102,7 @@ class imageRequest(object):
 
 
 class animationRequest(object):
-    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=True, startframe=None, endframe=None, animkey=None, animation_step=None, ingif=None, LabelFrames=False, fontsize = None):
+    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=True, startframe=None, endframe=None, animkey=None, animation_step=None, ingif=None, LabelFrames=False, fontsize = None, fps = 10):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
@@ -127,6 +128,7 @@ class animationRequest(object):
         self.currentstep = startframe
         self.ingif = ingif
         self.fontsize = fontsize
+        self.fps = fps
 
 
 class threadManager(object):
@@ -891,7 +893,9 @@ async def saveResultGif():
     while os.path.exists(outputDirectory + str(countStr) + ".gif"):
         countStr = int(countStr)+1
     file_name = outputDirectory + str(countStr) + ".gif"
-    animationFrames[0].save(file_name, save_all=True,append_images=animationFrames[1:], duration=86, loop=0)
+    fps = activeAnimRequest.fps
+    animationFrames[0].save(file_name, save_all=True,append_images=animationFrames[1:], duration=1000/fps, loop=0)
+    video_file_name = ffencode.encode_video(fps)
     file_stats = os.stat(file_name)
     if ((file_stats.st_size / (1024 * 1024)) < 8):
         print("Anim Complete, sending gif.")
@@ -901,12 +905,12 @@ async def saveResultGif():
         embed.set_footer(None)
         embed.set_image(file_name)
         embed.set_thumbnail(None)
-        await activeAnimRequest.proxy.edit(embed)
+        await activeAnimRequest.proxy.edit(attachment=video_file_name,embed=embed)
     else:
-        print("Anim Complete, Gif too big.")
+        print("Anim Complete, gif too big.")
         embed = hikari.Embed(title=(
-            "Animation Complete. (Gif file too large for upload)"), colour=hikari.Colour(0xFFFFFF))
-        await activeAnimRequest.proxy.edit(embed)
+            "Animation Complete. (gif too large for upload)"), colour=hikari.Colour(0xFFFFFF))
+        await activeAnimRequest.proxy.edit(attachment=video_file_name,embed=embed)
     activeAnimRequest = None
     awaitingFrame = None
     botBusy = False
@@ -950,22 +954,23 @@ async def ThreadCompletionLoop():
                     while os.path.exists(outputDirectory + str(countStr) + ".gif"):
                         countStr = int(countStr)+1
                     file_name = outputDirectory + str(countStr) + ".gif"
-                    animationFrames[0].save(file_name, save_all=True,append_images=animationFrames[1:], duration=86, loop=0)
+                    fps = activeAnimRequest.fps
+                    animationFrames[0].save(file_name, save_all=True,append_images=animationFrames[1:], duration=1000/fps, loop=0)
+                    video_file_name = ffencode.encode_video(fps)
                     file_stats = os.stat(file_name)
                     if ((file_stats.st_size / (1024 * 1024)) < 8):
-                        print("Anim Complete, sending gif.")
-                        #embed = hikari.Embed(title=("Animation Result:"),colour=hikari.Colour(0xFFFFFF)).set_image(outputDirectory + "resultgif.gif")
+                        print("Anim Complete, sending video.")
                         embed = get_embed(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.guideScale, activeAnimRequest.infSteps, activeAnimRequest.seed,
                                         file_name, activeAnimRequest.strength, True, activeAnimRequest.scheduler, activeAnimRequest.userconfig, activeAnimRequest.imgUrl)
                         embed.set_footer(None)
                         embed.set_image(file_name)
                         embed.set_thumbnail(None)
-                        await activeAnimRequest.proxy.edit(embed)
+                        await activeAnimRequest.proxy.edit(attachment=video_file_name,embed=embed)
                     else:
-                        print("Anim Complete, Gif too big.")
+                        print("Anim Complete, gif too big.")
                         embed = hikari.Embed(title=(
                             "Animation Complete. (Gif file too large for upload)"), colour=hikari.Colour(0xFFFFFF))
-                        await activeAnimRequest.proxy.edit(embed)
+                        await activeAnimRequest.proxy.edit(attachment=video_file_name,embed=None)
                     activeAnimRequest = None
                     awaitingFrame = None
                     botBusy = False
@@ -1313,6 +1318,7 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ", required=True, default="0")
 @lightbulb.option("animation_label_font_size", "font size of the marked label (Default:40)", required=False,default=40, type=float)
 @lightbulb.option("animation_label", "should the key be labeled through animation", required=False,default="No", type=str, choices=["Yes","No"])
+@lightbulb.option("animation_fps", "Framerate of finished animation (Default:10)", required=False,default=10, type=float)
 @lightbulb.option("animation_step", "how far to step each frame", required=False, type=float)
 @lightbulb.option("animation_end", "end value", required=False, type=float)
 @lightbulb.option("animation_start", "start value", required=False, type=float)
@@ -1386,7 +1392,7 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
         load_config()
         global activeAnimRequest
         activeAnimRequest = animationRequest(ctx.options.prompt, ctx.options.negative_prompt, ctx.options.steps, ctx.options.seed, ctx.options.guidance_scale, url, ctx.options.strength, ctx.options.width, ctx.options.height, respProxy, scheduler=ctx.options.sampler,
-                                             userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=False, overProcess=False, startframe=ctx.options.animation_start, endframe=ctx.options.animation_end, animkey=ctx.options.animation_key, animation_step=ctx.options.animation_step, ingif=ctx.options.input_gif,LabelFrames=ctx.options.animation_label,fontsize=ctx.options.animation_label_font_size)
+                                             userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=False, overProcess=False, startframe=ctx.options.animation_start, endframe=ctx.options.animation_end, animkey=ctx.options.animation_key, animation_step=ctx.options.animation_step, ingif=ctx.options.input_gif,LabelFrames=ctx.options.animation_label,fontsize=ctx.options.animation_label_font_size,fps=ctx.options.animation_fps)
         global startbool
         startbool = True
         lastpnglist = list(Path("./animation/").rglob("*.png"))

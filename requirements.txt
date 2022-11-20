@@ -9,6 +9,7 @@ accelerate
 wget == 3.2
 Send2Trash == 1.8.0
 OmegaConf
+ffmpeg-python
 
 --extra-index-url https://download.pytorch.org/whl/cu117
 torch
