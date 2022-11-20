@@ -88,9 +88,9 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - **/togglenegativeprompt:** toggles whether or not to use the user's default negative prompt.
 - **/settings:** displays a list of settings and optionally change them
 ### Admin Only
+- **/generategif:** Generates a gif given input options, if file is too big to upload to discord, is saved in kiwi/animation, also attempts to save video if ffmpeg is installed in path, can allow non admin to generate gif in adminsettings.
 - **/adminsettings:** displays a list of admin settings and optionally changes them **your discord user id (just a bunch of numbers) must be in kiwiconfig.json to modify these.**
 - **/adminupdatecommands:** refreshes commands
-- **/admingenerategif:** Generates a gif given input options, if file is too big to upload to discord, is saved in kiwi/animation 
 ### Other
 - **/help:** displays command list
 - **/imagetocommand:** takes an input image  or image link / message id and gives 
