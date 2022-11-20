@@ -1,6 +1,7 @@
 {
     "AutoLoadedModel" : "None",
     "AllowNonAdminChangeModel" : true,
+    "AllowNonAdminGenerateGif" : false,
     "EnableNsfwFilter":true,
     "NsfwMessage":"Sorry... the result image may have contained something lewd >///<",
     "ShowDefaultPrompts": false,

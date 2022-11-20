@@ -1302,7 +1302,6 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 # Admin Generate Gif Command
 # ----------------------------------
 @bot.command
-@lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.option("height", "(Optional) height of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("width", "(Optional) width of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("sampler", "(Optional) Which scheduler to use", required=False, type=str, default="DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
@@ -1323,9 +1322,9 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("animation_end", "end value", required=False, type=float)
 @lightbulb.option("animation_start", "start value", required=False, type=float)
 @lightbulb.option("animation_key", "which key (guidescale, steps, strength)", required=False, type=str, choices=["guidescale", "steps", "strength"])
-@lightbulb.command("admingenerategif", "Generate a series of results")
+@lightbulb.command("generategif", "Generate a series of results")
 @lightbulb.implements(lightbulb.SlashCommand)
-async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
+async def generategif(ctx: lightbulb.SlashContext) -> None:
     global botBusy
     global animationFrames
     global curmodel
@@ -1333,6 +1332,11 @@ async def admingenerategif(ctx: lightbulb.SlashContext) -> None:
     global outputDirectory
     global previous_request
     animationFrames = []
+    load_config()
+    if config["AllowNonAdminGenerateGif"] == False:
+        if not str(ctx.author.id) in get_admin_list():
+            await respond_with_autodelete("Sorry, you must be marked as admin to generate an animation", ctx)
+            return
     if curmodel == None or curmodel == "":
         await respond_with_autodelete("Please load a model with /changemodel", ctx)
         return
@@ -1492,7 +1496,7 @@ async def settings(ctx: lightbulb.SlashContext) -> None:
 # ----------------------------------
 @bot.command()
 @lightbulb.option("value", "(optional if no key) value to change it to", required=False, type=str)
-@lightbulb.option("setting", "(optional) which setting to change", required=False, choices=["EnableNsfwFilter", "NsfwMessage", "ShowDefaultPrompts", "NewUserNegativePrompt", "NewUserQualityPrompt", "AdminList", "TodoString", "MaxSteps", "AllowNonAdminChangeModel", "AutoLoadedModel","LoadingGif", "LoadingThumbnail"], type=str)
+@lightbulb.option("setting", "(optional) which setting to change", required=False, choices=["EnableNsfwFilter", "NsfwMessage", "ShowDefaultPrompts", "NewUserNegativePrompt", "NewUserQualityPrompt", "AdminList", "TodoString", "MaxSteps", "AllowNonAdminChangeModel", "AllowNonAdminGenerateGif", "AutoLoadedModel","LoadingGif", "LoadingThumbnail"], type=str)
 @lightbulb.command("adminsettings", "View or modify settings")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def adminsettings(ctx: lightbulb.SlashContext) -> None:
@@ -1501,7 +1505,7 @@ async def adminsettings(ctx: lightbulb.SlashContext) -> None:
     if ctx.options.setting != None and ctx.options.value != None:
         if str(ctx.author.id) in get_admin_list():
             # Bools
-            if ctx.options.setting in ["ShowDefaultPrompts", "EnableNsfwFilter", "AllowNonAdminChangeModel"]:
+            if ctx.options.setting in ["ShowDefaultPrompts", "EnableNsfwFilter", "AllowNonAdminChangeModel","AllowNonAdminGenerateGif"]:
                 config[ctx.options.setting] = string_to_bool(ctx.options.value)
             # Ints
             elif ctx.options.setting in ["MaxSteps"]:
@@ -1652,10 +1656,12 @@ async def styleinfo(ctx: lightbulb.SlashContext) -> None:
 # Admin update commands Command
 # ----------------------------------
 @bot.command()
-@lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.command("adminupdatecommands", "update commands")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def todo(ctx: lightbulb.SlashContext) -> None:
+    if not str(ctx.author.id) in get_admin_list():
+        await respond_with_autodelete("Sorry, you must be marked as admin to update commands...", ctx)
+        return
     await respond_with_autodelete("Commands updated.", ctx, 0x00ff1a)
     load_config()
     await bot.sync_application_commands()
