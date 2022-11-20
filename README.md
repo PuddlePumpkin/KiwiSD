@@ -30,7 +30,10 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - [Stable Diffusion v1.5](https://huggingface.co/runwayml/stable-diffusion-v1-5)
 - [Waifu Diffusion v1.3](https://huggingface.co/hakurei/waifu-diffusion-v1-3)
 # Recommended Usage
-- Warning: Kiwi was made by a girl who really sucks at coding, its all one file (kiwi.py), things could break, things might not work, and your house might burn down or worse...
+<details><summary>WINDOWS</summary>
+<p>
+
+- Warning: Kiwi was made by a girl who's not really a programmer, things could break, things might not work, and your house might burn down or worse...
 - Clone kiwi to a directory on your machine.
 - Clone https://github.com/huggingface/diffusers to another directory and copy it's src/diffusers folder into kiwi's directory (this is required because the pip version doesnt yet include the dpm++ solver)
 - With python installed, open cmd, cd to kiwi's directory, enter python -m venv venv (or python3)
@@ -44,8 +47,36 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - Enter your discord's ID into the "guildID" field of kiwitoken.json (id's can usually be accessed via right click in discord)
 - copy your user id to the AdminList field of kiwiconfig.json or kiwiconfigdefault.json to allow you access to change **/adminsettings** options
 - start the bot with **kiwi.bat**
-- Enter /changemodel and select your model to load
-- Enter /generate to start prompting
+- Enter **/changemodel** and select your model to load
+- Enter **/generate** to start prompting
+</p>
+</details>
+
+<details><summary>LINUX</summary>
+<p>
+
+- Warning: Kiwi was made by a girl who's not really a programmer, things could break, things might not work, and your house might burn down or worse...
+- **KIWI WAS LARGELY MADE AND TESTED ON WINDOWS**
+- **SOME WEIRD SHIT HAPPENS WHEN FIRST RUNNING ON LINUX BUT IT WORKS MAYBE IN THE END?**
+- **If you're using linux, you're probably smarter than me and will be able to figure it out.**
+- Clone kiwi to a directory on your machine.
+- Clone https://github.com/huggingface/diffusers to another directory and copy it's src/diffusers folder into kiwi's directory (this is required because the pip version doesnt yet include the dpm++ solver)
+- Create a venv or pip install straight on your main python install
+- pip install -r requirements.txt
+- Place model weights .ckpt file or the repository folder containing a diffusers format model in the kiwi/models folder, .ckpt models will take a moment to convert the first time.
+- go to the discord applications page [Here](https://discord.com/developers/applications), create a new application, give it a unique name
+- Go to the "bot" section -> click "add bot" -> click "reset token", this token can only be viewed once without having to reset it so take note of it. **disable public bot unless you know what you're doing**, tick the intent switches on
+- Go to "OAuth2" section -> URL Generator, click bot scope -> click administrator permission, or specific permissions if you know them, copy and paste generated link into your browser or message it to who has permission to invite the bot to your discord.
+- paste your token into the bottoken field of kiwitoken.json *or* set a kiwitoken environment variable to the token, (idk how this works on linux, or if its setup correctly, if not just use the json... sorry...)
+- Enter your discord server's ID into the "guildID" field of kiwitoken.json
+- copy your user id to the AdminList field of kiwiconfig.json or kiwiconfigdefault.json to allow you access to change **/adminsettings** options
+- python3 kiwi.py
+- I had issues with wget module without sudo, but then other shit doesnt work, if you're using linux, you're a bigger nerd than me so you might be able to figure it out, either way, should run if u try sudo once, and then back to normal?, if not, manually copy kiwiconfigdefault and userconfigdefault to same file name without the "default" part 
+- Enter **/changemodel** and select your model to load
+- Enter **/generate** to start prompting
+</p>
+</details>
+
 # Commands
 ### Generation
 - **/generate:** Generates a image from a detailed description, or booru tags separated by commas. optionally input an image for image to image generation, or a mask and an image for inpainting, note inpainting works poorly with default sampler, use klms instead

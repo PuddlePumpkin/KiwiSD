@@ -895,7 +895,11 @@ async def saveResultGif():
     file_name = outputDirectory + str(countStr) + ".gif"
     fps = activeAnimRequest.fps
     animationFrames[0].save(file_name, save_all=True,append_images=animationFrames[1:], duration=1000/fps, loop=0)
-    video_file_name = ffencode.encode_video(fps)
+    try:
+        video_file_name = ffencode.encode_video(fps)
+    except:
+        warnings.warn("Ffmpeg not found in path, no video generated.",UserWarning)
+        video_file_name = None
     file_stats = os.stat(file_name)
     if ((file_stats.st_size / (1024 * 1024)) < 8):
         print("Anim Complete, sending gif.")
@@ -905,7 +909,10 @@ async def saveResultGif():
         embed.set_footer(None)
         embed.set_image(file_name)
         embed.set_thumbnail(None)
-        await activeAnimRequest.proxy.edit(attachment=video_file_name,embed=embed)
+        if video_file_name == None:
+            await activeAnimRequest.proxy.edit(embed)
+        else:
+            await activeAnimRequest.proxy.edit(attachment=video_file_name,embed=embed)
     else:
         print("Anim Complete, gif too big.")
         embed = hikari.Embed(title=(
@@ -956,7 +963,11 @@ async def ThreadCompletionLoop():
                     file_name = outputDirectory + str(countStr) + ".gif"
                     fps = activeAnimRequest.fps
                     animationFrames[0].save(file_name, save_all=True,append_images=animationFrames[1:], duration=1000/fps, loop=0)
-                    video_file_name = ffencode.encode_video(fps)
+                    try:
+                        video_file_name = ffencode.encode_video(fps)
+                    except:
+                        warnings.warn("Ffmpeg not found in path, no video generated.",UserWarning)
+                        video_file_name = None
                     file_stats = os.stat(file_name)
                     if ((file_stats.st_size / (1024 * 1024)) < 8):
                         print("Anim Complete, sending video.")
@@ -965,12 +976,18 @@ async def ThreadCompletionLoop():
                         embed.set_footer(None)
                         embed.set_image(file_name)
                         embed.set_thumbnail(None)
-                        await activeAnimRequest.proxy.edit(attachment=video_file_name,embed=embed)
+                        if video_file_name == None:
+                            await activeAnimRequest.proxy.edit(embed)
+                        else:
+                            await activeAnimRequest.proxy.edit(attachment=video_file_name,embed=embed)
                     else:
                         print("Anim Complete, gif too big.")
                         embed = hikari.Embed(title=(
                             "Animation Complete. (Gif file too large for upload)"), colour=hikari.Colour(0xFFFFFF))
-                        await activeAnimRequest.proxy.edit(attachment=video_file_name,embed=None)
+                        if video_file_name == None:
+                            await activeAnimRequest.proxy.edit(embed)
+                        else:
+                            await activeAnimRequest.proxy.edit(attachment=video_file_name,embed=embed)
                     activeAnimRequest = None
                     awaitingFrame = None
                     botBusy = False
