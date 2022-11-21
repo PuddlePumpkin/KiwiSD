@@ -69,6 +69,8 @@ def populate_model_list():
                 open_json["ModelPath"] = "./models/" + folder
                 model_list[open_json["ModelCommandName"]] = open_json
                 openfile.close()
+    if model_list == {}:
+        sys.exit("\nKiwi does not work without a model in the models directory, see readme.md for more info.\n")
 populate_model_list()
 
 
@@ -835,10 +837,9 @@ with open('kiwitoken.json', 'r') as openfile:
 if bottoken == None or bottoken == "":
     sys.exit("\nYou need a bot token, see readme.md for usage instructions")
 if guildId != None:
-    bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None,default_enabled_guilds=guildId, logs = "ERROR")
+    bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None,default_enabled_guilds=guildId, logs = "ERROR",force_color=True,banner = "docs")
 else:    
-    bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None,logs= "ERROR")
-
+    bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None,logs= "ERROR",force_color=True,banner = "docs")
 # ----------------------------------
 # Ping Command
 # ----------------------------------
@@ -1795,6 +1796,5 @@ async def togglenegativeprompts(ctx: lightbulb.SlashContext) -> None:
 # ----------------------------------
 setup()
 tasks.load(bot)
-print("\nBot is now running, type /help in discord to see commands or visit https://github.com/PuddlePumpkin/KiwiSD\n")
 bot.run()
 sys.exit()
