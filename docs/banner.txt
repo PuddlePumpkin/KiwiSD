@@ -5,7 +5,7 @@
   ${green} 888P"Y88b  `888   888 .8P'   `P  )88b  `888""8P `888       ${reset}${bold_white}running on:    ${thin_white}${system_description}${reset}
   ${blue} 888   888   888   888888.     .oP"888   888      888       ${reset}${bold_white}installed at:  ${thin_white}${hikari_install_location}${reset}
   ${cyan} 888   888   888   888 `88b.  d8(  888   888      888       ${reset}${bold_white}documentation: ${thin_white}${hikari_documentation_url}${reset}
-  ${purple}o888o o888o o888o o888o o888o `Y888""8o d888b    o888o      ${reset}${bold_white}support:       ${thin_white}${hikari_discord_invite}${reset}
+  ${purple}o888o o888o o888o o888o o888o `Y888""8o d888b    o888o
 
 ${green}Kiwi is now running!
 
