@@ -1322,6 +1322,7 @@ async def help(ctx: lightbulb.SlashContext) -> None:
         "\n**~~                      ~~ Settings ~~                         ~~**"
         "\n> **/changemodel**: Loads a different model"
         "\n> **/settings**: displays a list of settings and optionally change them"
+        "\n> **/adminsettings**: displays a list of admin settings and optionally changes them"
         "\n**~~                        ~~ Other ~~                        ~~**"
         "\n> **/styles**: displays a list of loaded textual inversions"
         "\n> **/styleinfo**: displays the training images of a TI"
