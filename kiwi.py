@@ -1143,10 +1143,10 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
             responseStr = responseStr+"prompt: " + \
                 mdataimage.info.get("Prompt")+" "
         if (str(mdataimage.info.get("Negative Prompt")) != "None"):
-            responseStr = responseStr+"negativeprompt: " + \
+            responseStr = responseStr+"negative_prompt: " + \
                 mdataimage.info.get("Negative Prompt")+" "
         if (str(mdataimage.info.get("Guidance Scale")) != "None"):
-            responseStr = responseStr+"guidescale: " + \
+            responseStr = responseStr+"guidance_scale: " + \
                 mdataimage.info.get("Guidance Scale")+" "
         if (str(mdataimage.info.get("Inference Steps")) != "None"):
             responseStr = responseStr+"steps: " + \
@@ -1164,10 +1164,8 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
             responseStr = responseStr+"sampler: " + \
                 mdataimage.info.get("Scheduler")+" "
         if (str(mdataimage.info.get("Img2Img Strength")) != "None"):
-            embed = hikari.Embed(
-                title="This image was generated from an image input ", colour=hikari.Colour(0xFF0000))
-            await ctx.respond(embed)
-            return
+            responseStr = responseStr+"strength: " + \
+                mdataimage.info.get("Img2Img Strength")+" "
         embed.description = responseStr + "`"
         rows = await generate_rows(ctx.bot)
         response = await ctx.respond(embed, components=rows)
