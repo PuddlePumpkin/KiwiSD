@@ -41,6 +41,7 @@ goto :launch
 :launch
 @RD /S /Q "%~dp0/tmp"
 %PYTHON% %~dp0/kiwi.py %*
+pause
 exit /b
 
 :show_stdout_stderr
