@@ -32,6 +32,7 @@ import convertckpt
 from diffusers import (DDIMScheduler, DDPMScheduler, DiffusionPipeline,
                        DPMSolverMultistepScheduler, EulerDiscreteScheduler,
                        LMSDiscreteScheduler, PNDMScheduler)
+
 os.chdir(str(os.path.abspath(os.path.dirname(__file__))))
 model_list = {}
 def populate_model_list():
@@ -548,7 +549,7 @@ def change_pipeline(modelname):
     gc.collect()
     pipe = DiffusionPipeline.from_pretrained(model_list[modelname]["ModelPath"], custom_pipeline="lpw_stable_diffusion", use_auth_token="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",
                                              torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
-    print(modelname + " loaded.\n")
+    print("\n" + modelname + " loaded.\n")
     pipe.enable_attention_slicing()
 
 
@@ -795,6 +796,8 @@ titles = ["I'll try to make that for you!...", "Maybe I could make that...",
 regentitles = ["I'll try again!... ", "Sorry if I didn't do good enough... ",
                "I'll try my best to do better... "]
 outputDirectory = "./results/"
+
+
 # ----------------------------------
 # Setup
 # ----------------------------------
@@ -812,6 +815,7 @@ def setup():
 # ----------------------------------
 # Instantiate a Bot instance
 # ----------------------------------
+print("\nStarting Hikari Lightbulb Bot\n")
 bottoken = ""
 with open('kiwitoken.json', 'r') as openfile:
     tokendict = json.load(openfile)
@@ -831,9 +835,9 @@ with open('kiwitoken.json', 'r') as openfile:
 if bottoken == None or bottoken == "":
     sys.exit("\nYou need a bot token, see readme.md for usage instructions")
 if guildId != None:
-    bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None,default_enabled_guilds=guildId)
+    bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None,default_enabled_guilds=guildId, logs = "ERROR")
 else:    
-    bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None)
+    bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None,logs= "ERROR")
 
 # ----------------------------------
 # Ping Command
@@ -1793,5 +1797,6 @@ async def togglenegativeprompts(ctx: lightbulb.SlashContext) -> None:
 # ----------------------------------
 setup()
 tasks.load(bot)
+print("\nBot is now running, type /help in discord to see commands or visit https://github.com/PuddlePumpkin/KiwiSD\n")
 bot.run()
 sys.exit()
