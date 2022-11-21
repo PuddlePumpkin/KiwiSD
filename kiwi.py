@@ -817,7 +817,6 @@ def setup():
 # ----------------------------------
 # Instantiate a Bot instance
 # ----------------------------------
-print("\nStarting Hikari Lightbulb Bot\n")
 bottoken = ""
 with open('kiwitoken.json', 'r') as openfile:
     tokendict = json.load(openfile)

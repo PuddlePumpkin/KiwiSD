@@ -39,7 +39,6 @@ if %KIWIREQDONE% == TRUE goto :launch
 setx KIWIREQDONE TRUE 
 goto :launch
 :launch
-@RD /S /Q "%~dp0/tmp"
 %PYTHON% %~dp0/kiwi.py %*
 pause
 exit /b
@@ -66,5 +65,4 @@ type tmp\stderr.txt
 
 echo.
 echo Launch unsuccessful. Exiting.
-@RD /S /Q "%~dp0/tmp"
 pause

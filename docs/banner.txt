@@ -1,4 +1,7 @@
 
+
+${green}-----------------------------------------------------------------------------------------------------------------------${reset}
+
   ${bold_red}oooo         o8o  oooo                            o8o      ${reset}${bold_white} 光 ${hikari_version} ${thin_white}[${hikari_git_sha1}]${reset}
   ${red}`888         `"'  `888                            `"'       ${reset}${bold_white}${hikari_copyright}${thin_white} - ${hikari_license} license${reset}
   ${yellow} 888 .oo.   oooo   888  oooo   .oooo.   oooo d8b oooo       ${reset}${bold_white}interpreter:   ${thin_white}${python_implementation} ${python_version}${reset}
@@ -7,9 +10,19 @@
   ${cyan} 888   888   888   888 `88b.  d8(  888   888      888       ${reset}${bold_white}documentation: ${thin_white}${hikari_documentation_url}${reset}
   ${purple}o888o o888o o888o o888o o888o `Y888""8o d888b    o888o
 
+${green}-----------------------------------------------------------------------------------------------------------------------${reset}
+
+  ${bold_red}oooo    oooo ooooo oooooo   oooooo     oooo ooooo ${reset}
+  ${red}`888   .8P'  `888'  `888.    `888.     .8'  `888' ${reset}
+   ${red}888  d8'     888    `888.   .8888.   .8'    888  ${reset}
+   ${yellow}88888[       888     `888  .8'`888. .8'     888  ${reset}
+   ${green}888`88b.     888      `888.8'  `888.8'      888  ${reset}
+   ${blue}888  `88b.   888       `888'    `888'       888  ${reset}
+  ${purple}o888o  o888o o888o       `8'      `8'       o888o           ${reset}${bold_white}Github: ${thin_white}https://github.com/PuddlePumpkin/KiwiSD${reset}
+
+${green}-----------------------------------------------------------------------------------------------------------------------${reset}
+
 ${green}Kiwi is now running!
 
 Type /help in discord to see available commands.
-
-https://github.com/PuddlePumpkin/KiwiSD for more info!${reset}
 
