@@ -1609,7 +1609,7 @@ async def styles(ctx: lightbulb.SlashContext) -> None:
 
 
 # ----------------------------------
-# Styles Example Command
+# Styleinfo Command
 # ----------------------------------
 @bot.command()
 @lightbulb.option("style", "the style to look for", required=True, type=str)
@@ -1625,8 +1625,7 @@ async def styleinfo(ctx: lightbulb.SlashContext) -> None:
             #fileOpened = open(str(file.parent) + "\\README.md","r")
             embed = hikari.Embed(
                 title=ctx.options.style + " - Training Dataset:", colour=hikari.Colour(0xabaeff))
-            savedpath = "./embeddings/" + str(file.parent)
-            if not os.path.exists(str(file.parent) + "/imageStored.txt"):
+            if not os.path.exists(str(file.parent) + "/conceptgrid.png"):
                 imagepathlist = []
                 imagelimitCounter = 0
                 for filename in os.listdir(Path(str(file.parent) + "/concept_images/")):
@@ -1639,7 +1638,6 @@ async def styleinfo(ctx: lightbulb.SlashContext) -> None:
                 # print(imagepathlist)
                 imagesopened = []
                 for imagepath in imagepathlist:
-
                     imagesopened.append(crop_max_square(Image.open(imagepath)).resize(
                         (512, 512), Image.Resampling.LANCZOS))
                 if len(imagesopened) >= 9:
@@ -1679,12 +1677,11 @@ async def styleinfo(ctx: lightbulb.SlashContext) -> None:
                     resultImage.save(str(file.parent)+"/conceptgrid.PNG")
                     embed.set_image(str(file.parent)+"/conceptgrid.PNG")
             else:
-                fileOpened = open(str(file.parent) + "/imageStored.txt", "r")
-                embed.set_image(fileOpened.readline())
-            proxy = await ctx.respond(embed)
-            proxyresponse = await proxy.message()
-            fileOpened = open(str(file.parent)+"/imageStored.txt", "w")
-            fileOpened.writelines(proxyresponse.embeds[0].image.url)
+                embed.set_image(str(file.parent) + "/conceptgrid.png")
+            try:
+                await ctx.respond(embed)
+            except:
+                await respond_with_autodelete("No concept images found for that style.")
             return
         else:
             fileOpened.close()
