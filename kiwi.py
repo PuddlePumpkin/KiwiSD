@@ -184,7 +184,7 @@ class genImgThreadClass(Thread):
                 scheduler = PNDMScheduler(beta_end=0.012, beta_schedule="scaled_linear", beta_start=0.00085,
                                         num_train_timesteps=1000, set_alpha_to_one=False, skip_prk_steps=True, steps_offset=1, trained_betas=None)
             elif self.request.scheduler == "DPM++":
-                scheduler = DPMSolverMultistepScheduler.from_config(curmodel["ModelPath"], subfolder="scheduler", solver_order=2, predict_epsilon=True, thresholding=False,
+                scheduler = DPMSolverMultistepScheduler.from_pretrained(curmodel["ModelPath"], subfolder="scheduler", solver_order=2, predict_epsilon=True, thresholding=False,
                                                                     algorithm_type="dpmsolver++", solver_type="midpoint", denoise_final=True)  # the influence of this trick is effective for small (e.g. <=10) steps)
             pipe.scheduler = scheduler
             # Handle prompt
