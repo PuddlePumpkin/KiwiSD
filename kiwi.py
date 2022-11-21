@@ -1316,10 +1316,11 @@ async def help(ctx: lightbulb.SlashContext) -> None:
     embedtext1 = (
         "**~~                   ~~ Generation ~~                   ~~**"
         "\n> **/generate**: Generates a image from a detailed description, or booru tags separated by commas"
+        "\n> **/generategif**: Generates a gif given entered parameters"
         "\n> **/regenerate**: Re-generates last entered prompt"
-        "\n> **/overgenerate**: Diffuses from last diffusion result"
+        "\n> **/overgenerate**: Runs diffusion on last diffusion result"
         "\n**~~                      ~~ Settings ~~                         ~~**"
-        "\n> **/changemodel**: switches model between stable diffusion v1.5, waifu diffusion v1.3, and yabai diffusion v???"
+        "\n> **/changemodel**: Loads a different model"
         "\n> **/settings**: displays a list of settings and optionally change them"
         "\n**~~                        ~~ Other ~~                        ~~**"
         "\n> **/styles**: displays a list of loaded textual inversions"
@@ -1328,8 +1329,9 @@ async def help(ctx: lightbulb.SlashContext) -> None:
         "\n**~~                          ~~ Tips ~~                          ~~**"
         "\n> More prompts (separated by commas) often result in better images, especially composition prompts."
         "\n> You can multiply prompt focus with parenthesis eg: **(**1girl**)** or **(**1girl:1.3**)** **Default: 1.1**"
-        "\n> You can reduce focus in line like negative prompts with square brackets eg: **[**1girl**]** or **[**1girl:1.3**]**  **Default: 1.1** "
-        "\n> Prompt focus modifiers can be escaped with a **\\\\** eg: **\\\\**(1girl**\\\\**), would be input as (1girl) and not be focused "
+        "\n**~~                          ~~ Info ~~                          ~~**"
+        "\n> __[Kiwi on Github](https://github.com/PuddlePumpkin/KiwiSD)__"
+        "\n> **For models trained with booru labeled data:**"
         "\n> __[Nui's Waifu Bible](https://docs.google.com/spreadsheets/d/1qBc5o6-7TIF_amqaEQhK2cNs0yfNkt4260sgh0Tgg50/)__"
         "\n> __[Composition Tags](https://danbooru.donmai.us/wiki_pages/tag_group:image_composition)__"
         "\n> __[Tag Groups](https://danbooru.donmai.us/wiki_pages/tag_groups)__"
@@ -1588,24 +1590,17 @@ async def adminsettings(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.implements(lightbulb.SlashCommand)
 async def styles(ctx: lightbulb.SlashContext) -> None:
     global embedlist
-    SDembedliststr = ""
-    WDembedliststr = ""
+    embedliststr = ""
+    
     identifierlist = list(
-        Path("./embeddings/sd/").rglob("**/*token_identifier*"))
+        Path("./embeddings/").rglob("**/*token_identifier*"))
     for file in identifierlist:
         fileOpened = open(str(file), "r")
-        SDembedliststr = SDembedliststr + fileOpened.readline() + "\n"
-        fileOpened.close()
-    identifierlist = list(
-        Path("./embeddings/wd/").rglob("**/*token_identifier*"))
-    for file in identifierlist:
-        fileOpened = open(str(file), "r")
-        WDembedliststr = WDembedliststr + fileOpened.readline() + "\n"
+        embedliststr = embedliststr + fileOpened.readline() + "\n"
         fileOpened.close()
     embed = hikari.Embed(title="Style list:", colour=hikari.Colour(
         0xabaeff), description="These embeddings trained via textual inversion are currently loaded, add them exactly as listed in your prompt to have an effect on the output, styles may work best at beginning of the prompt, and characters/objects after.")
-    embed.add_field("Waifu Diffusion:", WDembedliststr)
-    embed.add_field("Stable Diffusion:", SDembedliststr)
+    embed.add_field("Embeds:",embedliststr)
     rows = await generate_rows(ctx.bot)
     response = await ctx.respond(embed, components=rows)
     message = await response.message()
