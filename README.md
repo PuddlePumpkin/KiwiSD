@@ -10,16 +10,18 @@ Kiwi
 Supports huggingface diffusers models and automatically converts **.ckpt** models to that format
 - **Text to image:**
 Enter a detailed prompt to generate an image. Optionally use a negative prompt of features to avoid
-<p align=center><img height = 312 src="/docs/examples.png"></p>
+<p align=center><img height = 312 src="/docs/example3.png"> <img height = 312 src="/docs/example4.png"></p>
 
 - **Image to image:**
 Enter a detailed prompt and an image to generate a new one like it, strength changes the power of the input image over whats generated.
+<p align=center><img height = 312 src="/docs/example5.png"> <img height = 312 src="/docs/example6.png"> <img height = 312 src="/docs/example7.png"></p>
 
 - **Animation:** guickly generate animated gifs driving certain parameters each frame, optionally upload a gif to run img2img on each frame
 <p align=center><img width=312 height=312 src="/docs/example.gif"> <img height=312 src="/docs/example2.gif"></p>
 
 - **Inpainting:**
 Enter a detailed prompt, an input image, and a black and white image mask, the white parts of the mask will be painted over with diffusion, high strength means the inpainting area will mostly be the same as the input image.
+
 - **Textual inversion inference:**
 Automatically loads TI embeds placed in the embeddings folder, must be in hugging face concepts .bin or the folder containing it from their repository, does ***not*** currently support .pt embeds because I am not smart enough to implement them.
 - **Prompt weighting:**
@@ -29,6 +31,7 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 ### Recommended Models:
 - [Stable Diffusion v1.5](https://huggingface.co/runwayml/stable-diffusion-v1-5)
 - [Waifu Diffusion v1.3](https://huggingface.co/hakurei/waifu-diffusion-v1-3)
+- [Artstation Diffusion v1.0](https://huggingface.co/hakurei/artstation-diffusion)
 
 # Recommended Usage
 ***
