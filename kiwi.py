@@ -541,6 +541,7 @@ def change_pipeline(modelname):
     text_encoder = CLIPTextModel.from_pretrained(
         model_list[modelname]["ModelPath"], subfolder="text_encoder", use_auth_token="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", torch_dtype=torch.float16)
     print("\nLoading Embeds...")
+    update_embed_list()
     for file in embedlist:
         load_learned_embed_in_clip(str(file), text_encoder, tokenizer)
     curmodel = model_list[modelname]
@@ -798,6 +799,10 @@ titles = ["I'll try to make that for you!...", "Maybe I could make that...",
 regentitles = ["I'll try again!... ", "Sorry if I didn't do good enough... ",
                "I'll try my best to do better... "]
 outputDirectory = "./results/"
+def update_embed_list():
+    global embedlist
+    embedlist = []
+    embedlist = list(Path("./embeddings/").rglob("*.[bB][iI][nN]"))
 
 
 # ----------------------------------
