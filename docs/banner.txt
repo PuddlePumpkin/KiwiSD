@@ -1,5 +1,3 @@
-
-
 ${green}-----------------------------------------------------------------------------------------------------------------------${reset}
 
   ${bold_red}oooo         o8o  oooo                            o8o      ${reset}${bold_white} 光 ${hikari_version} ${thin_white}[${hikari_git_sha1}]${reset}
@@ -24,5 +22,5 @@ ${green}------------------------------------------------------------------------
 
 ${green}Kiwi is now running!
 
-Type /help in discord to see available commands.
+Type /help in discord to see available commands.${reset}
 
