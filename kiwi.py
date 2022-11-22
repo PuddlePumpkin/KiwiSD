@@ -413,6 +413,7 @@ class genImgThreadClass(Thread):
                     "An admin may enable possible nsfw results in /adminsettings... sometimes the detector finds nsfw in sfw results")
             self.parent and self.parent.on_thread_finished(self, outEmbed, self.request)
         except:
+            print(traceback.print_exc())
             self.request.success = False
             self.parent and self.parent.on_thread_finished(self, None, self.request)
 
@@ -742,6 +743,7 @@ async def handle_responses(bot: lightbulb.BotApp, author: hikari.User, message: 
                     loadedgif = None
                     startbool = False
                     animationFrames = []
+                    gc.collect()
                     await bot.rest.delete_message(message.channel_id, message)
                     return
                 try:
@@ -954,6 +956,7 @@ async def saveResultGif():
     awaitingFrame = None
     botBusy = False
     animationFrames = []
+    gc.collect()
 ThreadCompletionSpeed = 2
 @tasks.task(s=ThreadCompletionSpeed, auto_start=True)
 async def ThreadCompletionLoop():
@@ -1025,6 +1028,7 @@ async def ThreadCompletionLoop():
                     botBusy = False
                     loadedgif = None
                     animationFrames = []
+                    gc.collect()
                     return
         if (awaitingFrame != None):
             animationFrames.append(awaitingFrame)
@@ -1245,6 +1249,7 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
         thread.start()
     except Exception:
         botBusy = False
+        print("Error")
         await respond_with_autodelete("Sorry, something went wrong!", ctx)
         traceback.print_exc()
         return
