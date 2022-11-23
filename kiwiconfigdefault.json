@@ -1,15 +1,19 @@
 {
-    "AutoLoadedModel" : "None",
-    "AllowNonAdminChangeModel" : true,
-    "AllowNonAdminGenerateGif" : false,
-    "EnableNsfwFilter":true,
-    "NsfwMessage":"Sorry... the result image may have contained something lewd >///<",
+    "AutoLoadedModel": "None",
+    "AllowNonAdminChangeModel": false,
+    "AllowNonAdminGenerateGif": false,
+    "EnableNsfwFilter": true,
+    "NSFWAllowOverrideChannelIDs": "",
+    "NsfwMessage": "Sorry... the result image may have contained something lewd >///<",
+    "EnableTagFilter": true,
+    "EnableTagFilterForSFW": false,
+    "FilteredTags": "lolicon, loli, child, underage, children, little girl, littlegirl, l0li, cp, poop, shit, gore, guro, kid",
     "ShowDefaultPrompts": false,
     "TodoString": "",
     "AdminList": "",
     "MaxSteps": 50,
     "NewUserQualityPrompt": "masterpiece, best quality",
     "NewUserNegativePrompt": "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts,signature, watermark, username, blurry, artist name",
-    "LoadingGif" : "https://i.imgur.com/ZCalIbz.gif",
-    "LoadingThumbnail" : "https://i.imgur.com/21reOYm.gif"
+    "LoadingGif": "https://i.imgur.com/ZCalIbz.gif",
+    "LoadingThumbnail": "https://i.imgur.com/21reOYm.gif"
 }

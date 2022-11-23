@@ -44,7 +44,7 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - Place model weights .ckpt file or the repository folder containing a diffusers format model in the kiwi/models folder, .ckpt models will take a moment to convert the first time.
 - go to the discord applications page [Here](https://discord.com/developers/applications), create a new application, give it a unique name
 - Go to the "bot" section -> click "add bot" -> click "reset token", this token can only be viewed once without having to reset it so take note of it. **disable public bot unless you know what you're doing**, tick the intent switches on
-- Go to "OAuth2" section -> URL Generator, click bot scope -> click administrator permission, or specific permissions if you know them, copy and paste generated link into your browser or message it to who has permission to invite the bot to your discord.
+- Go to "OAuth2" section -> URL Generator -> click "bot" -> click administrator permission, or specific permissions if you know them -> copy and paste generated link into your browser or message it to who has permission to invite the bot to your discord.
 - paste your token into the bottoken field of kiwitoken.json *or* set a kiwitoken environment variable to the token
 - Enter your discord's ID into the "guildID" field of kiwitoken.json (id's can usually be accessed via right click in discord)
 - copy your user id to the AdminList field of kiwiconfig.json or kiwiconfigdefault.json to allow you access to change **/adminsettings** options
@@ -70,7 +70,7 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - Place model weights .ckpt file or the repository folder containing a diffusers format model in the kiwi/models folder, .ckpt models will take a moment to convert the first time.
 - go to the discord applications page [Here](https://discord.com/developers/applications), create a new application, give it a unique name
 - Go to the "bot" section -> click "add bot" -> click "reset token", this token can only be viewed once without having to reset it so take note of it. **disable public bot unless you know what you're doing**, tick the intent switches on
-- Go to "OAuth2" section -> URL Generator, click bot scope -> click administrator permission, or specific permissions if you know them, copy and paste generated link into your browser or message it to who has permission to invite the bot to your discord.
+- Go to "OAuth2" section -> URL Generator -> click "bot" -> click administrator permission, or specific permissions if you know them -> copy and paste generated link into your browser or message it to who has permission to invite the bot to your discord.
 - paste your token into the bottoken field of kiwitoken.json *or* set a kiwitoken environment variable to the token, (idk how this works on linux, or if its setup correctly, if not just use the json... sorry...)
 - Enter your discord server's ID into the "guildID" field of kiwitoken.json
 - copy your user id to the AdminList field of kiwiconfig.json or kiwiconfigdefault.json to allow you access to change **/adminsettings** options

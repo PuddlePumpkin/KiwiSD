@@ -78,7 +78,7 @@ populate_model_list()
 # Classes
 # ----------------------------------
 class imageRequest(object):
-    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=False, gifFrame=None, doLabel = False, labelKey = None, fontsize = None, success = True):
+    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=False, gifFrame=None, doLabel = False, labelKey = None, fontsize = None, success = True, context:lightbulb.SlashContext = None):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
@@ -102,10 +102,11 @@ class imageRequest(object):
         self.labelKey = labelKey
         self.fontsize = fontsize
         self.success = success
+        self.context = context
 
 
 class animationRequest(object):
-    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=True, startframe=None, endframe=None, animkey=None, animation_step=None, ingif=None, LabelFrames=False, fontsize = None, fps = 10):
+    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=True, startframe=None, endframe=None, animkey=None, animation_step=None, ingif=None, LabelFrames=False, fontsize = None, fps = 10, context:lightbulb.SlashContext = None):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
@@ -132,6 +133,7 @@ class animationRequest(object):
         self.ingif = ingif
         self.fontsize = fontsize
         self.fps = fps
+        self.context = context
 
 
 class threadManager(object):
@@ -357,7 +359,7 @@ class genImgThreadClass(Thread):
             # Generate
             nsfwDetected = False
             with autocast("cuda"):
-                if not config["EnableNsfwFilter"]:
+                if not config["EnableNsfwFilter"] or str(self.request.context.channel_id) in str(config["NSFWAllowOverrideChannelIDs"]).replace(" ","").split(","):
                     def dummy_checker(images, **kwargs): return images, False
                     pipe.safety_checker = dummy_checker
                 if self.request.strength != None:
@@ -992,7 +994,7 @@ async def ThreadCompletionLoop():
                     load_config()
                     loadedgif.seek(loadedgif.tell()+1)
                     requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.infSteps, activeAnimRequest.seed, activeAnimRequest.currentstep, activeAnimRequest.imgUrl, activeAnimRequest.strength, activeAnimRequest.width, activeAnimRequest.height, activeAnimRequest.proxy,
-                                                 scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True, gifFrame=loadedgif)
+                                                 scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True, gifFrame=loadedgif, context=activeAnimRequest.context)
                     thread = threadmanager.New_Thread(
                         requestObject, previous_request)
                     thread.start()
@@ -1049,13 +1051,13 @@ async def ThreadCompletionLoop():
                     load_config()
                     if activeAnimRequest.animkey == "guidescale":
                         requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.infSteps, activeAnimRequest.seed, activeAnimRequest.currentstep, activeAnimRequest.imgUrl, activeAnimRequest.strength, activeAnimRequest.width, activeAnimRequest.height,
-                                                    activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True)
+                                                    activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True,context=activeAnimRequest.context)
                     if activeAnimRequest.animkey == "steps":
                         requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, int(activeAnimRequest.currentstep), activeAnimRequest.seed, activeAnimRequest.guideScale, activeAnimRequest.imgUrl, activeAnimRequest.strength, activeAnimRequest.width, activeAnimRequest.height,
-                                                    activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True)
+                                                    activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True,context=activeAnimRequest.context)
                     if activeAnimRequest.animkey == "strength":
                         requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.infSteps, activeAnimRequest.seed, activeAnimRequest.guideScale, activeAnimRequest.imgUrl, activeAnimRequest.currentstep, activeAnimRequest.width, activeAnimRequest.height,
-                                                    activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True)
+                                                    activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True,context=activeAnimRequest.context)
                     if string_to_bool(activeAnimRequest.labelframes):
                         requestObject.doLabel = True
                         requestObject.labelKey = activeAnimRequest.animkey
@@ -1076,13 +1078,13 @@ async def ThreadCompletionLoop():
                     load_config()
                     if activeAnimRequest.animkey == "guidescale":
                         requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.infSteps, activeAnimRequest.seed, activeAnimRequest.currentstep, activeAnimRequest.imgUrl, activeAnimRequest.strength, activeAnimRequest.width, activeAnimRequest.height,
-                                                    activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True)
+                                                    activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True,context=activeAnimRequest.context)
                     if activeAnimRequest.animkey == "steps":
                         requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, int(activeAnimRequest.currentstep), activeAnimRequest.seed, activeAnimRequest.guideScale, activeAnimRequest.imgUrl, activeAnimRequest.strength, activeAnimRequest.width, activeAnimRequest.height,
-                                                    activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True)
+                                                    activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True,context=activeAnimRequest.context)
                     if activeAnimRequest.animkey == "strength":
                         requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.infSteps, activeAnimRequest.seed, activeAnimRequest.guideScale, activeAnimRequest.imgUrl, activeAnimRequest.currentstep, activeAnimRequest.width, activeAnimRequest.height,
-                                                    activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True)
+                                                    activeAnimRequest.proxy, scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True,context=activeAnimRequest.context)
                     if string_to_bool(activeAnimRequest.labelframes):
                         requestObject.doLabel = True
                         requestObject.labelKey = activeAnimRequest.animkey
@@ -1251,8 +1253,31 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
         threadmanager = threadManager()
         userconfig = load_user_config(str(ctx.author.id))
         load_config()
-        requestObject = imageRequest(ctx.options.prompt, ctx.options.negative_prompt, ctx.options.steps, ctx.options.seed, ctx.options.guidance_scale, url, ctx.options.strength, ctx.options.width,
-                                     ctx.options.height, respProxy, scheduler=ctx.options.sampler, userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=regenerate, overProcess=overProcess)
+        filteredPrompt:str = str(ctx.options.prompt)
+        if config["EnableTagFilter"]:
+            if not config["EnableTagFilterForSFW"]:
+                #tag filter for nsfw only
+                if config["EnableNsfwFilter"]:
+                    #nsfw filter on
+                    if str(ctx.channel_id) in str(config["NSFWAllowOverrideChannelIDs"]).replace(" ","").split(","):
+                        #nsfw filter on, but in a override channel
+                        for tag in config["FilteredTags"].replace(", ",",").split(","):
+                            filteredPrompt = filteredPrompt.replace(tag,"")   
+                    else:
+                        #nsfw filter on, and in a sfw channel
+                        pass
+                else:
+                    #nsfw filter off
+                    for tag in config["FilteredTags"].replace(", ",",").split(","):
+                            filteredPrompt = filteredPrompt.replace(tag,"") 
+            else:
+                #tag filter for EVERYTHING
+                for tag in config["FilteredTags"].replace(", ",",").split(","):
+                    filteredPrompt = filteredPrompt.replace(tag,"")
+
+            
+        requestObject = imageRequest(filteredPrompt, ctx.options.negative_prompt, ctx.options.steps, ctx.options.seed, ctx.options.guidance_scale, url, ctx.options.strength, ctx.options.width,
+                                     ctx.options.height, respProxy, scheduler=ctx.options.sampler, userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=regenerate, overProcess=overProcess, context=ctx)
         thread = threadmanager.New_Thread(requestObject, previous_request)
         thread.start()
     except Exception:
@@ -1461,7 +1486,7 @@ async def generategif(ctx: lightbulb.SlashContext) -> None:
         load_config()
         global activeAnimRequest
         activeAnimRequest = animationRequest(ctx.options.prompt, ctx.options.negative_prompt, ctx.options.steps, ctx.options.seed, ctx.options.guidance_scale, url, ctx.options.strength, ctx.options.width, ctx.options.height, respProxy, scheduler=ctx.options.sampler,
-                                             userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=False, overProcess=False, startframe=ctx.options.animation_start, endframe=ctx.options.animation_end, animkey=ctx.options.animation_key, animation_step=ctx.options.animation_step, ingif=ctx.options.input_gif,LabelFrames=ctx.options.animation_label,fontsize=ctx.options.animation_label_font_size,fps=ctx.options.animation_fps)
+                                             userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=False, overProcess=False, startframe=ctx.options.animation_start, endframe=ctx.options.animation_end, animkey=ctx.options.animation_key, animation_step=ctx.options.animation_step, ingif=ctx.options.input_gif,LabelFrames=ctx.options.animation_label,fontsize=ctx.options.animation_label_font_size,fps=ctx.options.animation_fps, context=ctx)
         global startbool
         startbool = True
         lastpnglist = list(Path("./animation/").rglob("*.png"))
