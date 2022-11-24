@@ -1,4 +1,5 @@
 {
     "bottoken": "",
-    "guildID":""
+    "guildID":"",
+    "huggingFaceReadToken":""
 }

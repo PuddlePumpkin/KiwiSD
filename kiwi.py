@@ -35,6 +35,8 @@ from diffusers import (DDIMScheduler, DDPMScheduler, DiffusionPipeline,
 
 os.chdir(str(os.path.abspath(os.path.dirname(__file__))))
 model_list = {}
+def convert_model(ckptpath, vaepath=None, dump_path=None):
+    convertckpt.convert_model(ckptpath, vaepath, dump_path=dump_path)
 def populate_model_list():
     global model_list
     ckptlist = list(Path("./models/").rglob("*.[cC][kK][pP][tT]"))
@@ -45,17 +47,17 @@ def populate_model_list():
                 if os.path.exists("./models/" + str(ckpt.stem) + ".vae.pt"):
                     print("\nConverting with vae: " +
                           str(ckpt).replace("\\", "/") + "\n")
-                    convert_ckpt(str(ckpt), "./models/" + str(ckpt.stem) +
+                    convert_model(str(ckpt), "./models/" + str(ckpt.stem) +
                                  ".vae.pt", dump_path="models/" + str(ckpt.stem) + "/")
                 else:
                     print("\nConverting model without vae: " +
                           str(ckpt).replace("\\", "/") + "\n")
-                    convert_ckpt(str(ckpt), dump_path="models/" +
-                                 str(ckpt.stem) + "/")
+                    convert_model(str(ckpt), dump_path="models/" + str(ckpt.stem) + "/")
                 print("\nConversion Complete: " + str(ckpt).replace("\\", "/"))
                 print("Diffusers Model Path: " +
                       "models/" + str(ckpt.stem) + "/")
         except:
+            print(traceback.print_exc())
             print("Failed to convert model: " + str(ckpt))
     #Iterate model folders
     for folder in next(os.walk('./models'))[1]:
@@ -497,8 +499,7 @@ def save_user_config(userid: str, saveconfig):
 # ----------------------------------
 # Helpers
 # ----------------------------------
-def convert_ckpt(ckptpath, vaepath=None, dump_path=None):
-    convertckpt.convertmodel(ckptpath, vaepath, dump_path=dump_path)
+
 
 # ----------------------------------
 # load embeddings Function
@@ -540,9 +541,9 @@ def change_pipeline(modelname):
         pass
     print("\nChanging model to: " + modelname)
     tokenizer = CLIPTokenizer.from_pretrained(
-        model_list[modelname]["ModelPath"], subfolder="tokenizer", use_auth_token="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")
+        model_list[modelname]["ModelPath"], subfolder="tokenizer", use_auth_token=HFToken)
     text_encoder = CLIPTextModel.from_pretrained(
-        model_list[modelname]["ModelPath"], subfolder="text_encoder", use_auth_token="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", torch_dtype=torch.float16)
+        model_list[modelname]["ModelPath"], subfolder="text_encoder", use_auth_token=HFToken, torch_dtype=torch.float16)
     print("\nLoading Embeds...")
     update_embed_list()
     for file in embedlist:
@@ -553,7 +554,7 @@ def change_pipeline(modelname):
     except:
         pass
     gc.collect()
-    pipe = DiffusionPipeline.from_pretrained(model_list[modelname]["ModelPath"], custom_pipeline="lpw_stable_diffusion", use_auth_token="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",
+    pipe = DiffusionPipeline.from_pretrained(model_list[modelname]["ModelPath"], custom_pipeline="lpw_stable_diffusion", use_auth_token=HFToken,
                                              torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
     print("\n" + modelname + " loaded.\n")
     pipe.enable_attention_slicing()
@@ -829,6 +830,8 @@ def setup():
 bottoken = ""
 with open('kiwitoken.json', 'r') as openfile:
     tokendict = json.load(openfile)
+    if tokendict["huggingFaceReadToken"] != "" and tokendict["huggingFaceReadToken"] != None:
+        HFToken = tokendict["huggingFaceReadToken"]
     if tokendict["bottoken"] != "" and tokendict["bottoken"] != None:
         bottoken = tokendict["bottoken"]
     else:
@@ -848,6 +851,7 @@ if guildId != None:
     bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None,default_enabled_guilds=guildId, logs = "ERROR",force_color=True,banner = "docs")
 else:    
     bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None,logs= "ERROR",force_color=True,banner = "docs")
+
 
 # ----------------------------------
 # Bot ready event

@@ -607,7 +607,7 @@ def convert_ldm_clip_checkpoint(checkpoint):
 
     return text_model
 
-def convertmodel(ckpt_path:str = None, vae_path:str = None, config_path:str = None, dump_path:str = None):
+def convert_model(ckpt_path:str = None, vae_path:str = None, config_path:str = None, dump_path:str = None):
         os.chdir(str(os.path.abspath(os.path.dirname(__file__))))
         inputDict = {}
         inputDict["scheduler_type"] = "lms"
