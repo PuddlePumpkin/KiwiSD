@@ -111,9 +111,9 @@ This project abides by all exteral package licenses and makes use of multiple th
 Kiwi|This Project|https://github.com/PuddlePumpkin/KiwiSD|MIT
 [Hugging Face](https://huggingface.co/) Diffusers|Modified conversion script|https://github.com/huggingface/diffusers|Apache 2.0
 Gidole Font|Loads via WGET|https://github.com/larsenwork/Gidole/|MIT
-Hikari|No Source|https://github.com/hikari-py/hikari/|MIT
-Hikari-Lightbulb|No Source|https://github.com/tandemdude/hikari-lightbulb|LGPLv3
-[Pytorch](https://pytorch.org/) (CUDA)|No Source|https://github.com/pytorch/pytorch|[Custom](https://github.com/pytorch/pytorch/blob/master/LICENSE)
+Hikari|pip|https://github.com/hikari-py/hikari/|MIT
+Hikari-Lightbulb|pip|https://github.com/tandemdude/hikari-lightbulb|LGPLv3
+[Pytorch](https://pytorch.org/) (CUDA)|pip|https://github.com/pytorch/pytorch|[Custom](https://github.com/pytorch/pytorch/blob/master/LICENSE)
 
 See requirements.txt to view other used packages and find their licenses.
 

@@ -862,8 +862,6 @@ if guildId != None:
     bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None,default_enabled_guilds=guildId, logs = "ERROR",force_color=True,banner = "docs")
 else:    
     bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None,logs= "ERROR",force_color=True,banner = "docs")
-
-
 # ----------------------------------
 # Bot ready event
 # ----------------------------------
@@ -1543,6 +1541,9 @@ async def changemodel(ctx: lightbulb.SlashContext) -> None:
     embed.title = "Loaded " + \
         model_list[ctx.options.model]["ModelDetailedName"]
     await ctx.edit_last_response(embed)
+    for channel in config["ChangeModelChannelsToNotify"].replace(", ",",").split(","):
+        if channel != str(ctx.channel_id):
+            await bot.rest.create_message(int(channel),embed)
     botBusy = False
 
 
