@@ -138,6 +138,53 @@ class animationRequest(object):
         self.context = context
 
 
+class changeModelThreadManager(object):
+    def New_Thread(self, modelname,context):
+        return changeModelThreadClass(parent=self,modelname=modelname,context=context)
+    
+
+    def on_thread_finished(self, thread, context:lightbulb.SlashContext):
+        global AwaitingModelChangeFinished
+        global AwaitingModelChangeContext
+        AwaitingModelChangeFinished = True
+        AwaitingModelChangeContext=context
+
+
+class changeModelThreadClass(Thread):
+    '''thread class for change model'''
+
+    def __init__(self, parent=None, modelname:str = None,context:lightbulb.SlashContext = None):
+        self.parent = parent
+        self.modelname = modelname
+        self.context=context
+        super(changeModelThreadClass, self).__init__()
+
+    def run(self):
+        global pipe
+        global curmodel
+        global tokenizer
+        global text_encoder
+        global model_list
+        print("\nChanging model to: " + self.modelname)
+        tokenizer = CLIPTokenizer.from_pretrained(model_list[self.modelname]["ModelPath"], subfolder="tokenizer", use_auth_token=HFToken)
+        text_encoder = CLIPTextModel.from_pretrained(model_list[self.modelname]["ModelPath"], subfolder="text_encoder", use_auth_token=HFToken, torch_dtype=torch.float16)
+        print("\nLoading Embeds...")
+        update_embed_list()
+        for file in embedlist:
+            load_learned_embed_in_clip(str(file), text_encoder, tokenizer)
+        curmodel = model_list[self.modelname]
+        try:
+            del pipe
+        except:
+            pass
+        gc.collect()
+        pipe = DiffusionPipeline.from_pretrained(model_list[self.modelname]["ModelPath"], custom_pipeline="lpw_stable_diffusion", use_auth_token=HFToken,
+                                                torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
+        print("\n" + self.modelname + " loaded.\n")
+        pipe.enable_attention_slicing()
+        self.parent and self.parent.on_thread_finished(self, self.context)
+
+        
 class threadManager(object):
     def New_Thread(self, request: imageRequest = None, previous_request: imageRequest = None):
         return genImgThreadClass(parent=self, request=request, previous_request=previous_request)
@@ -532,42 +579,7 @@ def load_learned_embed_in_clip(learned_embeds_path, text_encoder, tokenizer, tok
     # get the id for the token and assign the embeds
     token_id = tokenizer.convert_tokens_to_ids(token)
     text_encoder.get_input_embeddings().weight.data[token_id] = embedsS
-
-
-# ----------------------------------
-# Change Pipeline Function
-# ----------------------------------
-def change_pipeline(modelname):
-    global pipe
-    global curmodel
-    global tokenizer
-    global text_encoder
-    global model_list
-    try:
-        del tokenizer
-        del text_encoder
-    except:
-        pass
-    print("\nChanging model to: " + modelname)
-    tokenizer = CLIPTokenizer.from_pretrained(
-        model_list[modelname]["ModelPath"], subfolder="tokenizer", use_auth_token=HFToken)
-    text_encoder = CLIPTextModel.from_pretrained(
-        model_list[modelname]["ModelPath"], subfolder="text_encoder", use_auth_token=HFToken, torch_dtype=torch.float16)
-    print("\nLoading Embeds...")
-    update_embed_list()
-    for file in embedlist:
-        load_learned_embed_in_clip(str(file), text_encoder, tokenizer)
-    curmodel = model_list[modelname]
-    try:
-        del pipe
-    except:
-        pass
-    gc.collect()
-    pipe = DiffusionPipeline.from_pretrained(model_list[modelname]["ModelPath"], custom_pipeline="lpw_stable_diffusion", use_auth_token=HFToken,
-                                             torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
-    print("\n" + modelname + " loaded.\n")
-    pipe.enable_attention_slicing()
-
+ 
 
 # ----------------------------------
 # Filecount Function
@@ -800,6 +812,8 @@ genThread = Thread()
 botBusy = False
 startbool = False
 awaitingEmbed = None
+AwaitingModelChangeFinished = False
+AwaitingModelChangeContext = None
 loadedgif = None
 awaitingRequest = None
 awaitingFrame = None
@@ -826,7 +840,7 @@ def update_embed_list():
 def setup():
     if config["AutoLoadedModel"] != "None":
         if config["AutoLoadedModel"] in model_list:
-            change_pipeline(config["AutoLoadedModel"])
+            changemodel(config["AutoLoadedModel"])
         else:
             print("Auto loaded model not found...")
     if not os.path.exists("Gidole-Regular.ttf"):
@@ -992,6 +1006,24 @@ async def ThreadCompletionLoop():
     global ThreadCompletionSpeed
     global loadedgif
     global awaitingRequest
+    global AwaitingModelChangeFinished
+    global AwaitingModelChangeContext
+    #handle model changes
+    if AwaitingModelChangeFinished:
+        embed = hikari.Embed(
+        title="Loading " + model_list[AwaitingModelChangeContext.options.model]["ModelDetailedName"], colour=hikari.Colour(0xff1100))
+        embed.color = hikari.Colour(0x00ff1a)
+        embed.title = "Loaded " + \
+        model_list[AwaitingModelChangeContext.options.model]["ModelDetailedName"]
+        await AwaitingModelChangeContext.edit_last_response(embed)
+        for channel in config["ChangeModelChannelsToNotify"].replace(", ",",").split(","):
+            if channel != str(AwaitingModelChangeContext.channel_id):
+                await bot.rest.create_message(int(channel),embed)
+        botBusy = False
+        AwaitingModelChangeContext = None
+        AwaitingModelChangeFinished = False
+        return
+    #handle animrequests
     if activeAnimRequest != None:
         ThreadCompletionSpeed = 0.5
         if activeAnimRequest.ingif != None:
@@ -1524,6 +1556,9 @@ async def changemodel(ctx: lightbulb.SlashContext) -> None:
     global pipe
     global botBusy
     global model_list
+    global tokenizer
+    global text_encoder
+    global AwaitingModelChangeContext
     load_config()
     if not config["AllowNonAdminChangeModel"]:
         if not str(ctx.author.id) in get_admin_list():
@@ -1536,15 +1571,15 @@ async def changemodel(ctx: lightbulb.SlashContext) -> None:
     embed = hikari.Embed(
         title="Loading " + model_list[ctx.options.model]["ModelDetailedName"], colour=hikari.Colour(0xff1100))
     await ctx.respond(embed)
-    change_pipeline(ctx.options.model)
-    embed.color = hikari.Colour(0x00ff1a)
-    embed.title = "Loaded " + \
-        model_list[ctx.options.model]["ModelDetailedName"]
-    await ctx.edit_last_response(embed)
-    for channel in config["ChangeModelChannelsToNotify"].replace(", ",",").split(","):
-        if channel != str(ctx.channel_id):
-            await bot.rest.create_message(int(channel),embed)
-    botBusy = False
+
+    try:
+        del tokenizer
+        del text_encoder
+    except:
+        pass
+    threadmanager = changeModelThreadManager()
+    thread = threadmanager.New_Thread(ctx.options.model,ctx)
+    thread.start()
 
 
 # ----------------------------------
