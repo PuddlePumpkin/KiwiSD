@@ -173,6 +173,7 @@ class genImgThreadClass(Thread):
         global pipe
         global curmodel
         global botBusy
+        global loaded_safety_checker
         try:
             # Handle Scheduler
             if (self.request.scheduler == None or self.request.scheduler == "0"):
@@ -362,8 +363,16 @@ class genImgThreadClass(Thread):
             nsfwDetected = False
             with autocast("cuda"):
                 if not config["EnableNsfwFilter"] or str(self.request.context.channel_id) in str(config["NSFWAllowOverrideChannelIDs"]).replace(" ","").split(","):
+                    if loaded_safety_checker == None:
+                        loaded_safety_checker = pipe.safety_checker
                     def dummy_checker(images, **kwargs): return images, False
                     pipe.safety_checker = dummy_checker
+                else:
+                    try:
+                        if loaded_safety_checker != None:
+                            pipe.safety_checker = loaded_safety_checker
+                    except:
+                        pass
                 if self.request.strength != None:
                     if self.request.inpaintUrl == None:
                         print("Strength = " + str(1-self.request.strength))
@@ -798,6 +807,7 @@ activeAnimRequest = None
 curmodel = ""
 loadingThumbnail = ""
 loadingGif = ""
+loaded_safety_checker = None
 embedlist = list(Path("./embeddings/").rglob("*.[bB][iI][nN]"))
 titles = ["I'll try to make that for you!...", "Maybe I could make that...",
           "I'll try my best!...", "This might be tricky to make..."]
@@ -828,6 +838,7 @@ def setup():
 # Instantiate a Bot instance
 # ----------------------------------
 bottoken = ""
+HFToken = ""
 with open('kiwitoken.json', 'r') as openfile:
     tokendict = json.load(openfile)
     if tokendict["huggingFaceReadToken"] != "" and tokendict["huggingFaceReadToken"] != None:
