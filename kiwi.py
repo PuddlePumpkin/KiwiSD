@@ -165,23 +165,38 @@ class changeModelThreadClass(Thread):
         global tokenizer
         global text_encoder
         global model_list
-        print("\nChanging model to: " + self.modelname)
-        tokenizer = CLIPTokenizer.from_pretrained(model_list[self.modelname]["ModelPath"], subfolder="tokenizer", use_auth_token=HFToken)
-        text_encoder = CLIPTextModel.from_pretrained(model_list[self.modelname]["ModelPath"], subfolder="text_encoder", use_auth_token=HFToken, torch_dtype=torch.float16)
-        print("\nLoading Embeds...")
-        update_embed_list()
-        for file in embedlist:
-            load_learned_embed_in_clip(str(file), text_encoder, tokenizer)
-        curmodel = model_list[self.modelname]
-        try:
-            del pipe
-        except:
-            pass
-        gc.collect()
-        pipe = DiffusionPipeline.from_pretrained(model_list[self.modelname]["ModelPath"], custom_pipeline="lpw_stable_diffusion", use_auth_token=HFToken,
-                                                torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
-        print("\n" + self.modelname + " loaded.\n")
-        pipe.enable_attention_slicing()
+        global usingsd2
+        if self.modelname != "stable-diffusion-2":
+            print("\nChanging model to: " + self.modelname)
+            tokenizer = CLIPTokenizer.from_pretrained(model_list[self.modelname]["ModelPath"], subfolder="tokenizer", use_auth_token=HFToken)
+            text_encoder = CLIPTextModel.from_pretrained(model_list[self.modelname]["ModelPath"], subfolder="text_encoder", use_auth_token=HFToken, torch_dtype=torch.float16)
+            print("\nLoading Embeds...")
+            update_embed_list()
+            for file in embedlist:
+                load_learned_embed_in_clip(str(file), text_encoder, tokenizer)
+            curmodel = model_list[self.modelname]
+            try:
+                del pipe
+            except:
+                pass
+            gc.collect()
+            pipe = DiffusionPipeline.from_pretrained(model_list[self.modelname]["ModelPath"], custom_pipeline="lpw_stable_diffusion", use_auth_token=HFToken,
+                                                    torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
+            print("\n" + self.modelname + " loaded.\n")
+            pipe.enable_attention_slicing()
+        else:
+            curmodel = "stabilityai/stable-diffusion-2"
+            try:
+                del pipe
+            except:
+                pass
+            gc.collect()
+            repo_id = "stabilityai/stable-diffusion-2"
+            scheduler = EulerDiscreteScheduler.from_pretrained(repo_id, subfolder="scheduler")
+            pipe = DiffusionPipeline.from_pretrained(repo_id, torch_dtype=torch.float16, revision="fp16", scheduler=scheduler)
+            pipe = pipe.to("cuda")
+            usingsd2 = True
+            pipe.enable_attention_slicing()
         self.parent and self.parent.on_thread_finished(self, self.context)
 
         
@@ -223,25 +238,28 @@ class genImgThreadClass(Thread):
         global loaded_safety_checker
         try:
             # Handle Scheduler
-            if (self.request.scheduler == None or self.request.scheduler == "0"):
-                self.request.scheduler = "KLMS"
-                if self.request.regenerate:
-                    if self.previous_request.scheduler != None:
-                        self.request.scheduler = self.previous_request.scheduler
-
-            if self.request.scheduler == "KLMS":
-                scheduler = LMSDiscreteScheduler(
-                    beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
-            elif self.request.scheduler == "Euler":
-                scheduler = EulerDiscreteScheduler(
-                    beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
-            elif self.request.scheduler == "PNDM":
-                scheduler = PNDMScheduler(beta_end=0.012, beta_schedule="scaled_linear", beta_start=0.00085,
-                                        num_train_timesteps=1000, set_alpha_to_one=False, skip_prk_steps=True, steps_offset=1, trained_betas=None)
-            elif self.request.scheduler == "DPM++":
-                scheduler = DPMSolverMultistepScheduler.from_pretrained(curmodel["ModelPath"], subfolder="scheduler", solver_order=2, predict_epsilon=True, thresholding=False,
-                                                                    algorithm_type="dpmsolver++", solver_type="midpoint", denoise_final=True)  # the influence of this trick is effective for small (e.g. <=10) steps)
-            pipe.scheduler = scheduler
+            if not usingsd2:
+                if (self.request.scheduler == None or self.request.scheduler == "0"):
+                    self.request.scheduler = "KLMS"
+                    if self.request.regenerate:
+                        if self.previous_request.scheduler != None:
+                            self.request.scheduler = self.previous_request.scheduler
+                try:
+                    if self.request.scheduler == "KLMS":
+                        scheduler = LMSDiscreteScheduler(
+                            beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
+                    elif self.request.scheduler == "Euler":
+                        scheduler = EulerDiscreteScheduler(
+                            beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
+                    elif self.request.scheduler == "PNDM":
+                        scheduler = PNDMScheduler(beta_end=0.012, beta_schedule="scaled_linear", beta_start=0.00085,
+                                                num_train_timesteps=1000, set_alpha_to_one=False, skip_prk_steps=True, steps_offset=1, trained_betas=None)
+                    elif self.request.scheduler == "DPM++":
+                        scheduler = DPMSolverMultistepScheduler.from_pretrained(curmodel["ModelPath"], subfolder="scheduler", solver_order=2, predict_epsilon=True, thresholding=False,
+                                                                            algorithm_type="dpmsolver++", solver_type="midpoint", denoise_final=True)  # the influence of this trick is effective for small (e.g. <=10) steps)
+                    pipe.scheduler = scheduler
+                except:
+                    pass
             # Handle prompt
             if (self.request.prompt == None or self.request.prompt == "0"):
                 self.request.prompt = ""
@@ -400,11 +418,17 @@ class genImgThreadClass(Thread):
             metadata.add_text("Seed", str(self.request.seed))
             metadata.add_text("Width", str(self.request.width))
             metadata.add_text("Height", str(self.request.height))
-            metadata.add_text("Scheduler", str(self.request.scheduler))
+            if not usingsd2:
+                metadata.add_text("Scheduler", str(self.request.scheduler))
+            else:
+                metadata.add_text("Scheduler", "V Euler")
             try:
-                metadata.add_text("Model", curmodel["ModelDetailedName"])
+                try:
+                    metadata.add_text("Model", curmodel["ModelDetailedName"])
+                except:
+                    metadata.add_text("Model", curmodel["ModelCommandName"])
             except:
-                metadata.add_text("Model", curmodel["ModelCommandName"])
+                metadata.add_text("Model", "Stable Diffusion 2")
 
             # Generate
             nsfwDetected = False
@@ -413,36 +437,48 @@ class genImgThreadClass(Thread):
                     if loaded_safety_checker == None:
                         loaded_safety_checker = pipe.safety_checker
                     def dummy_checker(images, **kwargs): return images, False
-                    pipe.safety_checker = dummy_checker
+                    if not usingsd2:
+                        pipe.safety_checker = dummy_checker
+                    else:
+                        if loaded_safety_checker != None:
+                            pipe.safety_checker = loaded_safety_checker
                 else:
                     try:
                         if loaded_safety_checker != None:
                             pipe.safety_checker = loaded_safety_checker
                     except:
                         pass
-                if self.request.strength != None:
-                    if self.request.inpaintUrl == None:
-                        print("Strength = " + str(1-self.request.strength))
-                        returndict = pipe.img2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, init_image=init_image,
-                                                negative_prompt=self.request.negativePrompt, strength=(1-(self.request.strength*0.89)), guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
-                        image = returndict.images[0]
-                        try:
-                            nsfwDetected = returndict.nsfw_content_detected[0]
-                        except:
-                            nsfwDetected = False
+                if not usingsd2:
+                    if self.request.strength != None:
+                        if self.request.inpaintUrl == None:
+                            print("Strength = " + str(1-self.request.strength))
+                            returndict = pipe.img2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, init_image=init_image,
+                                                    negative_prompt=self.request.negativePrompt, strength=(1-(self.request.strength*0.89)), guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
+                            image = returndict.images[0]
+                            try:
+                                nsfwDetected = returndict.nsfw_content_detected[0]
+                            except:
+                                nsfwDetected = False
+                        else:
+                            returndict = pipe.inpaint(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, init_image=init_image, negative_prompt=self.request.negativePrompt, strength=(
+                                1-(self.request.strength*0.89)), mask_image=inpaint_image, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
+                            image = returndict.images[0]
+                            try:
+                                nsfwDetected = returndict.nsfw_content_detected[0]
+                            except:
+                                nsfwDetected = False
+                        metadata.add_text("Img2Img Strength",
+                                        str(self.request.strength))
                     else:
-                        returndict = pipe.inpaint(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, init_image=init_image, negative_prompt=self.request.negativePrompt, strength=(
-                            1-(self.request.strength*0.89)), mask_image=inpaint_image, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
+                        returndict = pipe.text2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, init_image=init_image,
+                                                negative_prompt=self.request.negativePrompt, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
                         image = returndict.images[0]
-                        try:
-                            nsfwDetected = returndict.nsfw_content_detected[0]
-                        except:
-                            nsfwDetected = False
-                    metadata.add_text("Img2Img Strength",
-                                    str(self.request.strength))
+                    try:
+                        nsfwDetected = returndict.nsfw_content_detected[0]
+                    except:
+                        nsfwDetected = False
                 else:
-                    returndict = pipe.text2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, init_image=init_image,
-                                            negative_prompt=self.request.negativePrompt, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
+                    returndict = pipe(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, negative_prompt=self.request.negativePrompt, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
                     image = returndict.images[0]
                     try:
                         nsfwDetected = returndict.nsfw_content_detected[0]
@@ -466,8 +502,12 @@ class genImgThreadClass(Thread):
             self.request.resultImage = image
             image.save(outputDirectory + str(countStr) + ".png", pnginfo=metadata)
             if not nsfwDetected:
-                outEmbed = get_embed(self.request.prompt, self.request.negativePrompt, self.request.guideScale, self.request.infSteps, self.request.seed,
-                                    outputDirectory + str(countStr) + ".png", self.request.strength, False, self.request.scheduler, self.request.userconfig, self.request.imgUrl)
+                if not usingsd2:
+                    outEmbed = get_embed(self.request.prompt, self.request.negativePrompt, self.request.guideScale, self.request.infSteps, self.request.seed,
+                                        outputDirectory + str(countStr) + ".png", self.request.strength, False, self.request.scheduler, self.request.userconfig, self.request.imgUrl)
+                else:
+                    outEmbed = get_embed(self.request.prompt, self.request.negativePrompt, self.request.guideScale, self.request.infSteps, self.request.seed,
+                                        outputDirectory + str(countStr) + ".png", self.request.strength, False, "V Euler", self.request.userconfig, self.request.imgUrl)
             else:
                 outEmbed = hikari.Embed(title=config["NsfwMessage"], colour=hikari.Colour(0xFF0000)).set_footer(
                     "An admin may enable possible nsfw results in /adminsettings... sometimes the detector finds nsfw in sfw results")
@@ -561,24 +601,28 @@ def save_user_config(userid: str, saveconfig):
 # load embeddings Function
 # ----------------------------------
 def load_learned_embed_in_clip(learned_embeds_path, text_encoder, tokenizer, token=None):
-    loaded_learned_embeds = torch.load(learned_embeds_path, map_location="cpu")
-    trained_token = list(loaded_learned_embeds.keys())[0]
-    embedsS = loaded_learned_embeds[trained_token]
-    dtype = text_encoder.get_input_embeddings().weight.dtype
-    embedsS.to(dtype)
-    # add the token in tokenizer
-    token = token if token is not None else trained_token
-    num_added_tokens = tokenizer.add_tokens(token)
-    if num_added_tokens == 0:
-        raise ValueError(
-            f"The tokenizer already contains the token {token}. Please pass a different `token` that is not already in the tokenizer.")
-    print(token)
-    # resize the token embeddings
-    if not 'string_to_param' in loaded_learned_embeds:
-        text_encoder.resize_token_embeddings(len(tokenizer))
-    # get the id for the token and assign the embeds
-    token_id = tokenizer.convert_tokens_to_ids(token)
-    text_encoder.get_input_embeddings().weight.data[token_id] = embedsS
+    try:
+        loaded_learned_embeds = torch.load(learned_embeds_path, map_location="cpu")
+        trained_token = list(loaded_learned_embeds.keys())[0]
+        embedsS = loaded_learned_embeds[trained_token]
+        dtype = text_encoder.get_input_embeddings().weight.dtype
+        embedsS.to(dtype)
+        # add the token in tokenizer
+        token = token if token is not None else trained_token
+        num_added_tokens = tokenizer.add_tokens(token)
+        if num_added_tokens == 0:
+            raise ValueError(
+                f"The tokenizer already contains the token {token}. Please pass a different `token` that is not already in the tokenizer.")
+        print(token)
+        # resize the token embeddings
+        if not 'string_to_param' in loaded_learned_embeds:
+            text_encoder.resize_token_embeddings(len(tokenizer))
+        # get the id for the token and assign the embeds
+        token_id = tokenizer.convert_tokens_to_ids(token)
+        text_encoder.get_input_embeddings().weight.data[token_id] = embedsS
+    except:
+        pass
+
  
 
 # ----------------------------------
@@ -685,9 +729,12 @@ def get_embed(Prompt, NegativePrompt: str, GuideScale, InfSteps, Seed, File, Ima
         embed = hikari.Embed(title=random.choice(titles), colour=hikari.Colour(
             0x56aaf8)).set_footer(text=footer).set_image(f)
     try:
-        embed.title = curmodel["ModelDetailedName"] + " - Result:"
+        try:
+            embed.title = curmodel["ModelDetailedName"] + " - Result:"
+        except:
+            embed.title = curmodel["ModelCommandName"] + " - Result:"
     except:
-        embed.title = curmodel["ModelCommandName"] + " - Result:"
+        embed.title = "Stable Diffusion 2" + " - Result:"
     try:
         embed.color = hikari.Colour(int(curmodel["ModelColor"], 16))
     except:
@@ -811,6 +858,7 @@ previous_request = imageRequest()
 genThread = Thread()
 botBusy = False
 startbool = False
+usingsd2 = False
 awaitingEmbed = None
 AwaitingModelChangeFinished = False
 AwaitingModelChangeContext = None
@@ -975,8 +1023,12 @@ async def saveResultGif():
     if ((file_stats.st_size / (1024 * 1024)) < 8):
         print("Anim Complete, sending gif.")
         #embed = hikari.Embed(title=("Animation Result:"),colour=hikari.Colour(0xFFFFFF)).set_image(outputDirectory + "resultgif.gif")
-        embed = get_embed(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.guideScale, activeAnimRequest.infSteps, activeAnimRequest.seed,
-                        file_name, activeAnimRequest.strength, True, activeAnimRequest.scheduler, activeAnimRequest.userconfig, activeAnimRequest.imgUrl)
+        if not usingsd2:
+            embed = get_embed(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.guideScale, activeAnimRequest.infSteps, activeAnimRequest.seed,
+                            file_name, activeAnimRequest.strength, True, activeAnimRequest.scheduler, activeAnimRequest.userconfig, activeAnimRequest.imgUrl)
+        else:
+            embed = get_embed(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.guideScale, activeAnimRequest.infSteps, activeAnimRequest.seed,
+                            file_name, activeAnimRequest.strength, True, "V Euler", activeAnimRequest.userconfig, activeAnimRequest.imgUrl)
         embed.set_footer(None)
         embed.set_image(file_name)
         embed.set_thumbnail(None)
