@@ -743,9 +743,9 @@ def get_embed(Prompt, NegativePrompt: str, GuideScale, InfSteps, Seed, File, Ima
     if imgurl != None:
         embed.set_thumbnail(imgurl)
     if ((Prompt != None) and (Prompt != "None") and (Prompt != "")):
-        embed.add_field("Prompt:", Prompt)
+        embed.add_field("Prompt:", "`" + Prompt + "`")
     if ((NegativePrompt != None) and (NegativePrompt != "None") and (NegativePrompt != "")):
-        embed.add_field("Negative Prompt:", NegativePrompt)
+        embed.add_field("Negative Prompt:", "`" + NegativePrompt + "`")
     if (Gifmode):
         embed.set_footer(None)
         embed.set_image(File)
@@ -1318,6 +1318,9 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
         return
     if curmodel == None or curmodel == "":
         await respond_with_autodelete("Please load a model with /changemodel", ctx)
+        return
+    if ctx.options.width == 768 and ctx.options.height == 768:
+        await respond_with_autodelete("Sorry, only one dimension can be 768!", ctx)
         return
     botBusy = True
     outputDirectory = "./results/"
