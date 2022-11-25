@@ -184,6 +184,7 @@ class changeModelThreadClass(Thread):
                                                     torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
             print("\n" + self.modelname + " loaded.\n")
             pipe.enable_attention_slicing()
+            usingsd2 = False
         else:
             curmodel = "stabilityai/stable-diffusion-2"
             try:
