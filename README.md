@@ -40,7 +40,6 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 
 - Warning: Kiwi was made by a girl who's not really a programmer, things could break, things might not work, and your house might burn down or worse...
 - Clone kiwi to a directory on your machine.
-- Clone https://github.com/huggingface/diffusers to another directory and copy it's src/diffusers folder into kiwi's directory (this is required because the pip version doesnt yet include the dpm++ solver)
 - Place model weights .ckpt file or the repository folder containing a diffusers format model in the kiwi/models folder, .ckpt models will take a moment to convert the first time.
 - go to the discord applications page [Here](https://discord.com/developers/applications), create a new application, give it a unique name
 - Go to the "bot" section -> click "add bot" -> click "reset token", this token can only be viewed once without having to reset it so take note of it. **disable public bot unless you know what you're doing**, tick the intent switches on
@@ -64,7 +63,6 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - **SOME WEIRD SHIT HAPPENS WHEN FIRST RUNNING ON LINUX BUT IT WORKS MAYBE IN THE END?**
 - **If you're using linux, you're probably smarter than me and will be able to figure it out.**
 - Clone kiwi to a directory on your machine.
-- Clone https://github.com/huggingface/diffusers to another directory and copy it's src/diffusers folder into kiwi's directory (this is required because the pip version doesnt yet include the dpm++ solver)
 - Create a venv or pip install straight on your main python install
 - pip install -r requirements.txt
 - Place model weights .ckpt file or the repository folder containing a diffusers format model in the kiwi/models folder, .ckpt models will take a moment to convert the first time.
