@@ -84,8 +84,6 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 # Commands
 ### Generation
 - **/generate:** Generates a image from a detailed description, or booru tags separated by commas. optionally input an image for image to image generation, or a mask and an image for inpainting, note inpainting works poorly with default sampler, use klms instead
-- **/regenerate:** Re-generates last entered prompt
-- **/overgenerate:** Diffuses from last diffusion result
 ### Settings
 - **/changemodel:** changes the loaded model, must be used after bot is started if a default model is not set
 - **/togglequalityprompt:** toggles whether or not to use the user's default quality prompt.

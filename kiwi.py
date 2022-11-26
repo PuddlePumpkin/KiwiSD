@@ -1412,47 +1412,6 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
 
 
 # ----------------------------------
-# Overgenerate Command
-# ----------------------------------
-@bot.command
-@lightbulb.option("height", "(Optional) height of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
-@lightbulb.option("width", "(Optional) width of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
-@lightbulb.option("sampler", "(Optional) Which scheduler to use", required=False, type=str, default="DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
-@lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)", max_value=1,min_value=0,required=False, type=float)
-@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required=False, default=15, type=int, max_value=config["MaxSteps"], min_value=1)
-@lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required=False, default=0, type=int, min_value=0)
-@lightbulb.option("guidance_scale", "(Optional) Guidance scale for diffusion (Default:7)", required=False, type=float, default=7, max_value=100, min_value=-100)
-@lightbulb.option("negative_prompt", "(Optional)Prompt for diffusion to avoid.", required=False, default="0")
-@lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ", required=True, default="0")
-@lightbulb.command("overgenerate", "runs diffusion on the result of the previous diffusion")
-@lightbulb.implements(lightbulb.SlashCommand)
-async def overgenerate(ctx: lightbulb.SlashContext) -> None:
-    await processRequest(ctx, False, True)
-
-
-# ----------------------------------
-# ReGenerate Command
-# ----------------------------------
-@bot.command
-@lightbulb.option("height", "(Optional) height of result (Default:512)", required=False, type=int, choices=[128, 256, 384, 512, 640, 768])
-@lightbulb.option("width", "(Optional) width of result (Default:512)", required=False, type=int, choices=[128, 256, 384, 512, 640, 768])
-@lightbulb.option("sampler", "(Optional) Which scheduler to use", required=False, type=str, default="DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
-@lightbulb.option("inpaint_mask", "(Optional) mask to block off for image inpainting (white = replace, black = dont touch)", required=False, type=hikari.Attachment)
-@lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)", required=False,max_value=1,min_value=0, type=float)
-@lightbulb.option("image_link", "(Optional) image link or message ID", required=False, type=str)
-@lightbulb.option("image", "(Optional) image to run diffusion on", required=False, type=hikari.Attachment)
-@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required=False, type=int, max_value=config["MaxSteps"], min_value=1)
-@lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required=False, default=0, type=int, min_value=0)
-@lightbulb.option("guidescale", "(Optional) Guidance scale for diffusion (Default:7)", required=False, type=float, max_value=100, min_value=-100)
-@lightbulb.option("negative_prompt", "(Optional) Prompt for diffusion to avoid.", required=False)
-@lightbulb.option("prompt", "(Optional) A detailed description of desired output, or booru tags, separated by commas. ", required=False)
-@lightbulb.command("regenerate", "Regenerates diffusion from last input and optionally any changed inputs.")
-@lightbulb.implements(lightbulb.SlashCommand)
-async def regenerate(ctx: lightbulb.SlashContext) -> None:
-    await processRequest(ctx, True)
-
-
-# ----------------------------------
 # Help Command
 # ----------------------------------
 @bot.command
