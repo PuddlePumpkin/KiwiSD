@@ -1679,8 +1679,11 @@ async def settings(ctx: lightbulb.SlashContext) -> None:
         else:
             return
         save_user_config(str(ctx.author.id), userconfig)
-    embed = hikari.Embed(title="User Settings:", colour=ctx.author.accent_color).set_author(
-        name=ctx.member.nickname, icon=ctx.member.avatar_url)
+    embed = hikari.Embed(title="User Settings:", colour=ctx.author.accent_color)
+    if ctx.member.nickname is not None:
+        embed.set_author(name=ctx.member.nickname, icon=ctx.member.avatar_url)
+    else:
+        embed.set_author(name=ctx.member.username, icon=ctx.member.avatar_url)
     for key, value in userconfig.items():
         embed.add_field(str(key), str(value))
     rows = await generate_rows(ctx.bot)
