@@ -302,6 +302,8 @@ class genImgThreadClass(Thread):
             # Handle ImgUrl
             if (self.request.imgUrl == "0" or self.request.imgUrl == None):
                 self.request.imgUrl = None
+                if self.request.gifFrame == None:
+                    self.request.strength = None
 
             # Handle inpaint ImgUrl
             if (self.request.inpaintUrl == "0" or self.request.inpaintUrl == None):
