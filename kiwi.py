@@ -203,32 +203,29 @@ class changeModelThreadClass(Thread):
 
         
 class threadManager(object):
-    def New_Thread(self, request: imageRequest = None, previous_request: imageRequest = None):
-        return genImgThreadClass(parent=self, request=request, previous_request=previous_request)
+    def New_Thread(self, request: imageRequest = None):
+        return genImgThreadClass(parent=self, request=request)
 
 
     def on_thread_finished(self, thread, data: hikari.Embed, request: imageRequest):
         global awaitingEmbed
-        global previous_request
         global awaitingRequest
         global animationFrames
         global awaitingFrame
         if request.isAnimation:
             awaitingFrame = request.resultImage
-            previous_request = request
             return
-        previous_request = request
         awaitingRequest = request
         awaitingEmbed = data
+        requestQueue.pop(0)
 
 
 class genImgThreadClass(Thread):
     '''thread class for generation'''
 
-    def __init__(self, parent=None, request: imageRequest = None, previous_request: imageRequest = None):
+    def __init__(self, parent=None, request: imageRequest = None):
         self.parent = parent
         self.request = request
-        self.previous_request = previous_request
         super(genImgThreadClass, self).__init__()
 
 
@@ -243,9 +240,6 @@ class genImgThreadClass(Thread):
             if not usingsd2:
                 if (self.request.scheduler == None or self.request.scheduler == "0"):
                     self.request.scheduler = "KLMS"
-                    if self.request.regenerate:
-                        if self.previous_request.scheduler != None:
-                            self.request.scheduler = self.previous_request.scheduler
                 try:
                     if self.request.scheduler == "KLMS":
                         scheduler = LMSDiscreteScheduler(
@@ -265,106 +259,66 @@ class genImgThreadClass(Thread):
             # Handle prompt
             if (self.request.prompt == None or self.request.prompt == "0"):
                 self.request.prompt = ""
-                if self.request.regenerate:
-                    if self.previous_request.prompt != None:
-                        self.request.prompt = self.previous_request.prompt
 
             # Handle negative prompt
             if (self.request.negativePrompt == None or self.request.negativePrompt == "0"):
                 self.request.negativePrompt = None
-                if self.request.regenerate:
-                    if self.previous_request.negativePrompt != None:
-                        self.request.negativePrompt = self.previous_request.negativePrompt
 
             # Handle Default Negative
-            if not self.request.regenerate:
-                if self.request.userconfig["UseDefaultNegativePrompt"]:
-                    if (self.request.negativePrompt != None):
-                        if (self.request.negativePrompt == ""):
-                            self.request.negativePrompt = self.request.userconfig["DefaultNegativePrompt"]
-                        else:
-                            self.request.negativePrompt = self.request.negativePrompt + \
-                                ", " + \
-                                self.request.userconfig["DefaultNegativePrompt"]
-                    else:
+            if self.request.userconfig["UseDefaultNegativePrompt"]:
+                if (self.request.negativePrompt != None):
+                    if (self.request.negativePrompt == ""):
                         self.request.negativePrompt = self.request.userconfig["DefaultNegativePrompt"]
+                    else:
+                        self.request.negativePrompt = self.request.negativePrompt + \
+                            ", " + \
+                            self.request.userconfig["DefaultNegativePrompt"]
+                else:
+                    self.request.negativePrompt = self.request.userconfig["DefaultNegativePrompt"]
 
             # Handle Default Quality
-            if not self.request.regenerate:
-                if self.request.userconfig["UseDefaultQualityPrompt"]:
-                    if (self.request.prompt != None):
-                        if (self.request.prompt == ""):
-                            self.request.prompt = self.request.userconfig["DefaultQualityPrompt"]
-                        else:
-                            self.request.prompt = self.request.userconfig["DefaultQualityPrompt"] + \
-                                ", " + self.request.prompt
-                    else:
+            if self.request.userconfig["UseDefaultQualityPrompt"]:
+                if (self.request.prompt != None):
+                    if (self.request.prompt == ""):
                         self.request.prompt = self.request.userconfig["DefaultQualityPrompt"]
+                    else:
+                        self.request.prompt = self.request.userconfig["DefaultQualityPrompt"] + \
+                            ", " + self.request.prompt
+                else:
+                    self.request.prompt = self.request.userconfig["DefaultQualityPrompt"]
 
             # Handle infsteps
             if (self.request.infSteps == "0" or self.request.infSteps == 0 or self.request.infSteps == None):
                 self.request.infSteps = 15
-                if self.request.regenerate:
-                    if self.previous_request.infSteps != None:
-                        self.request.infSteps = self.previous_request.infSteps
 
             # Handle guidescale
             if (self.request.guideScale == "0" or self.request.guideScale == None):
                 self.request.guideScale = 7.0
-                if self.request.regenerate:
-                    if self.previous_request.guideScale != None:
-                        self.request.guideScale = self.previous_request.guideScale
 
             # Handle Stength
             if (self.request.strength == None):
                 self.request.strength = 0.25
-                if self.request.regenerate:
-                    if self.previous_request.strength != None:
-                        self.request.strength = self.previous_request.strength
 
             # Handle ImgUrl
             if (self.request.imgUrl == "0" or self.request.imgUrl == None):
                 self.request.imgUrl = None
-                if self.request.regenerate:
-                    if self.previous_request.imgUrl != None:
-                        self.request.imgUrl = self.previous_request.imgUrl
-                    elif self.request.gifFrame == None:
-                        self.request.strength = None
-                elif self.request.overProcess:
-                    pass
-                elif self.request.gifFrame == None:
-                    self.request.strength = None
 
             # Handle inpaint ImgUrl
             if (self.request.inpaintUrl == "0" or self.request.inpaintUrl == None):
                 self.request.inpaintUrl = None
-                if self.request.regenerate:
-                    if self.previous_request.inpaintUrl != None:
-                        self.request.inpaintUrl = self.previous_request.inpaintUrl
 
             # Handle Width
             if (self.request.width == 0 or self.request.width == "0" or self.request.width == None):
                 self.request.width = 512
-                if self.request.regenerate:
-                    if self.previous_request.width != None:
-                        self.request.width = self.previous_request.width
 
             # Handle Height
             if (self.request.height == 0 or self.request.height == "0" or self.request.height == None):
                 self.request.height = 512
-                if self.request.regenerate:
-                    if self.previous_request.height != None:
-                        self.request.height = self.previous_request.height
 
             # Handle seed
             if (self.request.seed == 0 or self.request.seed == None):
                 self.request.seed = random.randint(1, 100000000)
             generator = torch.Generator("cuda").manual_seed(self.request.seed)
-
-            # handle overprocess
-            if self.request.regenerate:
-                if self.previous_request.overProcess != None:
-                    self.request.overProcess = self.previous_request.overProcess
 
             # Load Image
             if self.request.imgUrl == None:
@@ -378,9 +332,6 @@ class genImgThreadClass(Thread):
                     init_image, self.request.width, self.request.height)
                 init_image = init_image.resize(
                     (self.request.width, self.request.height), Image.Resampling.LANCZOS)
-            if self.request.overProcess:
-                print("Loading image from previous_request.resultImage")
-                init_image = self.previous_request.resultImage
             if self.request.gifFrame != None:
                 # initialize init image from gif frame
                 init_image = self.request.gifFrame
@@ -528,12 +479,14 @@ def load_config():
     global config
     global loadingThumbnail
     global loadingGif
+    global busyThumbnail
     if not os.path.exists(str("kiwiconfig.json")):
         shutil.copy2("kiwiconfigdefault.json", "kiwiconfig.json")
     with open('kiwiconfig.json', 'r') as openfile:
         config = json.load(openfile)
         loadingThumbnail = config["LoadingThumbnail"]
         loadingGif = config["LoadingGif"]
+        busyThumbnail = config["BusyThumbnail"]
         openfile.close()
 
 
@@ -856,7 +809,6 @@ def remove_duplicates(string: str) -> str:
 config = {}
 embedlist = []
 animationFrames = []
-previous_request = imageRequest()
 genThread = Thread()
 botBusy = False
 startbool = False
@@ -864,12 +816,14 @@ usingsd2 = False
 awaitingEmbed = None
 AwaitingModelChangeFinished = False
 AwaitingModelChangeContext = None
+requestQueue = []
 loadedgif = None
 awaitingRequest = None
 awaitingFrame = None
 activeAnimRequest = None
 curmodel = ""
 loadingThumbnail = ""
+busyThumbnail = ""
 loadingGif = ""
 loaded_safety_checker = None
 embedlist = list(Path("./embeddings/").rglob("*.[bB][iI][nN]"))
@@ -1062,6 +1016,7 @@ async def ThreadCompletionLoop():
     global awaitingRequest
     global AwaitingModelChangeFinished
     global AwaitingModelChangeContext
+
     #handle model changes
     if AwaitingModelChangeFinished:
         embed = hikari.Embed(
@@ -1102,7 +1057,7 @@ async def ThreadCompletionLoop():
                     requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.infSteps, activeAnimRequest.seed, activeAnimRequest.currentstep, activeAnimRequest.imgUrl, activeAnimRequest.strength, activeAnimRequest.width, activeAnimRequest.height, activeAnimRequest.proxy,
                                                  scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True, gifFrame=loadedgif, context=activeAnimRequest.context)
                     thread = threadmanager.New_Thread(
-                        requestObject, previous_request)
+                        requestObject)
                     thread.start()
                     awaitingFrame = None
                     startbool = False
@@ -1169,7 +1124,7 @@ async def ThreadCompletionLoop():
                         requestObject.labelKey = activeAnimRequest.animkey
                         requestObject.fontsize = activeAnimRequest.fontsize
                     thread = threadmanager.New_Thread(
-                        requestObject, previous_request)
+                        requestObject)
                     thread.start()
                     awaitingFrame = None
                     startbool = False
@@ -1196,7 +1151,7 @@ async def ThreadCompletionLoop():
                         requestObject.labelKey = activeAnimRequest.animkey
                         requestObject.fontsize = activeAnimRequest.fontsize
                     thread = threadmanager.New_Thread(
-                        requestObject, previous_request)
+                        requestObject)
                     thread.start()
                     awaitingFrame = None
                     startbool = False
@@ -1227,7 +1182,16 @@ async def ThreadCompletionLoop():
         message = await prx.edit(emb, components=rows)
         asyncio.create_task(firehandleresponses(bot, ath, message))
         botBusy = False
-
+    #handle requestQueue
+    if not botBusy:
+        try:
+            if requestQueue[0] != None:
+                threadmanager = threadManager()
+                thread = threadmanager.New_Thread(requestQueue[0])
+                thread.start()
+                botBusy = True
+        except:
+            pass
 
 async def firehandleresponses(bot, ath, message):
     await handle_responses(bot, ath, message)
@@ -1320,17 +1284,13 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
     global titles
     global outputDirectory
     global botBusy
-    global previous_request
-    if botBusy:
-        await respond_with_autodelete("Sorry, Kiwi is busy, please try again later!", ctx)
-        return
+    global requestQueue
     if curmodel == None or curmodel == "":
         await respond_with_autodelete("Please load a model with /changemodel", ctx)
         return
     if ctx.options.width == 768 and ctx.options.height == 768:
         await respond_with_autodelete("Sorry, only one dimension can be 768!", ctx)
         return
-    botBusy = True
     outputDirectory = "./results/"
     try:
         if (ctx.options.image != None):
@@ -1349,17 +1309,20 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
         else:
             inpainturl = "0"
 
+        if not botBusy:
         # --Embed
-        try:
-            embed = hikari.Embed(title=random.choice(titles), colour=hikari.Colour(0x56aaf8)).set_thumbnail(
-                loadingThumbnail).set_footer(text="", icon=curmodel["ModelThumbnail"]).set_image(loadingGif)
-        except:
-            embed = hikari.Embed(title=random.choice(titles), colour=hikari.Colour(0x56aaf8)).set_thumbnail(
-                loadingThumbnail).set_image(loadingGif)
+            try:
+                embed = hikari.Embed(title=random.choice(titles), colour=hikari.Colour(0x56aaf8)).set_thumbnail(
+                    loadingThumbnail).set_footer(text="", icon=curmodel["ModelThumbnail"]).set_image(loadingGif)
+            except:
+                embed = hikari.Embed(title=random.choice(titles), colour=hikari.Colour(0x56aaf8)).set_thumbnail(
+                    loadingThumbnail).set_image(loadingGif)
 
-        respProxy = await ctx.respond(embed)
+            respProxy = await ctx.respond(embed)
+        else:
+            embed = hikari.Embed(title="We're waiting in line!", colour=hikari.Colour(0x56aaf8)).set_thumbnail(busyThumbnail)
+            respProxy = await ctx.respond(embed)
         # -------
-        threadmanager = threadManager()
         userconfig = load_user_config(str(ctx.author.id))
         load_config()
         filteredPrompt:str = str(ctx.options.prompt)
@@ -1387,10 +1350,8 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
             
         requestObject = imageRequest(filteredPrompt, ctx.options.negative_prompt, ctx.options.steps, ctx.options.seed, ctx.options.guidance_scale, url, ctx.options.strength, ctx.options.width,
                                      ctx.options.height, respProxy, scheduler=ctx.options.sampler, userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=regenerate, overProcess=overProcess, context=ctx)
-        thread = threadmanager.New_Thread(requestObject, previous_request)
-        thread.start()
+        requestQueue.append(requestObject)
     except Exception:
-        botBusy = False
         print("Error")
         await respond_with_autodelete("Sorry, something went wrong!", ctx)
         traceback.print_exc()
@@ -1486,7 +1447,6 @@ async def generategif(ctx: lightbulb.SlashContext) -> None:
     global curmodel
     global titles
     global outputDirectory
-    global previous_request
     animationFrames = []
     load_config()
     if config["AllowNonAdminGenerateGif"] == False:
