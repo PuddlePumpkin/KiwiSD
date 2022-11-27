@@ -6,6 +6,7 @@ import random
 import shutil
 import sys
 import traceback
+import datetime
 from io import BytesIO
 from pathlib import Path
 from threading import Thread
@@ -1071,7 +1072,14 @@ async def ThreadCompletionLoop():
         await AwaitingModelChangeContext.edit_last_response(embed)
         for channel in config["ChangeModelChannelsToNotify"].replace(", ",",").split(","):
             if channel != str(AwaitingModelChangeContext.channel_id):
-                await bot.rest.create_message(int(channel),embed)
+                messages = await bot.rest.fetch_messages(int(channel)).take_until(lambda m: datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1) > m.created_at).limit(1)
+                if messages[0].author.id == bot.get_me().id:
+                    if messages[0].embeds[0].title.startswith("Loaded"):
+                        await bot.rest.edit_message(int(channel),messages[0].id,embed)
+                    else:
+                        await bot.rest.create_message(int(channel),embed)
+                else:
+                    await bot.rest.create_message(int(channel),embed)
         botBusy = False
         AwaitingModelChangeContext = None
         AwaitingModelChangeFinished = False
