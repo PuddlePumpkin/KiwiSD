@@ -1310,8 +1310,14 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
             inpainturl = ctx.options.inpaint_mask.url
         else:
             inpainturl = "0"
-
-        if not botBusy:
+        
+        activeQueue = False
+        try:
+            if len(requestQueue)>0:
+                activeQueue = True
+        except:
+            activeQueue = True
+        if not botBusy and not activeQueue:
         # --Embed
             try:
                 embed = hikari.Embed(title=random.choice(titles), colour=hikari.Colour(0x56aaf8)).set_thumbnail(
