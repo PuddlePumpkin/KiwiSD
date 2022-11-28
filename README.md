@@ -114,5 +114,3 @@ Hikari-Lightbulb|pip|https://github.com/tandemdude/hikari-lightbulb|LGPLv3
 See requirements.txt to view other used packages and find their licenses.
 
 **This project is not endorsed by or affiliated with any third party entity.**
-
-If getting errors may need to change file in torch: `venv/lib/site-packages/torch/distributed/elastic/timer/file_based_local_timer.py` line 81 to `def __init__(self, file_path: str, signal=signal.SIGILL) -> None:`
