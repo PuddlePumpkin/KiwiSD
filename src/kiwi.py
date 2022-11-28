@@ -1644,7 +1644,7 @@ async def adminsettings(ctx: lightbulb.SlashContext) -> None:
     if ctx.options.setting != None and ctx.options.value != None:
         if str(ctx.author.id) in get_admin_list():
             # Bools
-            if ctx.options.setting in ["ShowDefaultPrompts", "EnableNsfwFilter", "AllowNonAdminChangeModel","AllowNonAdminGenerateGif"]:
+            if ctx.options.setting in ["ShowDefaultPrompts", "EnableNsfwFilter", "AllowNonAdminChangeModel","AllowNonAdminGenerateGif", "EnableTagFilter", "EnableTagFilterForSFW"]:
                 config[ctx.options.setting] = string_to_bool(ctx.options.value)
             # Ints
             elif ctx.options.setting in ["MaxSteps"]:
@@ -1656,7 +1656,7 @@ async def adminsettings(ctx: lightbulb.SlashContext) -> None:
                 else:
                     config[ctx.options.setting] = 1
             # Strings
-            elif ctx.options.setting in ["NsfwMessage", "AdminList", "NewUserNegativePrompt", "NewUserQualityPrompt", "TodoString", "AutoLoadedModel", "LoadingGif", "LoadingThumbnail"]:
+            elif ctx.options.setting in ["NsfwMessage", "AdminList", "NewUserNegativePrompt", "NewUserQualityPrompt", "TodoString", "AutoLoadedModel", "LoadingGif", "LoadingThumbnail", "BusyThumbnail", "FilteredTags", "ChangeModelChannelsToNotify"]:
                 config[ctx.options.setting] = ctx.options.value
             # Invalid setting
             else:
