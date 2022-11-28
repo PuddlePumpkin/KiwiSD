@@ -34,7 +34,7 @@ from diffusers import (DDIMScheduler, DDPMScheduler, DiffusionPipeline,
                        DPMSolverMultistepScheduler, EulerDiscreteScheduler,
                        LMSDiscreteScheduler, PNDMScheduler)
 
-os.chdir(str(os.path.abspath(os.path.dirname(__file__))))
+os.chdir(str(os.path.abspath(os.path.dirname(os.path.dirname(__file__)))))
 model_list = {}
 def convert_model(ckptpath, vaepath=None, dump_path=None):
     convertckpt.convert_model(ckptpath, vaepath, dump_path=dump_path)
@@ -879,9 +879,9 @@ with open('kiwitoken.json', 'r') as openfile:
 if bottoken == None or bottoken == "":
     sys.exit("\nYou need a bot token, see readme.md for usage instructions")
 if guildId != None:
-    bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None,default_enabled_guilds=guildId, logs = "ERROR",force_color=True,banner = "docs")
+    bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None,default_enabled_guilds=guildId, logs = "ERROR",force_color=True,banner = "banner")
 else:    
-    bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None,logs= "ERROR",force_color=True,banner = "docs")
+    bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None,logs= "ERROR",force_color=True,banner = "banner")
 # ----------------------------------
 # Bot ready event
 # ----------------------------------

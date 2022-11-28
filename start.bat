@@ -39,7 +39,7 @@ if %KIWIREQDONE% == TRUE goto :launch
 setx KIWIREQDONE TRUE 
 goto :launch
 :launch
-%PYTHON% %~dp0/kiwi.py %*
+%PYTHON% %~dp0/src/kiwi.py %*
 pause
 exit /b
 
