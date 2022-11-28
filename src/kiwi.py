@@ -1635,7 +1635,7 @@ async def settings(ctx: lightbulb.SlashContext) -> None:
 # ----------------------------------
 @bot.command()
 @lightbulb.option("value", "(optional if no key) value to change it to", required=False, type=str)
-@lightbulb.option("setting", "(optional) which setting to change", required=False, choices=["EnableNsfwFilter", "NsfwMessage", "ShowDefaultPrompts", "NewUserNegativePrompt", "NewUserQualityPrompt", "AdminList", "TodoString", "MaxSteps", "AllowNonAdminChangeModel", "AllowNonAdminGenerateGif", "AutoLoadedModel","LoadingGif", "LoadingThumbnail"], type=str)
+@lightbulb.option("setting", "(optional) which setting to change", required=False, choices=["EnableNsfwFilter","EnableTagFilter", "EnableTagFilterForSFW", "NsfwMessage", "ShowDefaultPrompts", "NewUserNegativePrompt", "NewUserQualityPrompt", "AdminList", "TodoString", "MaxSteps", "AllowNonAdminChangeModel", "AllowNonAdminGenerateGif", "AutoLoadedModel","LoadingGif", "LoadingThumbnail", "BusyThumbnail", "FilteredTags", "ChangeModelChannelsToNotify"], type=str)
 @lightbulb.command("adminsettings", "View or modify settings")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def adminsettings(ctx: lightbulb.SlashContext) -> None:
