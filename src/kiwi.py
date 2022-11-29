@@ -72,6 +72,7 @@ def populate_model_list():
                 open_json["ModelPath"] = "./models/" + folder
                 model_list[open_json["ModelCommandName"]] = open_json
                 openfile.close()
+    model_list["Stable Diffusion 2"] = {"Stable Diffusion 2":0,"ModelPath":"stabilityai/stable-diffusion-2-base","ModelDetailedName": "Stable Diffusion v2.0"}
     if model_list == {}:
         sys.exit("\nKiwi does not work without a model in the models directory, see readme.md for more info.\n")
 populate_model_list()
@@ -167,7 +168,7 @@ class changeModelThreadClass(Thread):
         global text_encoder
         global model_list
         global usingsd2
-        if self.modelname != "stable-diffusion-2":
+        if self.modelname != "Stable Diffusion 2":
             print("\nChanging model to: " + self.modelname)
             tokenizer = CLIPTokenizer.from_pretrained(model_list[self.modelname]["ModelPath"], subfolder="tokenizer", use_auth_token=HFToken)
             text_encoder = CLIPTextModel.from_pretrained(model_list[self.modelname]["ModelPath"], subfolder="text_encoder", use_auth_token=HFToken, torch_dtype=torch.float16)
@@ -187,13 +188,13 @@ class changeModelThreadClass(Thread):
             pipe.enable_attention_slicing()
             usingsd2 = False
         else:
-            curmodel = "stabilityai/stable-diffusion-2"
+            curmodel = "Stable Diffusion 2"
             try:
                 del pipe
             except:
                 pass
             gc.collect()
-            repo_id = "stabilityai/stable-diffusion-2"
+            repo_id = "stabilityai/stable-diffusion-2-base"
             scheduler = EulerDiscreteScheduler.from_pretrained(repo_id, subfolder="scheduler")
             pipe = DiffusionPipeline.from_pretrained(repo_id, torch_dtype=torch.float16, revision="fp16", scheduler=scheduler)
             pipe = pipe.to("cuda")
@@ -389,17 +390,16 @@ class genImgThreadClass(Thread):
             nsfwDetected = False
             with autocast("cuda"):
                 if not config["EnableNsfwFilter"] or str(self.request.context.channel_id) in str(config["NSFWAllowOverrideChannelIDs"]).replace(" ","").split(","):
-                    if loaded_safety_checker == None:
+                    if loaded_safety_checker == None and not usingsd2:
                         loaded_safety_checker = pipe.safety_checker
                     def dummy_checker(images, **kwargs): return images, False
                     if not usingsd2:
                         pipe.safety_checker = dummy_checker
                     else:
-                        if loaded_safety_checker != None:
-                            pipe.safety_checker = loaded_safety_checker
+                        pass
                 else:
                     try:
-                        if loaded_safety_checker != None:
+                        if loaded_safety_checker != None and not usingsd2:
                             pipe.safety_checker = loaded_safety_checker
                     except:
                         pass
@@ -1024,6 +1024,8 @@ async def ThreadCompletionLoop():
         embed = hikari.Embed(
         title="Loading " + model_list[AwaitingModelChangeContext.options.model]["ModelDetailedName"], colour=hikari.Colour(0xff1100))
         embed.color = hikari.Colour(0x00ff1a)
+        if usingsd2:
+            embed.set_footer("WARNING: Diffuser's implementation of stable diffusion 2 does not yet work with kiwi's pipeline, image to image, inpainting, and prompt weighting () will be unavailable with this model.")
         embed.title = "Loaded " + \
         model_list[AwaitingModelChangeContext.options.model]["ModelDetailedName"]
         await AwaitingModelChangeContext.edit_last_response(embed)
