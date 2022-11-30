@@ -12,7 +12,7 @@
     "TodoString": "",
     "AdminList": "",
     "ChangeModelChannelsToNotify":"",
-    "HuggingFaceModels":{"Stable Diffusion v2.0":"stabilityai/stable-diffusion-2-base", "Waifu Diffusion v1.3":"hakurei/waifu-diffusion"},
+    "HuggingFaceModels":{"Stable Diffusion v2.0":0, "Waifu Diffusion v1.3":"hakurei/waifu-diffusion"},
     "MaxSteps": 50,
     "NewUserQualityPrompt": "masterpiece, best quality",
     "NewUserNegativePrompt": "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts,signature, watermark, username, blurry, artist name",
