@@ -3,7 +3,7 @@ Kiwi
 </h1>
 
 <p align=center><img width="200" height="200" src="/docs/kiwipfp.png"></p><p align=center>Kiwi is a <a href=https://github.com/hikari-py/hikari>Hikari</a> <a href=https://github.com/tandemdude/hikari-lightbulb>Lightbulb</a> discord bot for prompting stable diffusion models through <a href=https://huggingface.co>Hugging Face's</a> <a href=https://github.com/huggingface/diffusers>Diffusers library</a>.</p><p align=center>I created Kiwi because I wanted to have a <i>"multiplayer"</i> alternative to <a href=https://github.com/AUTOMATIC1111/stable-diffusion-webui>AUTOMATIC1111's webui</a></p>
-<p align=center><a href="https://github.com/PuddlePumpkin/KiwiSD/blob/main/license"><img src=https://img.shields.io/badge/license-MIT-green></a><a href = "https://discord.com/users/126854698769580032"><img src="https://img.shields.io/badge/Discord-Puddle%20Pumpkin%238119-ff69b4"></p></a>
+<p align=center><a href="https://github.com/PuddlePumpkin/KiwiSD/blob/main/license"><img src=https://img.shields.io/badge/License-MIT-green></a><a href=https://discord.gg/q2ZRjJTERV> <img src=https://img.shields.io/badge/Discord-Kiwi-ff69b4></a>
 
 # Features
 - **Models:**
