@@ -38,6 +38,48 @@ os.chdir(str(os.path.abspath(os.path.dirname(os.path.dirname(__file__)))))
 model_list = {}
 def convert_model(ckptpath, vaepath=None, dump_path=None):
     convertckpt.convert_model(ckptpath, vaepath, dump_path=dump_path)
+
+# ----------------------------------
+# Configs
+# ----------------------------------
+def load_config():
+    '''loads admin config file'''
+    global config
+    global loadingThumbnail
+    global loadingGif
+    global busyThumbnail
+    if not os.path.exists(str("kiwiconfig.json")):
+        shutil.copy2("kiwiconfigdefault.json", "kiwiconfig.json")
+    with open('kiwiconfig.json', 'r') as openfile:
+        config = json.load(openfile)
+        loadingThumbnail = config["LoadingThumbnail"]
+        loadingGif = config["LoadingGif"]
+        busyThumbnail = config["BusyThumbnail"]
+        openfile.close()
+
+
+def save_config():
+    '''Saves admin config file'''
+    global config
+    with open("kiwiconfig.json", "w") as outfile:
+        json.dump(config, outfile, indent=4)
+        outfile.close()
+
+
+def string_to_bool(option) -> bool:
+    '''Converts string to bool from various wordings'''
+    try:
+        false_strings = ["off", "false", "no"]
+        true_strings = ["on", "true", "yes"]
+        if str(option).lower().strip() in false_strings:
+            return False
+        elif str(option).lower().strip() in true_strings:
+            return True
+        else:
+            return False
+    except:
+        return False
+
 def populate_model_list():
     global model_list
     ckptlist = list(Path("./models/").rglob("*.[cC][kK][pP][tT]"))
@@ -72,7 +114,9 @@ def populate_model_list():
                 open_json["ModelPath"] = "./models/" + folder
                 model_list[open_json["ModelCommandName"]] = open_json
                 openfile.close()
-    model_list["Stable Diffusion 2"] = {"Stable Diffusion 2":0,"ModelPath":"stabilityai/stable-diffusion-2-base","ModelDetailedName": "Stable Diffusion v2.0"}
+    load_config()
+    for modelkey in config["HuggingFaceModels"]:
+        model_list[str(modelkey)] = {"ModelCommandName":str(modelkey), "ModelPath":str(config["HuggingFaceModels"][modelkey]),"ModelDetailedName":str(modelkey)}
     if model_list == {}:
         sys.exit("\nKiwi does not work without a model in the models directory, see readme.md for more info.\n")
 populate_model_list()
@@ -168,7 +212,7 @@ class changeModelThreadClass(Thread):
         global text_encoder
         global model_list
         global usingsd2
-        if self.modelname != "Stable Diffusion 2":
+        if self.modelname != "Stable Diffusion v2.0":
             print("\nChanging model to: " + self.modelname)
             tokenizer = CLIPTokenizer.from_pretrained(model_list[self.modelname]["ModelPath"], subfolder="tokenizer", use_auth_token=HFToken)
             text_encoder = CLIPTextModel.from_pretrained(model_list[self.modelname]["ModelPath"], subfolder="text_encoder", use_auth_token=HFToken, torch_dtype=torch.float16)
@@ -188,7 +232,7 @@ class changeModelThreadClass(Thread):
             pipe.enable_attention_slicing()
             usingsd2 = False
         else:
-            curmodel = "Stable Diffusion 2"
+            curmodel = "Stable Diffusion v2.0"
             try:
                 del pipe
             except:
@@ -384,7 +428,7 @@ class genImgThreadClass(Thread):
                 except:
                     metadata.add_text("Model", curmodel["ModelCommandName"])
             except:
-                metadata.add_text("Model", "Stable Diffusion 2")
+                metadata.add_text("Model", "Stable Diffusion v2.0")
 
             # Generate
             nsfwDetected = False
@@ -473,46 +517,7 @@ class genImgThreadClass(Thread):
             self.parent and self.parent.on_thread_finished(self, None, self.request)
 
 
-# ----------------------------------
-# Configs
-# ----------------------------------
-def load_config():
-    '''loads admin config file'''
-    global config
-    global loadingThumbnail
-    global loadingGif
-    global busyThumbnail
-    if not os.path.exists(str("kiwiconfig.json")):
-        shutil.copy2("kiwiconfigdefault.json", "kiwiconfig.json")
-    with open('kiwiconfig.json', 'r') as openfile:
-        config = json.load(openfile)
-        loadingThumbnail = config["LoadingThumbnail"]
-        loadingGif = config["LoadingGif"]
-        busyThumbnail = config["BusyThumbnail"]
-        openfile.close()
 
-
-def save_config():
-    '''Saves admin config file'''
-    global config
-    with open("kiwiconfig.json", "w") as outfile:
-        json.dump(config, outfile, indent=4)
-        outfile.close()
-
-
-def string_to_bool(option) -> bool:
-    '''Converts string to bool from various wordings'''
-    try:
-        false_strings = ["off", "false", "no"]
-        true_strings = ["on", "true", "yes"]
-        if str(option).lower().strip() in false_strings:
-            return False
-        elif str(option).lower().strip() in true_strings:
-            return True
-        else:
-            return False
-    except:
-        return False
 
 
 def get_admin_list() -> list:
@@ -691,7 +696,7 @@ def get_embed(Prompt, NegativePrompt: str, GuideScale, InfSteps, Seed, File, Ima
         except:
             embed.title = curmodel["ModelCommandName"] + " - Result:"
     except:
-        embed.title = "Stable Diffusion 2" + " - Result:"
+        embed.title = "Stable Diffusion v2.0" + " - Result:"
     try:
         embed.color = hikari.Colour(int(curmodel["ModelColor"], 16))
     except:
@@ -1025,7 +1030,7 @@ async def ThreadCompletionLoop():
         title="Loading " + model_list[AwaitingModelChangeContext.options.model]["ModelDetailedName"], colour=hikari.Colour(0xff1100))
         embed.color = hikari.Colour(0x00ff1a)
         if usingsd2:
-            embed.set_footer("WARNING: Diffuser's implementation of stable diffusion 2 does not yet work with kiwi's pipeline, image to image, inpainting, and prompt weighting () will be unavailable with this model.")
+            embed.set_footer("WARNING: Diffuser's implementation of stable diffusion v2.0 does not yet work with kiwi's pipeline, image to image, inpainting, and prompt weighting () will be unavailable with this model.")
         embed.title = "Loaded " + \
         model_list[AwaitingModelChangeContext.options.model]["ModelDetailedName"]
         await AwaitingModelChangeContext.edit_last_response(embed)
