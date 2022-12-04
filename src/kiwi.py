@@ -451,7 +451,7 @@ class genImgThreadClass(Thread):
                     if self.request.strength != None:
                         if self.request.inpaintUrl == None:
                             print("Strength = " + str(1-self.request.strength))
-                            returndict = pipe.img2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, init_image=init_image,
+                            returndict = pipe.img2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, image=init_image,
                                                     negative_prompt=self.request.negativePrompt, strength=(1-(self.request.strength*0.89)), guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
                             image = returndict.images[0]
                             try:
@@ -459,7 +459,7 @@ class genImgThreadClass(Thread):
                             except:
                                 nsfwDetected = False
                         else:
-                            returndict = pipe.inpaint(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, init_image=init_image, negative_prompt=self.request.negativePrompt, strength=(
+                            returndict = pipe.inpaint(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, image=init_image, negative_prompt=self.request.negativePrompt, strength=(
                                 1-(self.request.strength*0.89)), mask_image=inpaint_image, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
                             image = returndict.images[0]
                             try:
@@ -469,7 +469,7 @@ class genImgThreadClass(Thread):
                         metadata.add_text("Img2Img Strength",
                                         str(self.request.strength))
                     else:
-                        returndict = pipe.text2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, init_image=init_image,
+                        returndict = pipe.text2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, image=init_image,
                                                 negative_prompt=self.request.negativePrompt, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
                         image = returndict.images[0]
                     try:
