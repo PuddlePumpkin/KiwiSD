@@ -1409,8 +1409,6 @@ async def help(ctx: lightbulb.SlashContext) -> None:
         "**~~                   ~~ Generation ~~                   ~~**"
         "\n> **/generate**: Generates a image from a detailed description, or booru tags separated by commas"
         "\n> **/generategif**: Generates a gif given entered parameters"
-        "\n> **/regenerate**: Re-generates last entered prompt"
-        "\n> **/overgenerate**: Runs diffusion on last diffusion result"
         "\n**~~                      ~~ Settings ~~                         ~~**"
         "\n> **/changemodel**: Loads a different model"
         "\n> **/settings**: displays a list of settings and optionally change them"
@@ -1550,7 +1548,7 @@ async def generategif(ctx: lightbulb.SlashContext) -> None:
 # Change Model Command
 # ----------------------------------
 @bot.command()
-@lightbulb.option("model", "which model to load", choices=model_list.keys(), required=True)
+@lightbulb.option("model", "which model to load", choices=model_list.keys(), required=False)
 @lightbulb.command("changemodel", "changes the loaded model")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def changemodel(ctx: lightbulb.SlashContext) -> None:
@@ -1560,6 +1558,9 @@ async def changemodel(ctx: lightbulb.SlashContext) -> None:
     global tokenizer
     global text_encoder
     global AwaitingModelChangeContext
+    if ctx.options.model == None:
+        await respond_with_autodelete("You must specify a model")
+        return
     load_config()
     if not config["AllowNonAdminChangeModel"]:
         if not str(ctx.author.id) in get_admin_list():
@@ -1630,7 +1631,10 @@ async def settings(ctx: lightbulb.SlashContext) -> None:
     else:
         embed.set_author(name=ctx.member.username, icon=ctx.member.avatar_url)
     for key, value in userconfig.items():
-        embed.add_field(str(key), str(value))
+        if value != None and value != "":
+            embed.add_field(str(key), str(value))
+        else:
+            embed.add_field(str(key), str("None"))
     rows = await generate_rows(ctx.bot)
     response = await ctx.respond(embed, components=rows)
     message = await response.message()
