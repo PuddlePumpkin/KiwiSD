@@ -954,8 +954,9 @@ async def metadata(ctx: lightbulb.SlashContext) -> None:
     if (str(mdataimage.info.get("Scheduler")) != "None"):
         embed.add_field("Scheduler:", str(mdataimage.info.get("Scheduler")))
     if (str(mdataimage.info.get("Img2Img Strength")) != "None"):
-        embed.add_field("Img2Img Strength:", str(
-            mdataimage.info.get("Img2Img Strength")))
+        embed.add_field("Img2Img Strength:", str(mdataimage.info.get("Img2Img Strength")))
+    if (str(mdataimage.info.get("parameters")) != "None"):
+        embed.add_field("WebUI Metadata:", "Prompt: " + str(mdataimage.info.get("parameters")))
     rows = await generate_rows(ctx.bot)
     response = await ctx.respond(embed, components=rows)
     message = await response.message()
