@@ -212,7 +212,7 @@ class changeModelThreadClass(Thread):
         global text_encoder
         global model_list
         global usingsd2
-        if self.modelname != "Stable Diffusion v2.0":
+        if self.modelname != "Stable Diffusion v2.1":
             print("\nChanging model to: " + self.modelname)
             tokenizer = CLIPTokenizer.from_pretrained(model_list[self.modelname]["ModelPath"], subfolder="tokenizer", use_auth_token=HFToken)
             text_encoder = CLIPTextModel.from_pretrained(model_list[self.modelname]["ModelPath"], subfolder="text_encoder", use_auth_token=HFToken, torch_dtype=torch.float16)
@@ -232,15 +232,15 @@ class changeModelThreadClass(Thread):
             pipe.enable_attention_slicing()
             usingsd2 = False
         else:
-            curmodel = "Stable Diffusion v2.0"
+            curmodel = "Stable Diffusion v2.1"
             try:
                 del pipe
             except:
                 pass
             gc.collect()
-            repo_id = "stabilityai/stable-diffusion-2-base"
-            scheduler = EulerDiscreteScheduler.from_pretrained(repo_id, subfolder="scheduler")
-            pipe = DiffusionPipeline.from_pretrained(repo_id, torch_dtype=torch.float16, revision="fp16", scheduler=scheduler)
+            repo_id = "stabilityai/stable-diffusion-2-1-base"
+            #scheduler = EulerDiscreteScheduler.from_pretrained(repo_id, subfolder="scheduler")
+            pipe = DiffusionPipeline.from_pretrained(repo_id, torch_dtype=torch.float16, revision="fp16")
             pipe = pipe.to("cuda")
             usingsd2 = True
             pipe.enable_attention_slicing()
@@ -283,24 +283,25 @@ class genImgThreadClass(Thread):
         try:
             # Handle Scheduler
             if not usingsd2:
-                if (self.request.scheduler == None or self.request.scheduler == "0"):
-                    self.request.scheduler = "KLMS"
-                try:
-                    if self.request.scheduler == "KLMS":
-                        scheduler = LMSDiscreteScheduler(
-                            beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
-                    elif self.request.scheduler == "Euler":
-                        scheduler = EulerDiscreteScheduler(
-                            beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
-                    elif self.request.scheduler == "PNDM":
-                        scheduler = PNDMScheduler(beta_end=0.012, beta_schedule="scaled_linear", beta_start=0.00085,
-                                                num_train_timesteps=1000, set_alpha_to_one=False, skip_prk_steps=True, steps_offset=1, trained_betas=None)
-                    elif self.request.scheduler == "DPM++":
-                        scheduler = DPMSolverMultistepScheduler.from_pretrained(curmodel["ModelPath"], subfolder="scheduler", solver_order=2, predict_epsilon=True, thresholding=False,
-                                                                            algorithm_type="dpmsolver++", solver_type="midpoint", denoise_final=True)  # the influence of this trick is effective for small (e.g. <=10) steps)
-                    pipe.scheduler = scheduler
-                except:
-                    pass
+                pass
+            if (self.request.scheduler == None or self.request.scheduler == "0"):
+                self.request.scheduler = "KLMS"
+            try:
+                if self.request.scheduler == "KLMS":
+                    scheduler = LMSDiscreteScheduler(
+                        beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
+                elif self.request.scheduler == "Euler":
+                    scheduler = EulerDiscreteScheduler(
+                        beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
+                elif self.request.scheduler == "PNDM":
+                    scheduler = PNDMScheduler(beta_end=0.012, beta_schedule="scaled_linear", beta_start=0.00085,
+                                            num_train_timesteps=1000, set_alpha_to_one=False, skip_prk_steps=True, steps_offset=1, trained_betas=None)
+                elif self.request.scheduler == "DPM++":
+                    scheduler = DPMSolverMultistepScheduler.from_pretrained(curmodel["ModelPath"], subfolder="scheduler", solver_order=2, predict_epsilon=True, thresholding=False,
+                                                                        algorithm_type="dpmsolver++", solver_type="midpoint", denoise_final=True)  # the influence of this trick is effective for small (e.g. <=10) steps)
+                pipe.scheduler = scheduler
+            except:
+                pass
             # Handle prompt
             if (self.request.prompt == None or self.request.prompt == "0"):
                 self.request.prompt = ""
@@ -418,17 +419,14 @@ class genImgThreadClass(Thread):
             metadata.add_text("Seed", str(self.request.seed))
             metadata.add_text("Width", str(self.request.width))
             metadata.add_text("Height", str(self.request.height))
-            if not usingsd2:
-                metadata.add_text("Scheduler", str(self.request.scheduler))
-            else:
-                metadata.add_text("Scheduler", "V Euler")
+            metadata.add_text("Scheduler", str(self.request.scheduler))
             try:
                 try:
                     metadata.add_text("Model", curmodel["ModelDetailedName"])
                 except:
                     metadata.add_text("Model", curmodel["ModelCommandName"])
             except:
-                metadata.add_text("Model", "Stable Diffusion v2.0")
+                metadata.add_text("Model", "Stable Diffusion v2.1")
 
             # Generate
             nsfwDetected = False
@@ -506,7 +504,7 @@ class genImgThreadClass(Thread):
                                         outputDirectory + str(countStr) + ".png", self.request.strength, False, self.request.scheduler, self.request.userconfig, self.request.imgUrl)
                 else:
                     outEmbed = get_embed(self.request.prompt, self.request.negativePrompt, self.request.guideScale, self.request.infSteps, self.request.seed,
-                                        outputDirectory + str(countStr) + ".png", self.request.strength, False, "V Euler", self.request.userconfig, self.request.imgUrl)
+                                        outputDirectory + str(countStr) + ".png", self.request.strength, False, self.request.scheduler, self.request.userconfig, self.request.imgUrl)
             else:
                 outEmbed = hikari.Embed(title=config["NsfwMessage"], colour=hikari.Colour(0xFF0000)).set_footer(
                     "An admin may enable possible nsfw results in /adminsettings... sometimes the detector finds nsfw in sfw results")
@@ -696,7 +694,7 @@ def get_embed(Prompt, NegativePrompt: str, GuideScale, InfSteps, Seed, File, Ima
         except:
             embed.title = curmodel["ModelCommandName"] + " - Result:"
     except:
-        embed.title = "Stable Diffusion v2.0" + " - Result:"
+        embed.title = "Stable Diffusion v2.1" + " - Result:"
     try:
         embed.color = hikari.Colour(int(curmodel["ModelColor"], 16))
     except:
@@ -992,7 +990,7 @@ async def saveResultGif():
                             file_name, activeAnimRequest.strength, True, activeAnimRequest.scheduler, activeAnimRequest.userconfig, activeAnimRequest.imgUrl)
         else:
             embed = get_embed(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.guideScale, activeAnimRequest.infSteps, activeAnimRequest.seed,
-                            file_name, activeAnimRequest.strength, True, "V Euler", activeAnimRequest.userconfig, activeAnimRequest.imgUrl)
+                            file_name, activeAnimRequest.strength, True, activeAnimRequest.scheduler, activeAnimRequest.userconfig, activeAnimRequest.imgUrl)
         embed.set_footer(None)
         embed.set_image(file_name)
         embed.set_thumbnail(None)
@@ -1031,7 +1029,7 @@ async def ThreadCompletionLoop():
         title="Loading " + model_list[AwaitingModelChangeContext.options.model]["ModelDetailedName"], colour=hikari.Colour(0xff1100))
         embed.color = hikari.Colour(0x00ff1a)
         if usingsd2:
-            embed.set_footer("WARNING: Diffuser's implementation of stable diffusion v2.0 does not yet work with kiwi's pipeline, image to image, inpainting, and prompt weighting () will be unavailable with this model.")
+            embed.set_footer("WARNING: Diffuser's implementation of stable diffusion v2.1 does not yet work with kiwi's pipeline, image to image, inpainting, and prompt weighting () will be unavailable with this model.")
         embed.title = "Loaded " + \
         model_list[AwaitingModelChangeContext.options.model]["ModelDetailedName"]
         await AwaitingModelChangeContext.edit_last_response(embed)
