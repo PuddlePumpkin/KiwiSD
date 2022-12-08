@@ -1,0 +1,9 @@
+{
+	"ModelCommandName":"Stable Diffusion v2.1",
+	"ModelDetailedName":"Stable Diffusion v2.1",
+	"HuggingFacePath":"stabilityai/stable-diffusion-2-1-base",
+	"ModelColor":"0x03f4fc",
+	"DefaultGuidanceScale":7,
+	"DefaultSteps": 25,
+	"DefaultSampler": "DPM++"
+}
