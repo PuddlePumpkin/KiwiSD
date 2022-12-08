@@ -586,7 +586,7 @@ def load_learned_embed_in_clip(learned_embeds_path, text_encoder, tokenizer, tok
         if num_added_tokens == 0:
             raise ValueError(
                 f"The tokenizer already contains the token {token}. Please pass a different `token` that is not already in the tokenizer.")
-        print(token)
+        #print(token)
         # resize the token embeddings
         if not 'string_to_param' in loaded_learned_embeds:
             text_encoder.resize_token_embeddings(len(tokenizer))
@@ -711,7 +711,7 @@ def get_embed(Prompt, NegativePrompt: str, GuideScale, InfSteps, Seed, File, Ima
     try:
         embed.color = hikari.Colour(int(curmodel["ModelColor"], 16))
     except:
-        embed.color = hikari.Colour(0xff8f87)
+        embed.color = hikari.Colour(0x8e38ff)
     if imgurl != None:
         embed.set_thumbnail(imgurl)
     if ((Prompt != None) and (Prompt != "None") and (Prompt != "")):
@@ -1335,7 +1335,7 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
         
         if (ctx.options.steps == None):
             try:
-                steps = model_list[curmodel]["DefaultSteps"]
+                steps = curmodel["DefaultSteps"]
             except Exception:
                 steps = 15
         else:
@@ -1343,7 +1343,7 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
         
         if (ctx.options.sampler == None):
             try:
-                sampler = model_list[curmodel]["DefaultSampler"]
+                sampler = curmodel["DefaultSampler"]
             except Exception:
                 sampler = "DPM++"
         else:
@@ -1351,7 +1351,7 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
 
         if (ctx.options.guidance_scale == None):
             try:
-                guidance_scale = model_list[curmodel]["DefaultGuidanceScale"]
+                guidance_scale = curmodel["DefaultGuidanceScale"]
             except Exception:
                 guidance_scale = 7
         else:
