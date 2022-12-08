@@ -104,21 +104,34 @@ def populate_model_list():
             print("Failed to convert model: " + str(ckpt))
     #Iterate model folders
     for folder in next(os.walk('./models'))[1]:
-        json_list = list(
-            Path("./models/"+folder).rglob("*[mM][oO][dD][eE][lL].[jJ][sS][oO][nN]"))
-        if len(json_list) == 0:
-            model_list[folder] = {"ModelCommandName": folder,"ModelPath": "./models/" + folder, "ModelDetailedName": folder}
-        else:
-            with open(json_list[0], 'r') as openfile:
-                open_json = json.load(openfile)
-                open_json["ModelPath"] = "./models/" + folder
-                model_list[open_json["ModelCommandName"]] = open_json
-                openfile.close()
+        if folder != "HuggingFaceModelDescriptors":
+            json_list = list(
+                Path("./models/"+folder).rglob("*[mM][oO][dD][eE][lL].[jJ][sS][oO][nN]"))
+            if len(json_list) == 0:
+                model_list[folder] = {"ModelCommandName": folder,"ModelPath": "./models/" + folder, "ModelDetailedName": folder}
+            else:
+                with open(json_list[0], 'r') as openfile:
+                    open_json = json.load(openfile)
+                    open_json["ModelPath"] = "./models/" + folder
+                    model_list[open_json["ModelCommandName"]] = open_json
+                    openfile.close()
     load_config()
-    for modelkey in config["HuggingFaceModels"]:
-        model_list[str(modelkey)] = {"ModelCommandName":str(modelkey), "ModelPath":str(config["HuggingFaceModels"][modelkey]),"ModelDetailedName":str(modelkey)}
+    #for modelkey in config["HuggingFaceModels"]:
+    #    model_list[str(modelkey)] = {"ModelCommandName":str(modelkey), "ModelPath":str(config["HuggingFaceModels"][modelkey]),"ModelDetailedName":str(modelkey)}
+    if config["LoadHuggingFaceModels"] == True:
+        json_list = list(Path("./models/HuggingFaceModelDescriptors/").rglob("*.[jJ][sS][oO][nN]"))
+        if len(json_list) == 0:
+            pass
+        else:
+            for modeldescriptor in json_list:
+                with open(modeldescriptor, 'r') as openfile:
+                    open_json = json.load(openfile)
+                    open_json["ModelPath"] = open_json["HuggingFacePath"]
+                    model_list[open_json["ModelCommandName"]] = open_json
+                    openfile.close()
     if model_list == {}:
         sys.exit("\nKiwi does not work without a model in the models directory, see readme.md for more info.\n")
+    print(model_list.keys())
 populate_model_list()
 
 
@@ -1320,6 +1333,30 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
         else:
             inpainturl = "0"
         
+        if (ctx.options.steps == None):
+            try:
+                steps = model_list[curmodel]["DefaultSteps"]
+            except Exception:
+                steps = 15
+        else:
+            steps = ctx.options.steps
+        
+        if (ctx.options.sampler == None):
+            try:
+                sampler = model_list[curmodel]["DefaultSampler"]
+            except Exception:
+                sampler = "DPM++"
+        else:
+            sampler = ctx.options.sampler
+
+        if (ctx.options.guidance_scale == None):
+            try:
+                guidance_scale = model_list[curmodel]["DefaultGuidanceScale"]
+            except Exception:
+                guidance_scale = 7
+        else:
+            guidance_scale = ctx.options.guidance_scale
+
         activeQueue = False
         try:
             if len(requestQueue)>0:
@@ -1365,8 +1402,8 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
                     filteredPrompt = filteredPrompt.replace(tag,"")
 
             
-        requestObject = imageRequest(filteredPrompt, ctx.options.negative_prompt, ctx.options.steps, ctx.options.seed, ctx.options.guidance_scale, url, ctx.options.strength, ctx.options.width,
-                                     ctx.options.height, respProxy, scheduler=ctx.options.sampler, userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=regenerate, overProcess=overProcess, context=ctx)
+        requestObject = imageRequest(filteredPrompt, ctx.options.negative_prompt, steps, ctx.options.seed, guidance_scale, url, ctx.options.strength, ctx.options.width,
+                                     ctx.options.height, respProxy, scheduler=sampler, userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=regenerate, overProcess=overProcess, context=ctx)
         requestQueue.append(requestObject)
     except Exception:
         print("Error")
@@ -1381,14 +1418,14 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
 @bot.command
 @lightbulb.option("height", "(Optional) height of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("width", "(Optional) width of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
-@lightbulb.option("sampler", "(Optional) Which scheduler to use", required=False, type=str, default="DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
+@lightbulb.option("sampler", "(Optional) Which scheduler to use", required=False, type=str, choices=["DPM++", "PNDM", "KLMS", "Euler"])
 @lightbulb.option("inpaint_mask", "(Optional) mask to block off for image inpainting (white = replace, black = dont touch)", required=False, type=hikari.Attachment)
 @lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)",max_value=1,min_value=0, required=False, type=float)
 @lightbulb.option("image_link", "(Optional) image link or message ID", required=False, type=str)
 @lightbulb.option("image", "(Optional) image to run diffusion on", required=False, type=hikari.Attachment)
-@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion (Default:15)", required=False, default=15, type=int, max_value=config["MaxSteps"], min_value=1)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion", required=False, type=int, max_value=config["MaxSteps"], min_value=1)
 @lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required=False, default=0, type=int, min_value=0)
-@lightbulb.option("guidance_scale", "(Optional) Guidance scale for diffusion (Default:7)", required=False, type=float, default=7, max_value=100, min_value=-100)
+@lightbulb.option("guidance_scale", "(Optional) Guidance scale for diffusion", required=False, type=float, max_value=100, min_value=-100)
 @lightbulb.option("negative_prompt", "(Optional)Prompt for diffusion to avoid.", required=False, default="0")
 @lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ", required=True, default="0")
 @lightbulb.command("generate", "runs diffusion on an input image")
