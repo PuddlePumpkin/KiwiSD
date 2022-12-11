@@ -4,7 +4,7 @@ from pathlib import Path
 import ffmpeg
 def encode_video(framerate = 10)->Path:
     '''Encodes png animation frames in ./animation to a mp4 file'''
-    os.chdir(str(os.path.abspath(os.path.dirname(__file__))))
+    os.chdir(str(os.path.abspath(os.path.dirname(os.path.dirname(__file__)))))
     pnglist = list(Path("./animation/").rglob("*.png"))
     mp4list = list(Path("./animation/").rglob("*.mp4"))
     if mp4list == None:

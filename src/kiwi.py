@@ -586,7 +586,7 @@ def load_learned_embed_in_clip(learned_embeds_path, text_encoder, tokenizer, tok
         if num_added_tokens == 0:
             raise ValueError(
                 f"The tokenizer already contains the token {token}. Please pass a different `token` that is not already in the tokenizer.")
-        #print(token)
+        print(token)
         # resize the token embeddings
         if not 'string_to_param' in loaded_learned_embeds:
             text_encoder.resize_token_embeddings(len(tokenizer))
