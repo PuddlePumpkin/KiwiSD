@@ -815,9 +815,28 @@ async def handle_role_selection(bot: lightbulb.BotApp) -> None:
     """Watches for events, and handles responding to them."""
     with bot.stream(hikari.InteractionCreateEvent,timeout=None).filter(lambda e: (isinstance(e.interaction, hikari.ComponentInteraction))) as stream:
         async for event in stream:
+            load_config()
             member = await bot.rest.fetch_member(guildId,event.interaction.user)
             roles = member.get_roles()
             matchedRole = False
+            try:
+                for obj in config["IncompatibleRoles"]:
+                    for key in obj.keys():
+                        val = obj[key]
+                        if event.interaction.values[0] == key:
+                            for role in roles:
+                                if role.name == val:
+                                    await event.interaction.create_initial_response(hikari.ResponseType.MESSAGE_CREATE, "The selected role is incompatible with one of your roles...", flags=hikari.MessageFlag.EPHEMERAL)
+                                    await ready_listener(bot)
+                                    return
+                        elif event.interaction.values[0] == val:
+                            for role in roles:
+                                if role.name == key:
+                                    await event.interaction.create_initial_response(hikari.ResponseType.MESSAGE_CREATE, "The selected role is incompatible with one of your roles...", flags=hikari.MessageFlag.EPHEMERAL)
+                                    await ready_listener(bot)
+                                    return
+            except Exception:
+                traceback.print_exc()
             for role in roles:
                 if role.name == event.interaction.values[0]:
                     matchedRole = True
