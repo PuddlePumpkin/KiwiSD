@@ -313,8 +313,8 @@ class genImgThreadClass(Thread):
                     scheduler = DPMSolverMultistepScheduler.from_pretrained(curmodel["ModelPath"], subfolder="scheduler", solver_order=2, predict_epsilon=True, thresholding=False,
                                                                         algorithm_type="dpmsolver++", solver_type="midpoint", denoise_final=True)  # the influence of this trick is effective for small (e.g. <=10) steps)
                 pipe.scheduler = scheduler
-            except:
-                pass
+            except Exception:
+                traceback.print_exc()
             # Handle prompt
             if (self.request.prompt == None or self.request.prompt == "0"):
                 self.request.prompt = ""
@@ -761,6 +761,17 @@ async def generate_cancel_rows(bot: lightbulb.BotApp):
     rows.append(row)
     return rows
 
+async def generate_role_selection_row(bot:lightbulb.BotApp):
+    rows = []
+    row = bot.rest.build_action_row()
+    menu = row.add_select_menu("RoleMenu")
+    for item in config["RolesToToggle"].replace(", ", ",").replace(" ,", ",").replace(" , ", ",").split(","):
+        menu.add_option(item,item).add_to_menu()
+    menu.set_placeholder("Role")
+    menu.add_to_container()
+    rows.append(row)
+    return rows
+
 async def handle_responses(bot: lightbulb.BotApp, author: hikari.User, message: hikari.Message, ctx: lightbulb.SlashContext = None, autodelete: bool = False) -> None:
     """Watches for events, and handles responding to them."""
     with bot.stream(hikari.InteractionCreateEvent, 60).filter(lambda e: (isinstance(e.interaction, hikari.ComponentInteraction) and e.interaction.message == message)) as stream:
@@ -799,6 +810,29 @@ async def handle_responses(bot: lightbulb.BotApp, author: hikari.User, message: 
         await bot.rest.delete_message(message.channel_id, message)
     else:
         await message.edit(components=[])
+
+async def handle_role_selection(bot: lightbulb.BotApp) -> None:
+    """Watches for events, and handles responding to them."""
+    with bot.stream(hikari.InteractionCreateEvent,timeout=None).filter(lambda e: (isinstance(e.interaction, hikari.ComponentInteraction))) as stream:
+        async for event in stream:
+            member = await bot.rest.fetch_member(guildId,event.interaction.user)
+            roles = member.get_roles()
+            matchedRole = False
+            for role in roles:
+                if role.name == event.interaction.values[0]:
+                    matchedRole = True
+            roleList = await bot.rest.fetch_roles(guildId)
+            for role in roleList:
+                if role.name == event.interaction.values[0]:
+                    matchedRoleId = role.id
+                    break
+            if matchedRole:
+                await member.remove_role(matchedRoleId)
+            else:
+                await member.add_role(matchedRoleId)
+            await event.interaction.create_initial_response(hikari.ResponseType.MESSAGE_CREATE, "The selected role has been toggled.", flags=hikari.MessageFlag.EPHEMERAL)
+            await ready_listener(bot)
+            
 
 
 # ----------------------------------
@@ -901,8 +935,19 @@ else:
 # ----------------------------------
 # Bot ready event
 # ----------------------------------
+@bot.listen(hikari.ShardReadyEvent)
 async def ready_listener(_):
-    pass
+    load_config()
+    if config["RoleChangeChannel"] != "" and config["RolesToToggle"] != "":
+        embed = hikari.Embed(title=("To toggle a role, select it from the list:         "))
+        embed.color = hikari.Colour(0xfd87ff)
+        rows = await generate_role_selection_row(bot)
+        messages = await bot.rest.fetch_messages(int(config["RoleChangeChannel"])).take_until(lambda m: datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1) > m.created_at).limit(1)
+        try:
+            await bot.rest.edit_message(int(config["RoleChangeChannel"]),messages[0].id,embed,components=rows)
+        except:
+            await bot.rest.create_message(int(config["RoleChangeChannel"]),embed,components=rows)
+        await handle_role_selection(bot)
 
 
 # ----------------------------------
