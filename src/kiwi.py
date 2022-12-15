@@ -959,6 +959,22 @@ async def ready_listener(_):
 async def ping(ctx: lightbulb.SlashContext) -> None:
     await respond_with_autodelete("Pong!", ctx, 0x00ff1a)
 
+# ----------------------------------
+# Pause Generation Command
+# ----------------------------------
+paused = False
+@bot.command
+@lightbulb.add_checks(lightbulb.owner_only)
+@lightbulb.command("halt", "Pauses Bot Generation")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def pg(ctx: lightbulb.SlashContext) -> None:
+    global paused
+    if paused:
+        paused = False
+        await ctx.respond("Generation Un-Halted",flags=hikari.MessageFlag.EPHEMERAL)
+    else:
+        paused = True
+        await ctx.respond("Generation Halted",flags=hikari.MessageFlag.EPHEMERAL)
 
 # ----------------------------------
 # Metadata Command
@@ -1340,11 +1356,7 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
 
 async def respond_with_autodelete(text: str, ctx: lightbulb.SlashContext, color=0xff0015):
     '''Generate an embed and respond to the context with the input text'''
-    embed = hikari.Embed(title=text, colour=hikari.Colour(color))
-    rows = await generate_rows(ctx.bot)
-    response = await ctx.respond(embed, components=rows)
-    message = await response.message()
-    await handle_responses(ctx.bot, ctx.author, message, autodelete=True)
+    response = await ctx.respond(text, flags=hikari.MessageFlag.EPHEMERAL)
 
 
 async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProcess: bool = False):
@@ -1476,6 +1488,10 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
 @lightbulb.command("generate", "runs diffusion on an input image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def generate(ctx: lightbulb.SlashContext) -> None:
+    global paused
+    if paused:
+        await respond_with_autodelete("Sorry, generation is currently paused!",ctx)
+        return
     await processRequest(ctx, False)
 
 
@@ -1539,11 +1555,15 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("generategif", "Generate a series of results")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def generategif(ctx: lightbulb.SlashContext) -> None:
+    global paused
     global botBusy
     global animationFrames
     global curmodel
     global titles
     global outputDirectory
+    if paused:
+        await respond_with_autodelete("Sorry, generation is currently paused!",ctx)
+        return
     animationFrames = []
     load_config()
     if config["AllowNonAdminGenerateGif"] == False:
