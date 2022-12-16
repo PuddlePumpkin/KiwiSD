@@ -19,7 +19,4 @@
     "BusyThumbnail": "https://i.imgur.com/neR3ggx.gif",
     "LoadingGif": "https://i.imgur.com/ZCalIbz.gif",
     "LoadingThumbnail": "https://i.imgur.com/21reOYm.gif",
-    "RoleChangeChannel":"",
-    "IncompatibleRoles": [{"examplerole1": "examplerole2"}],
-    "RolesToToggle":""
 }
