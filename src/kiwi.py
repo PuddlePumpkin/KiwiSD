@@ -28,16 +28,10 @@ def save_user_config(userid: str, saveconfig):
 def load_config():
     '''loads admin config file'''
     global config
-    global loadingThumbnail
-    global loadingGif
-    global busyThumbnail
     if not os.path.exists(str("kiwiconfig.json")):
         shutil.copy2("kiwiconfigdefault.json", "kiwiconfig.json")
     with open('kiwiconfig.json', 'r') as openfile:
         config = json.load(openfile)
-        loadingThumbnail = config["LoadingThumbnail"]
-        loadingGif = config["LoadingGif"]
-        busyThumbnail = config["BusyThumbnail"]
         openfile.close()
 
 def save_config():
