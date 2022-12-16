@@ -7,6 +7,7 @@ import shutil
 import sys
 import traceback
 import datetime
+import re
 from io import BytesIO
 from pathlib import Path
 from threading import Thread
@@ -1023,31 +1024,63 @@ async def metadata(ctx: lightbulb.SlashContext) -> None:
         mdataimage = mdataimage.resize((512, 512))
     embed = hikari.Embed(title=(url.rsplit(
         '/', 1)[-1]), colour=hikari.Colour(0x56aaf8)).set_thumbnail(url)
-    if (str(mdataimage.info.get("Model")) != "None"):
-        embed.add_field("Model:", str(mdataimage.info.get("Model")))
-    if (str(mdataimage.info.get("Prompt")) != "None"):
-        embed.add_field("Prompt:", str(mdataimage.info.get("Prompt")))
-    if (str(mdataimage.info.get("Negative Prompt")) != "None"):
-        embed.add_field("Negative Prompt:", str(
-            mdataimage.info.get("Negative Prompt")))
-    if (str(mdataimage.info.get("Guidance Scale")) != "None"):
-        embed.add_field("Guidance Scale:", str(
-            mdataimage.info.get("Guidance Scale")))
-    if (str(mdataimage.info.get("Inference Steps")) != "None"):
-        embed.add_field("Inference Steps:", str(
-            mdataimage.info.get("Inference Steps")))
-    if (str(mdataimage.info.get("Seed")) != "None"):
-        embed.add_field("Seed:", str(mdataimage.info.get("Seed")))
-    if (str(mdataimage.info.get("Width")) != "None"):
-        embed.add_field("Width:", str(mdataimage.info.get("Width")))
-    if (str(mdataimage.info.get("Height")) != "None"):
-        embed.add_field("Height:", str(mdataimage.info.get("Height")))
-    if (str(mdataimage.info.get("Scheduler")) != "None"):
-        embed.add_field("Scheduler:", str(mdataimage.info.get("Scheduler")))
-    if (str(mdataimage.info.get("Img2Img Strength")) != "None"):
-        embed.add_field("Img2Img Strength:", str(mdataimage.info.get("Img2Img Strength")))
     if (str(mdataimage.info.get("parameters")) != "None"):
-        embed.add_field("WebUI Metadata:", "Prompt: " + str(mdataimage.info.get("parameters")))
+        regex = re.compile(r"Prompt: (?P<prompts>.*)\nNegative prompt: (?P<negativeprompts>.*)\nSteps: (?P<steps>.*), Sampler: (?P<sampler>.*), CFG scale: (?P<cfg>.*), Seed: (?P<seed>.*), S")
+        matchresult = regex.search("Prompt: " + str(mdataimage.info.get("parameters")))
+        #matchresult.group('prompts') # Matches all tags under prompt
+        #matchresult.group('negativeprompts') # Matches all negative tags
+        if (str(matchresult.group('prompts')) != ""):
+            embed.add_field("Prompt:", matchresult.group('prompts'))
+
+        if (str(matchresult.group('negativeprompts')) != ""):
+            embed.add_field("Negative Prompt:", matchresult.group('negativeprompts'))
+
+        if (str(matchresult.group('cfg')) != ""):
+            embed.add_field("Guidance Scale:", matchresult.group('cfg'))
+
+        if (str(matchresult.group('steps')) != ""):
+            embed.add_field("Steps", matchresult.group('steps'))
+
+        if (str(matchresult.group('seed')) != ""):
+            embed.add_field("Seed:", matchresult.group('seed'))
+
+        if (str(matchresult.group('sampler')) != ""):
+            embed.add_field("Sampler:", matchresult.group('sampler'))
+    else: 
+        if (str(mdataimage.info.get("Model")) != "None"):
+            embed.add_field("Model:", str(mdataimage.info.get("Model")))
+
+        if (str(mdataimage.info.get("Prompt")) != "None"):
+            embed.add_field("Prompt:", str(mdataimage.info.get("Prompt")))
+
+        if (str(mdataimage.info.get("Negative Prompt")) != "None"):
+            embed.add_field("Negative Prompt:", str(
+                mdataimage.info.get("Negative Prompt")))
+
+        if (str(mdataimage.info.get("Guidance Scale")) != "None"):
+            embed.add_field("Guidance Scale:", str(
+                mdataimage.info.get("Guidance Scale")))
+
+        if (str(mdataimage.info.get("Inference Steps")) != "None"):
+            embed.add_field("Inference Steps:", str(
+                mdataimage.info.get("Inference Steps")))
+
+        if (str(mdataimage.info.get("Seed")) != "None"):
+            embed.add_field("Seed:", str(mdataimage.info.get("Seed")))
+
+        if (str(mdataimage.info.get("Width")) != "None"):
+            embed.add_field("Width:", str(mdataimage.info.get("Width")))
+
+        if (str(mdataimage.info.get("Height")) != "None"):
+            embed.add_field("Height:", str(mdataimage.info.get("Height")))
+
+        if (str(mdataimage.info.get("Scheduler")) != "None"):
+            embed.add_field("Sampler:", str(mdataimage.info.get("Scheduler")))
+
+        if (str(mdataimage.info.get("Img2Img Strength")) != "None"):
+            embed.add_field("Img2Img Strength:", str(mdataimage.info.get("Img2Img Strength")))
+    #if (str(mdataimage.info.get("parameters")) != "None"):
+    #    embed.add_field("WebUI Metadata:", "Prompt: " + str(mdataimage.info.get("parameters")))
     rows = await generate_rows(ctx.bot)
     response = await ctx.respond(embed, components=rows)
     message = await response.message()
