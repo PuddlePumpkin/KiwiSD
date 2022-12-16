@@ -1,9 +1,0 @@
-{
-	"ModelCommandName":"Example Model",
-	"ModelDetailedName":"Example Model Version 3.5",
-	"ModelThumbnail:":"https://cdn.discordapp.com/attachments/672892614613139471/1034513266027798528/SD-01.png",
-	"ModelColor":"0xfb7aff",
-	"DefaultGuidanceScale":7,
-	"DefaultSteps": 25,
-	"DefaultSampler": "DPM++"
-}
