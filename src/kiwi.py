@@ -181,7 +181,7 @@ async def ready_listener(_):
 
 async def respond_with_autodelete(text: str, ctx: lightbulb.SlashContext, color=0xff0015):
     '''Generate an embed and respond to the context with the input text'''
-    response = await ctx.respond(text, flags=hikari.MessageFlag.EPHEMERAL)
+    await ctx.respond(text, flags=hikari.MessageFlag.EPHEMERAL)
 
 def set_bool_user_setting(userid: str, setting: str, value: bool):
     '''Sets a user setting to specified bool'''
