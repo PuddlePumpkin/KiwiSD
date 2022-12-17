@@ -545,13 +545,13 @@ def load_user_config(userid: str) -> dict:
     with open('usersettings.json', 'r') as openfile:
         userconfig = json.load(openfile)
         openfile.close()
-    if userid in userconfig:
-        return userconfig[userid]
+    if str(userid) in userconfig:
+        return userconfig[str(userid)]
     else:
         # write a default config to the userid
         load_config()
-        userconfig[userid] = {"UseDefaultQualityPrompt": False, "DefaultQualityPrompt": config["NewUserQualityPrompt"],
-                              "UseDefaultNegativePrompt": False, "DefaultNegativePrompt": config["NewUserNegativePrompt"]}
+        userconfig[str(userid)] = {"UseDefaultQualityPrompt": True, "DefaultQualityPrompt": config["NewUserQualityPrompt"],"UseDefaultNegativePrompt": False, "DefaultNegativePrompt": config["NewUserNegativePrompt"]}
+        save_user_config(str(userid),userconfig[str(userid)])
         return userconfig[str(userid)]
 
 
@@ -1351,7 +1351,7 @@ async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
 
 async def respond_with_autodelete(text: str, ctx: lightbulb.SlashContext, color=0xff0015):
     '''Generate an embed and respond to the context with the input text'''
-    response = await ctx.respond(text, flags=hikari.MessageFlag.EPHEMERAL)
+    await ctx.respond(text, flags=hikari.MessageFlag.EPHEMERAL)
 
 
 async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProcess: bool = False):
@@ -1520,7 +1520,7 @@ async def help(ctx: lightbulb.SlashContext) -> None:
         "\n> __[Tag Groups](https://danbooru.donmai.us/wiki_pages/tag_groups)__"
         "\n> __[Waifu Diffusion 1.3 Release Notes](https://gist.github.com/harubaru/f727cedacae336d1f7877c4bbe2196e1)__"
     )
-    await ctx.respond(embedtext1)
+    await ctx.respond(embedtext1,flags=hikari.MessageFlag.EPHEMERAL)
 
 
 # ----------------------------------
@@ -1731,10 +1731,7 @@ async def settings(ctx: lightbulb.SlashContext) -> None:
             embed.add_field(str(key), str(value))
         else:
             embed.add_field(str(key), str("None"))
-    rows = await generate_rows(ctx.bot)
-    response = await ctx.respond(embed, components=rows)
-    message = await response.message()
-    await handle_responses(ctx.bot, ctx.author, message, autodelete=True)
+    response = await ctx.respond(embed, flags=hikari.MessageFlag.EPHEMERAL)
 
 
 # ----------------------------------
@@ -1776,11 +1773,11 @@ async def adminsettings(ctx: lightbulb.SlashContext) -> None:
     load_config()
     embed = hikari.Embed(title="Settings:", colour=hikari.Colour(0xabaeff))
     for key, value in config.items():
-        embed.add_field(str(key), str(value))
-    rows = await generate_rows(ctx.bot)
-    response = await ctx.respond(embed, components=rows)
-    message = await response.message()
-    await handle_responses(ctx.bot, ctx.author, message, autodelete=True)
+        if value == "" or value == None:
+            embed.add_field(str(key), str("None"))
+        else:
+            embed.add_field(str(key), str(value))
+    await ctx.respond(embed, flags=hikari.MessageFlag.EPHEMERAL)
 
 
 # ----------------------------------
@@ -1938,9 +1935,7 @@ def togprompts(positive: bool, ctx: lightbulb.SlashContext) -> hikari.Embed:
         setting = "UseDefaultQualityPrompt"
     else:
         setting = "UseDefaultNegativePrompt"
-    get_bool_user_setting(ctx.user.id, setting)
-    set_bool_user_setting(ctx.user.id, setting,
-                          not get_bool_user_setting(ctx.user.id, setting))
+    set_bool_user_setting(ctx.user.id, setting, not get_bool_user_setting(ctx.user.id, setting))
     if positive:
         if get_bool_user_setting(ctx.user.id, setting):
             embed = hikari.Embed(
@@ -1969,10 +1964,7 @@ def togprompts(positive: bool, ctx: lightbulb.SlashContext) -> hikari.Embed:
 @lightbulb.implements(lightbulb.SlashCommand)
 async def togglenegativeprompts(ctx: lightbulb.SlashContext) -> None:
     embed = togprompts(False, ctx)
-    rows = await generate_toggle_rows(ctx.bot, False)
-    response = await ctx.respond(embed, components=rows)
-    message = await response.message()
-    await handle_responses(ctx.bot, ctx.author, message, ctx, True)
+    await ctx.respond(embed,flags=hikari.MessageFlag.EPHEMERAL)
 
 # ----------------------------------
 # Toggle quality prompts command
@@ -1982,10 +1974,7 @@ async def togglenegativeprompts(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.implements(lightbulb.SlashCommand)
 async def togglenegativeprompts(ctx: lightbulb.SlashContext) -> None:
     embed = togprompts(True, ctx)
-    rows = await generate_toggle_rows(ctx.bot, True)
-    response = await ctx.respond(embed, components=rows)
-    message = await response.message()
-    await handle_responses(ctx.bot, ctx.author, message, ctx, True)
+    await ctx.respond(embed,flags=hikari.MessageFlag.EPHEMERAL)
 
 
 # ----------------------------------

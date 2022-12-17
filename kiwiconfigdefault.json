@@ -14,8 +14,8 @@
     "ChangeModelChannelsToNotify":"",
     "LoadHuggingFaceModels": true,
     "MaxSteps": 50,
-    "NewUserQualityPrompt": "masterpiece, best quality",
-    "NewUserNegativePrompt": "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts,signature, watermark, username, blurry, artist name",
+    "NewUserQualityPrompt": "best quality",
+    "NewUserNegativePrompt": "",
     "BusyThumbnail": "https://i.imgur.com/neR3ggx.gif",
     "LoadingGif": "https://i.imgur.com/ZCalIbz.gif",
     "LoadingThumbnail": "https://i.imgur.com/21reOYm.gif"
