@@ -39,7 +39,7 @@ os.chdir(str(os.path.abspath(os.path.dirname(os.path.dirname(__file__)))))
 model_list = {}
 def convert_model(ckptpath, vaepath=None, dump_path=None):
     convertckpt.convert_model(ckptpath, vaepath, dump_path=dump_path)
-
+pipe = None
 # ----------------------------------
 # Configs
 # ----------------------------------
@@ -226,6 +226,12 @@ class changeModelThreadClass(Thread):
         global text_encoder
         global model_list
         global usingsd2
+        if pipe != None:
+            pipe = None
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+            torch.cuda.ipc_collect()
+            gc.collect()
         if self.modelname != "Stable Diffusion v2.1":
             print("\nChanging model to: " + self.modelname)
             tokenizer = CLIPTokenizer.from_pretrained(model_list[self.modelname]["ModelPath"], subfolder="tokenizer", use_auth_token=HFToken)
@@ -242,6 +248,11 @@ class changeModelThreadClass(Thread):
             gc.collect()
             pipe = DiffusionPipeline.from_pretrained(model_list[self.modelname]["ModelPath"], custom_pipeline="lpw_stable_diffusion", use_auth_token=HFToken,
                                                     torch_dtype=torch.float16, revision="fp16", text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
+            del tokenizer
+            del text_encoder
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+            torch.cuda.ipc_collect()
             print("\n" + self.modelname + " loaded.\n")
             pipe.enable_attention_slicing()
             usingsd2 = False
@@ -932,11 +943,21 @@ paused = False
 @lightbulb.implements(lightbulb.SlashCommand)
 async def pg(ctx: lightbulb.SlashContext) -> None:
     global paused
+    global pipe
+    global curmodel
     if paused:
         paused = False
         await ctx.respond("Generation Un-Halted",flags=hikari.MessageFlag.EPHEMERAL)
     else:
         paused = True
+        if pipe is not None:
+            pipe = None
+            print("Unloading model and emptying cache-")
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+            torch.cuda.ipc_collect()
+            gc.collect()
+            curmodel = ""
         await ctx.respond("Generation Halted",flags=hikari.MessageFlag.EPHEMERAL)
 
 # ----------------------------------
