@@ -1381,6 +1381,9 @@ async def respond_with_autodelete(text: str, ctx: lightbulb.SlashContext, color=
 
 async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProcess: bool = False):
     '''process ctx into a image request'''
+    if len(str(ctx.options.prompt)) > 800 or len(str(ctx.options.negative_prompt)) > 800:
+        await respond_with_autodelete("Sorry, prompt lengths must be less than 800 characters!",ctx)
+        return
     global curmodel
     global titles
     global outputDirectory
@@ -1726,6 +1729,10 @@ async def todo(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.command("settings", "View or modify your personal user settings")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def settings(ctx: lightbulb.SlashContext) -> None:
+    if len(str(ctx.options.value)) > 800:
+        print("LIMIT")
+        await respond_with_autodelete("Sorry, setting length must be less than 800 characters!",ctx)
+        return
     userconfig = load_user_config(str(ctx.author.id))
     if ctx.options.setting != None:
         # Bool settings

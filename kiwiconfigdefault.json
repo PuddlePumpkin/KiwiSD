@@ -13,7 +13,7 @@
     "AdminList": "",
     "ChangeModelChannelsToNotify":"",
     "LoadHuggingFaceModels": true,
-    "MaxSteps": 50,
+    "MaxSteps": 30,
     "NewUserQualityPrompt": "best quality",
     "NewUserNegativePrompt": "",
     "BusyThumbnail": "https://i.imgur.com/neR3ggx.gif",
