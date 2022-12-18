@@ -341,12 +341,11 @@ class genImgThreadClass(Thread):
                     if (self.request.negativePrompt == ""):
                         self.request.negativePrompt = self.request.userconfig["DefaultNegativePrompt"]
                     else:
-                        self.request.negativePrompt = self.request.negativePrompt + \
-                            ", " + \
-                            self.request.userconfig["DefaultNegativePrompt"]
+                        self.request.negativePrompt = self.request.negativePrompt + ", " + self.request.userconfig["DefaultNegativePrompt"]
                 else:
                     self.request.negativePrompt = self.request.userconfig["DefaultNegativePrompt"]
-
+            self.request.negativePrompt = self.request.negativePrompt.replace(", , ",", ")
+            self.request.negativePrompt = self.request.negativePrompt.replace(", ,",", ")
             # Handle Default Quality
             if self.request.userconfig["UseDefaultQualityPrompt"]:
                 if (self.request.prompt != None):
@@ -456,7 +455,7 @@ class genImgThreadClass(Thread):
             # Generate
             nsfwDetected = False
             with autocast("cuda"):
-                if not config["EnableNsfwFilter"] or str(self.request.context.channel_id) in str(config["NSFWAllowOverrideChannelIDs"]).replace(" ","").split(","):
+                if not config["EnableNsfwDetector"] or str(self.request.context.channel_id) in str(config["NsfwChannelIDs"]).replace(" ","").split(","):
                     if loaded_safety_checker == None and not usingsd2:
                         loaded_safety_checker = pipe.safety_checker
                     def dummy_checker(images, **kwargs): return images, False
@@ -526,10 +525,10 @@ class genImgThreadClass(Thread):
             if not nsfwDetected:
                 if not usingsd2:
                     outEmbed = get_embed(self.request.prompt, self.request.negativePrompt, self.request.guideScale, self.request.infSteps, self.request.seed,
-                                        outputDirectory + str(countStr) + ".png", self.request.strength, False, self.request.scheduler, self.request.userconfig, self.request.imgUrl)
+                                        outputDirectory + str(countStr) + ".png", self.request.strength, False, self.request.scheduler, self.request.userconfig, self.request.imgUrl,self.request.context)
                 else:
                     outEmbed = get_embed(self.request.prompt, self.request.negativePrompt, self.request.guideScale, self.request.infSteps, self.request.seed,
-                                        outputDirectory + str(countStr) + ".png", self.request.strength, False, self.request.scheduler, self.request.userconfig, self.request.imgUrl)
+                                        outputDirectory + str(countStr) + ".png", self.request.strength, False, self.request.scheduler, self.request.userconfig, self.request.imgUrl,self.request.context)
             else:
                 outEmbed = hikari.Embed(title=config["NsfwMessage"], colour=hikari.Colour(0xFF0000)).set_footer(
                     "An admin may enable possible nsfw results in /adminsettings... sometimes the detector finds nsfw in sfw results")
@@ -663,9 +662,14 @@ def image_grid(imgs, rows, cols):
 # ----------------------------------
 # Get Embed
 # ----------------------------------
-def get_embed(Prompt, NegativePrompt: str, GuideScale, InfSteps, Seed, File, ImageStrength=None, Gifmode=False, Scheduler=None, UserConfig=None, imgurl=None):
+def get_embed(Prompt, NegativePrompt: str, GuideScale, InfSteps, Seed, File, ImageStrength=None, Gifmode=False, Scheduler=None, UserConfig=None, imgurl=None, context:lightbulb.SlashContext = None):
     global curmodel
     global config
+    if context != None:
+        if not str(context.channel_id) in config["NsfwChannelIDs"].replace(", ",",").split(","):
+            NegativePrompt = NegativePrompt.replace(config["SfwNegativePrompt"] + ", ","")
+            if NegativePrompt == ", " or NegativePrompt == "," or NegativePrompt == " ,":
+                NegativePrompt = ""
     if (not config["ShowDefaultPrompts"]):
         if (UserConfig["UseDefaultNegativePrompt"]):
             if NegativePrompt != None:
@@ -1452,30 +1456,20 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
         # -------
         userconfig = load_user_config(str(ctx.author.id))
         load_config()
+        if ctx.options.negative_prompt == None:
+            filteredNegativePrompt:str = ""
+        else:
+            filteredNegativePrompt:str = str(ctx.options.negative_prompt)
         filteredPrompt:str = str(ctx.options.prompt)
-        if config["EnableTagFilter"]:
-            if not config["EnableTagFilterForSFW"]:
-                #tag filter for nsfw only
-                if config["EnableNsfwFilter"]:
-                    #nsfw filter on
-                    if str(ctx.channel_id) in str(config["NSFWAllowOverrideChannelIDs"]).replace(" ","").split(","):
-                        #nsfw filter on, but in a override channel
-                        for tag in config["FilteredTags"].replace(", ",",").split(","):
-                            filteredPrompt = filteredPrompt.replace(tag,"")   
-                    else:
-                        #nsfw filter on, and in a sfw channel
-                        pass
-                else:
-                    #nsfw filter off
-                    for tag in config["FilteredTags"].replace(", ",",").split(","):
-                            filteredPrompt = filteredPrompt.replace(tag,"") 
-            else:
-                #tag filter for EVERYTHING
-                for tag in config["FilteredTags"].replace(", ",",").split(","):
-                    filteredPrompt = filteredPrompt.replace(tag,"")
+        if str(ctx.channel_id) in config["NsfwChannelIDs"].replace(", ",",").split(","):
+            for tag in config["NsfwFilters"].replace(", ",",").split(","):
+                filteredPrompt = filteredPrompt.replace(tag,"")
+        else:
+            filteredNegativePrompt = config["SfwNegativePrompt"] + ", " + filteredNegativePrompt
+            for tag in config["SfwFilters"].replace(", ",",").split(","):
+                filteredPrompt = filteredPrompt.replace(tag,"")
 
-            
-        requestObject = imageRequest(filteredPrompt, ctx.options.negative_prompt, steps, ctx.options.seed, guidance_scale, url, ctx.options.strength, ctx.options.width,
+        requestObject = imageRequest(filteredPrompt, filteredNegativePrompt, steps, ctx.options.seed, guidance_scale, url, ctx.options.strength, ctx.options.width,
                                      ctx.options.height, respProxy, scheduler=sampler, userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=regenerate, overProcess=overProcess, context=ctx)
         requestQueue.append(requestObject)
     except Exception:
@@ -1499,7 +1493,7 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
 @lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion", required=False, type=int, max_value=config["MaxSteps"], min_value=1)
 @lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required=False, default=0, type=int, min_value=0)
 @lightbulb.option("guidance_scale", "(Optional) Guidance scale for diffusion", required=False, type=float, max_value=100, min_value=-100)
-@lightbulb.option("negative_prompt", "(Optional)Prompt for diffusion to avoid.", required=False, default="0")
+@lightbulb.option("negative_prompt", "(Optional)Prompt for diffusion to avoid.", required=False)
 @lightbulb.option("prompt", "A detailed description of desired output, or booru tags, separated by commas. ", required=True, default="0")
 @lightbulb.command("generate", "runs diffusion on an input image")
 @lightbulb.implements(lightbulb.SlashCommand)
@@ -1760,7 +1754,7 @@ async def settings(ctx: lightbulb.SlashContext) -> None:
 # ----------------------------------
 @bot.command()
 @lightbulb.option("value", "(optional if no key) value to change it to", required=False, type=str)
-@lightbulb.option("setting", "(optional) which setting to change", required=False, choices=["EnableNsfwFilter","EnableTagFilter", "EnableTagFilterForSFW", "NsfwMessage", "ShowDefaultPrompts", "NewUserNegativePrompt", "NewUserQualityPrompt", "AdminList", "TodoString", "MaxSteps", "AllowNonAdminChangeModel", "AllowNonAdminGenerateGif", "AutoLoadedModel","LoadingGif", "LoadingThumbnail", "BusyThumbnail", "FilteredTags", "ChangeModelChannelsToNotify"], type=str)
+@lightbulb.option("setting", "(optional) which setting to change", required=False, choices=["EnableNsfwDetector", "NsfwMessage", "ShowDefaultPrompts", "NewUserNegativePrompt", "NewUserQualityPrompt", "AdminList", "TodoString", "MaxSteps", "AllowNonAdminChangeModel", "AllowNonAdminGenerateGif", "AutoLoadedModel","LoadingGif", "LoadingThumbnail", "BusyThumbnail", "NsfwFilters","SfwFilters", "ChangeModelChannelsToNotify"], type=str)
 @lightbulb.command("adminsettings", "View or modify settings")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def adminsettings(ctx: lightbulb.SlashContext) -> None:
@@ -1769,7 +1763,7 @@ async def adminsettings(ctx: lightbulb.SlashContext) -> None:
     if ctx.options.setting != None and ctx.options.value != None:
         if str(ctx.author.id) in get_admin_list():
             # Bools
-            if ctx.options.setting in ["ShowDefaultPrompts", "EnableNsfwFilter", "AllowNonAdminChangeModel","AllowNonAdminGenerateGif", "EnableTagFilter", "EnableTagFilterForSFW"]:
+            if ctx.options.setting in ["ShowDefaultPrompts", "EnableNsfwDetector", "AllowNonAdminChangeModel","AllowNonAdminGenerateGif"]:
                 config[ctx.options.setting] = string_to_bool(ctx.options.value)
             # Ints
             elif ctx.options.setting in ["MaxSteps"]:
@@ -1781,7 +1775,7 @@ async def adminsettings(ctx: lightbulb.SlashContext) -> None:
                 else:
                     config[ctx.options.setting] = 1
             # Strings
-            elif ctx.options.setting in ["NsfwMessage", "AdminList", "NewUserNegativePrompt", "NewUserQualityPrompt", "TodoString", "AutoLoadedModel", "LoadingGif", "LoadingThumbnail", "BusyThumbnail", "FilteredTags", "ChangeModelChannelsToNotify"]:
+            elif ctx.options.setting in ["NsfwMessage", "AdminList", "NewUserNegativePrompt", "NewUserQualityPrompt", "TodoString", "AutoLoadedModel", "LoadingGif", "LoadingThumbnail", "BusyThumbnail", "NsfwFilters", "SfwFilters", "ChangeModelChannelsToNotify"]:
                 config[ctx.options.setting] = ctx.options.value
             # Invalid setting
             else:
