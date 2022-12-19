@@ -104,13 +104,13 @@ async def handle_role_selection(bot: lightbulb.BotApp) -> None:
                             for role in roles:
                                 if role.name == val:
                                     await event.interaction.create_initial_response(hikari.ResponseType.MESSAGE_CREATE, "The selected role is incompatible with one of your roles...", flags=hikari.MessageFlag.EPHEMERAL)
-                                    await ready_listener(bot)
+                                    await rolechangemessage()
                                     return
                         elif event.interaction.values[0] == val:
                             for role in roles:
                                 if role.name == key:
                                     await event.interaction.create_initial_response(hikari.ResponseType.MESSAGE_CREATE, "The selected role is incompatible with one of your roles...", flags=hikari.MessageFlag.EPHEMERAL)
-                                    await ready_listener(bot)
+                                    await rolechangemessage()
                                     return
             except Exception:
                 traceback.print_exc()
@@ -127,7 +127,7 @@ async def handle_role_selection(bot: lightbulb.BotApp) -> None:
             else:
                 await member.add_role(matchedRoleId)
             await event.interaction.create_initial_response(hikari.ResponseType.MESSAGE_CREATE, "The selected role has been toggled.", flags=hikari.MessageFlag.EPHEMERAL)
-            await ready_listener(bot)
+            await rolechangemessage()
             
 
 # ----------------------------------
@@ -167,17 +167,25 @@ else:
 # ----------------------------------
 @bot.listen(hikari.ShardReadyEvent)
 async def ready_listener(_):
+    await rolechangemessage()
+    
+
+async def rolechangemessage():
     load_config()
-    if config["RoleChangeChannel"] != "" and config["RolesToToggle"] != "":
-        embed = hikari.Embed(title=("To toggle a role, select it from the list:         "))
-        embed.color = hikari.Colour(0xfd87ff)
-        rows = await generate_role_selection_row(bot)
-        messages = await bot.rest.fetch_messages(int(config["RoleChangeChannel"])).take_until(lambda m: datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1) > m.created_at).limit(1)
-        try:
-            await bot.rest.edit_message(int(config["RoleChangeChannel"]),messages[0].id,embed,components=rows)
-        except:
-            await bot.rest.create_message(int(config["RoleChangeChannel"]),embed,components=rows)
-        await handle_role_selection(bot)
+    try:
+        if config["RoleChangeChannel"] != "" and config["RolesToToggle"] != "":
+            embed = hikari.Embed(title=("To toggle a role, select it from the list:         "))
+            embed.color = hikari.Colour(0xfd87ff)
+            rows = await generate_role_selection_row(bot)
+            messages = await bot.rest.fetch_messages(int(config["RoleChangeChannel"])).take_until(lambda m: datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=30) > m.created_at).limit(1)
+            try:
+                await bot.rest.edit_message(int(config["RoleChangeChannel"]),messages[0].id,embed,components=rows)
+            except:
+                await bot.rest.create_message(int(config["RoleChangeChannel"]),embed,components=rows)
+            await handle_role_selection(bot)
+    except Exception:
+        traceback.print_exc()
+        
 
 async def respond_with_autodelete(text: str, ctx: lightbulb.SlashContext, color=0xff0015):
     '''Generate an embed and respond to the context with the input text'''
