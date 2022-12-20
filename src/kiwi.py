@@ -324,6 +324,8 @@ class genImgThreadClass(Thread):
                 elif self.request.scheduler == "DPM++":
                     scheduler = DPMSolverMultistepScheduler.from_pretrained(curmodel["ModelPath"], subfolder="scheduler", solver_order=2, predict_epsilon=True, thresholding=False,
                                                                         algorithm_type="dpmsolver++", solver_type="midpoint", denoise_final=True)  # the influence of this trick is effective for small (e.g. <=10) steps)
+                elif self.request.scheduler == "DDIM":
+                    scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear",  clip_sample=False, set_alpha_to_one=False)
                 pipe.scheduler = scheduler
             except Exception:
                 traceback.print_exc()
@@ -1488,7 +1490,7 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
 @bot.command
 @lightbulb.option("height", "(Optional) height of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("width", "(Optional) width of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
-@lightbulb.option("sampler", "(Optional) Which scheduler to use", required=False, type=str, choices=["DPM++", "PNDM", "KLMS", "Euler"])
+@lightbulb.option("sampler", "(Optional) Which scheduler to use", required=False, type=str, choices=["DPM++", "PNDM", "KLMS", "Euler", "DDIM"])
 @lightbulb.option("inpaint_mask", "(Optional) mask to block off for image inpainting (white = replace, black = dont touch)", required=False, type=hikari.Attachment)
 @lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)",max_value=1,min_value=0, required=False, type=float)
 @lightbulb.option("image_link", "(Optional) image link or message ID", required=False, type=str)
@@ -1547,7 +1549,7 @@ async def help(ctx: lightbulb.SlashContext) -> None:
 @bot.command
 @lightbulb.option("height", "(Optional) height of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("width", "(Optional) width of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
-@lightbulb.option("sampler", "(Optional) Which scheduler to use", required=False, type=str, default="DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler"])
+@lightbulb.option("sampler", "(Optional) Which scheduler to use", required=False, type=str, default="DPM++", choices=["DPM++", "PNDM", "KLMS", "Euler", "DDIM"])
 @lightbulb.option("input_gif", "(Optional) gif input", required=False, type=hikari.Attachment)
 @lightbulb.option("inpaint_mask", "(Optional) mask to block off for image inpainting (white = replace, black = dont touch)", required=False, type=hikari.Attachment)
 @lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)", required=False,max_value=1,min_value=0, type=float)
