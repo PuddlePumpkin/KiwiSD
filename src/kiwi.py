@@ -1781,39 +1781,33 @@ async def settings(ctx: lightbulb.SlashContext) -> None:
 async def adminsettings(ctx: lightbulb.SlashContext) -> None:
     global config
     load_config()
-    if ctx.options.setting != None and ctx.options.value != None:
-        if str(ctx.author.id) in get_admin_list():
-            # Bools
-            if ctx.options.setting in ["ShowDefaultPrompts", "EnableNsfwDetector", "AllowNonAdminChangeModel","AllowNonAdminGenerateGif"]:
-                config[ctx.options.setting] = string_to_bool(ctx.options.value)
-            # Ints
-            elif ctx.options.setting in ["MaxSteps"]:
-                if int(ctx.options.value) > 1:
-                    if int(ctx.options.value) < 500:
-                        config[ctx.options.setting] = int(ctx.options.value)
-                    else:
-                        config[ctx.options.setting] = 500
-                else:
-                    config[ctx.options.setting] = 1
-            # Strings
-            elif ctx.options.setting in ["NsfwMessage", "AdminList", "NewUserNegativePrompt", "NewUserQualityPrompt", "TodoString", "AutoLoadedModel", "LoadingGif", "LoadingThumbnail", "BusyThumbnail", "NsfwFilters", "SfwFilters", "ChangeModelChannelsToNotify"]:
-                config[ctx.options.setting] = ctx.options.value
-            # Invalid setting
-            else:
-                await respond_with_autodelete("I dont understand that setting...", ctx)
-                return
+    # Check if the user is an admin
+    if str(ctx.author.id) not in get_admin_list():
+        await respond_with_autodelete("You must be marked as admin to change these settings...", ctx)
+        return
+    # Check if setting and value are provided
+    if ctx.options.setting is None or ctx.options.value is None:
+        pass
+    else:
+        # Update the config with the provided setting and value
+        if ctx.options.setting in ["ShowDefaultPrompts", "EnableNsfwDetector", "AllowNonAdminChangeModel", "AllowNonAdminGenerateGif"]:
+            config[ctx.options.setting] = string_to_bool(ctx.options.value)
+        elif ctx.options.setting in ["MaxSteps"]:
+            config[ctx.options.setting] = min(max(int(ctx.options.value), 1), 500)
+        elif ctx.options.setting in ["NsfwMessage", "AdminList", "NewUserNegativePrompt", "NewUserQualityPrompt", "TodoString", "AutoLoadedModel", "LoadingGif", "LoadingThumbnail", "BusyThumbnail", "NsfwFilters", "SfwFilters", "ChangeModelChannelsToNotify"]:
+            config[ctx.options.setting] = ctx.options.value
         else:
-            await respond_with_autodelete("You must be marked as admin to change these settings...", ctx)
+            await respond_with_autodelete("I don't understand that setting...", ctx)
             return
-        save_config()
-    load_config()
+    save_config()
+    # Create an embed with the current config values
     embed = hikari.Embed(title="Settings:", colour=hikari.Colour(0xabaeff))
     for key, value in config.items():
         if value == "" or value == None:
-            embed.add_field(str(key), str("None"))
-        else:
-            embed.add_field(str(key), str(value))
+            value = "None"
+        embed.add_field(key, value)
     await ctx.respond(embed, flags=hikari.MessageFlag.EPHEMERAL)
+
 
 
 # ----------------------------------
