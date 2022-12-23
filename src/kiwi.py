@@ -231,6 +231,10 @@ class changeModelThreadClass(Thread):
             torch.cuda.empty_cache()
             torch.cuda.synchronize()
             torch.cuda.ipc_collect()
+            torch.cuda.reset_max_memory_cached()
+            torch.cuda.reset_max_memory_allocated()
+            torch.cuda.reset_accumulated_memory_stats()
+            torch.cuda.reset_peak_memory_stats()
             gc.collect()
         if self.modelname != "Stable Diffusion v2.1":
             print("\nChanging model to: " + self.modelname)
@@ -253,6 +257,10 @@ class changeModelThreadClass(Thread):
             torch.cuda.empty_cache()
             torch.cuda.synchronize()
             torch.cuda.ipc_collect()
+            torch.cuda.reset_max_memory_cached()
+            torch.cuda.reset_max_memory_allocated()
+            torch.cuda.reset_accumulated_memory_stats()
+            torch.cuda.reset_peak_memory_stats()
             print("\n" + self.modelname + " loaded.\n")
             pipe.enable_attention_slicing()
             usingsd2 = False
@@ -962,6 +970,10 @@ async def pg(ctx: lightbulb.SlashContext) -> None:
             torch.cuda.empty_cache()
             torch.cuda.synchronize()
             torch.cuda.ipc_collect()
+            torch.cuda.reset_max_memory_cached()
+            torch.cuda.reset_max_memory_allocated()
+            torch.cuda.reset_accumulated_memory_stats()
+            torch.cuda.reset_peak_memory_stats()
             gc.collect()
             curmodel = ""
         await ctx.respond("Generation Halted",flags=hikari.MessageFlag.EPHEMERAL)
@@ -1633,7 +1645,7 @@ async def generategif(ctx: lightbulb.SlashContext) -> None:
                     messageIdResponse = await ctx.app.rest.fetch_message(ctx.channel_id, ctx.options.image_link)
                     url = messageIdResponse.embeds[0].image.url
                 except:
-                    await respond_with_autodelete("Invalid image link!")
+                    await respond_with_autodelete("Invalid image link!",ctx)
                     botBusy = False
                     return
         else:
@@ -1675,7 +1687,7 @@ async def changemodel(ctx: lightbulb.SlashContext) -> None:
     global text_encoder
     global AwaitingModelChangeContext
     if ctx.options.model == None:
-        await respond_with_autodelete("You must specify a model")
+        await respond_with_autodelete("You must specify a model",ctx)
         return
     load_config()
     if not config["AllowNonAdminChangeModel"]:
@@ -1902,7 +1914,7 @@ async def styleinfo(ctx: lightbulb.SlashContext) -> None:
             try:
                 await ctx.respond(embed)
             except:
-                await respond_with_autodelete("No concept images found for that style.")
+                await respond_with_autodelete("No concept images found for that style.",ctx)
             return
         else:
             fileOpened.close()
