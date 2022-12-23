@@ -90,7 +90,7 @@ async def generate_role_selection_row(bot:lightbulb.BotApp):
 
 async def handle_role_selection(bot: lightbulb.BotApp) -> None:
     """Watches for events, and handles responding to them."""
-    with bot.stream(hikari.InteractionCreateEvent,timeout=None).filter(lambda e: (isinstance(e.interaction, hikari.ComponentInteraction))) as stream:
+    async with bot.stream(hikari.InteractionCreateEvent,timeout=None).filter(lambda e: (isinstance(e.interaction, hikari.ComponentInteraction))) as stream:
         async for event in stream:
             load_config()
             member = await bot.rest.fetch_member(guildId,event.interaction.user)
@@ -167,7 +167,10 @@ else:
 # ----------------------------------
 @bot.listen(hikari.ShardReadyEvent)
 async def ready_listener(_):
-    await rolechangemessage()
+    try:
+        await rolechangemessage()
+    except:
+        pass
     
 
 async def rolechangemessage():
