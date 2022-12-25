@@ -535,11 +535,11 @@ class genImgThreadClass(Thread):
                     drawobj = ImageDraw.Draw(image)
                     font = ImageFont.truetype('Gidole-Regular.ttf', self.request.fontsize)
                     if self.request.labelKey == "guidescale":
-                        drawobj.text((10, 10), "Guidance Scale: " + str(round(self.request.guideScale,2)),font=font, fill =(255, 255, 255))
+                        drawobj.text((10, 10), "Guidance Scale: " + str(round(self.request.guideScale,2)),font=font, fill =(255, 255, 255),stroke_width=2,stroke_fill=(0,0,0))
                     if self.request.labelKey == "steps":
-                        drawobj.text((10, 10), "Inference Steps: " + str(round(self.request.infSteps,2)),font=font, fill =(255, 255, 255))
+                        drawobj.text((10, 10), "Inference Steps: " + str(round(self.request.infSteps,2)),font=font, fill =(255, 255, 255),stroke_width=2,stroke_fill=(0,0,0))
                     if self.request.labelKey == "strength":
-                        drawobj.text((10, 10), "Img2Img Strength: " + str(round(self.request.strength,2)),font=font, fill =(255, 255, 255))
+                        drawobj.text((10, 10), "Img2Img Strength: " + str(round(self.request.strength,2)),font=font, fill =(255, 255, 255),stroke_width=2,stroke_fill=(0,0,0))
             # Process Result
             self.request.resultImage = image
             image.save(outputDirectory + str(countStr) + ".png", pnginfo=metadata)
