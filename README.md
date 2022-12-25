@@ -3,7 +3,7 @@ Kiwi
 </h1>
 
 <p align=center><img width="200" height="200" src="/docs/kiwipfp.png"></p><p align=center>Kiwi is a <a href=https://github.com/hikari-py/hikari>Hikari</a> <a href=https://github.com/tandemdude/hikari-lightbulb>Lightbulb</a> discord bot for prompting stable diffusion models through <a href=https://huggingface.co>Hugging Face's</a> <a href=https://github.com/huggingface/diffusers>Diffusers library</a>.</p><p align=center>I created Kiwi because I wanted to have a <i>"multiplayer"</i> alternative to <a href=https://github.com/AUTOMATIC1111/stable-diffusion-webui>AUTOMATIC1111's webui</a></p>
-<p align=center><a href="https://github.com/PuddlePumpkin/KiwiSD/blob/main/license"><img src=https://img.shields.io/badge/License-MIT-green></a><a href=https://discord.gg/q2ZRjJTERV> <img src=https://img.shields.io/badge/Discord-Kiwi-ff69b4></a>
+<p align=center><a href="https://github.com/PuddlePumpkin/KiwiSD/blob/main/license"><img src=https://img.shields.io/badge/License-MIT-green></a><a href=https://discord.gg/q2ZRjJTERV> <img src=https://img.shields.io/pypi/pyversions/torch> <img src=https://img.shields.io/badge/Discord-Kiwi-ff69b4></a>
 
 # Features
 - **Models:**
@@ -37,7 +37,7 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 ***
 <details><summary><b>WINDOWS</b></summary>
 <p>
-
+- Install python 3.10.9
 - Warning: Kiwi was made by a girl who's not really a programmer, things could break, things might not work, and your house might burn down or worse...
 - Clone kiwi to a directory on your machine.
 - Place model weights .ckpt file or the repository folder containing a diffusers format model in the kiwi/models folder, .ckpt models will take a moment to convert the first time.
