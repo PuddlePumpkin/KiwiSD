@@ -178,3 +178,4 @@ kiwitoken.json
 *.mp4
 tmp/stderr.txt
 tmp/stdout.txt
+*.jpeg
