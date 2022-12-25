@@ -297,6 +297,16 @@ class threadManager(object):
         awaitingEmbed = data
         requestQueue.pop(0)
 
+outputDirectory = "./results/"
+# ----------------------------------
+# Filecount Function
+# ----------------------------------
+def filecount():
+    global outputDirectory
+    return len([entry for entry in os.listdir(outputDirectory) if os.path.isfile(os.path.join(outputDirectory, entry))])
+
+countStr = str(filecount()+1+config["FileCountOffset"])
+
 
 class genImgThreadClass(Thread):
     '''thread class for generation'''
@@ -313,6 +323,7 @@ class genImgThreadClass(Thread):
         global curmodel
         global botBusy
         global loaded_safety_checker
+        global countStr
         try:
             # Handle Scheduler
             if not usingsd2:
@@ -515,7 +526,7 @@ class genImgThreadClass(Thread):
                         nsfwDetected = returndict.nsfw_content_detected[0]
                     except:
                         nsfwDetected = False
-            countStr = str(filecount()+1)
+            
             while os.path.exists(outputDirectory + str(countStr) + ".png"):
                 countStr = int(countStr)+1
             
@@ -619,12 +630,7 @@ def load_learned_embed_in_clip(learned_embeds_path, text_encoder, tokenizer, tok
 
  
 
-# ----------------------------------
-# Filecount Function
-# ----------------------------------
-def filecount():
-    global outputDirectory
-    return len([entry for entry in os.listdir(outputDirectory) if os.path.isfile(os.path.join(outputDirectory, entry))])
+
 
 
 # ----------------------------------
@@ -875,7 +881,6 @@ titles = ["I'll try to make that for you!...", "Maybe I could make that...",
           "I'll try my best!...", "This might be tricky to make..."]
 regentitles = ["I'll try again!... ", "Sorry if I didn't do good enough... ",
                "I'll try my best to do better... "]
-outputDirectory = "./results/"
 def update_embed_list():
     global embedlist
     embedlist = []
