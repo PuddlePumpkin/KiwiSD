@@ -305,7 +305,6 @@ class genImgThreadClass(Thread):
         global pipe
         global curmodel
         global botBusy
-        global loaded_safety_checker
         global countStr
         try:
             # Handle Scheduler
@@ -455,50 +454,26 @@ class genImgThreadClass(Thread):
                 metadata.add_text("Model", "Stable Diffusion v2.1")
 
             # Generate
-            nsfwDetected = False
             with autocast("cuda"):
-                if not config["EnableNsfwDetector"] or str(self.request.context.channel_id) in str(config["NsfwChannelIDs"]).replace(" ","").split(","):
-                    if loaded_safety_checker == None and not curmodel["ModelPath"] == "stabilityai/stable-diffusion-2-1-base":
-                        loaded_safety_checker = pipe.safety_checker
-                    def dummy_checker(images, **kwargs): return images, False
-                    if not curmodel["ModelPath"] == "stabilityai/stable-diffusion-2-1-base":
+                def dummy_checker(images, **kwargs): return images, False
+                try:
+                    if not curmodel["UsesSD2"]:
                         pipe.safety_checker = dummy_checker
-                    else:
-                        pass
-                else:
-                    try:
-                        if loaded_safety_checker != None and not curmodel["ModelPath"] == "stabilityai/stable-diffusion-2-1-base":
-                            pipe.safety_checker = loaded_safety_checker
-                    except:
-                        pass
+                except:
+                    pipe.safety_checker = dummy_checker
                 if self.request.strength != None:
                     if self.request.inpaintUrl == None:
                         print("Strength = " + str(1-self.request.strength))
-                        returndict = pipe.img2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, image=init_image,
-                                                negative_prompt=self.request.negativePrompt, strength=(1-(self.request.strength*0.89)), guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
-                        image = returndict.images[0]
-                        try:
-                            nsfwDetected = returndict.nsfw_content_detected[0]
-                        except:
-                            nsfwDetected = False
+                        image = pipe.img2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, image=init_image,
+                                                negative_prompt=self.request.negativePrompt, strength=(1-(self.request.strength*0.89)), guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps).images[0]
                     else:
-                        returndict = pipe.inpaint(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, image=init_image, negative_prompt=self.request.negativePrompt, strength=(
-                            1-(self.request.strength*0.89)), mask_image=inpaint_image, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
-                        image = returndict.images[0]
-                        try:
-                            nsfwDetected = returndict.nsfw_content_detected[0]
-                        except:
-                            nsfwDetected = False
+                        image = pipe.inpaint(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, image=init_image, negative_prompt=self.request.negativePrompt, strength=(
+                            1-(self.request.strength*0.89)), mask_image=inpaint_image, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps).images[0]
                     metadata.add_text("Img2Img Strength",
                                     str(self.request.strength))
                 else:
-                    returndict = pipe.text2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, image=init_image,
-                                            negative_prompt=self.request.negativePrompt, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps)
-                    image = returndict.images[0]
-                try:
-                    nsfwDetected = returndict.nsfw_content_detected[0]
-                except:
-                    nsfwDetected = False
+                    image = pipe.text2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, image=init_image,
+                                            negative_prompt=self.request.negativePrompt, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps).images[0]
             
             while os.path.exists(outputDirectory + str(countStr) + ".png"):
                 countStr = int(countStr)+1
@@ -516,12 +491,8 @@ class genImgThreadClass(Thread):
             # Process Result
             self.request.resultImage = image
             image.save(outputDirectory + str(countStr) + ".png", pnginfo=metadata)
-            if not nsfwDetected:
-                    outEmbed = get_embed(self.request.prompt, self.request.negativePrompt, self.request.guideScale, self.request.infSteps, self.request.seed,
-                                        outputDirectory + str(countStr) + ".png", self.request.strength, False, self.request.scheduler, self.request.userconfig, self.request.imgUrl,self.request.context)
-            else:
-                outEmbed = hikari.Embed(title=config["NsfwMessage"], colour=hikari.Colour(0xFF0000)).set_footer(
-                    "An admin may enable possible nsfw results in /adminsettings... sometimes the detector finds nsfw in sfw results")
+            outEmbed = get_embed(self.request.prompt, self.request.negativePrompt, self.request.guideScale, self.request.infSteps, self.request.seed,
+                outputDirectory + str(countStr) + ".png", self.request.strength, False, self.request.scheduler, self.request.userconfig, self.request.imgUrl,self.request.context)
             self.parent and self.parent.on_thread_finished(self, outEmbed, self.request)
         except:
             print(traceback.print_exc())
@@ -843,7 +814,6 @@ curmodel = ""
 loadingThumbnail = ""
 busyThumbnail = ""
 loadingGif = ""
-loaded_safety_checker = None
 embedlist = list(Path("./embeddings/").rglob("*.[bB][iI][nN]"))
 titles = ["I'll try to make that for you!...", "Maybe I could make that...",
           "I'll try my best!...", "This might be tricky to make..."]
@@ -1066,12 +1036,8 @@ async def saveResultGif():
     if ((file_stats.st_size / (1024 * 1024)) < 8):
         print("Anim Complete, sending gif.")
         #embed = hikari.Embed(title=("Animation Result:"),colour=hikari.Colour(0xFFFFFF)).set_image(outputDirectory + "resultgif.gif")
-        if not curmodel["ModelPath"] == "stabilityai/stable-diffusion-2-1-base":
-            embed = get_embed(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.guideScale, activeAnimRequest.infSteps, activeAnimRequest.seed,
-                            file_name, activeAnimRequest.strength, True, activeAnimRequest.scheduler, activeAnimRequest.userconfig, activeAnimRequest.imgUrl)
-        else:
-            embed = get_embed(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.guideScale, activeAnimRequest.infSteps, activeAnimRequest.seed,
-                            file_name, activeAnimRequest.strength, True, activeAnimRequest.scheduler, activeAnimRequest.userconfig, activeAnimRequest.imgUrl)
+        embed = get_embed(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.guideScale, activeAnimRequest.infSteps, activeAnimRequest.seed,
+                        file_name, activeAnimRequest.strength, True, activeAnimRequest.scheduler, activeAnimRequest.userconfig, activeAnimRequest.imgUrl)
         embed.set_footer(None)
         embed.set_image(file_name)
         embed.set_thumbnail(None)
@@ -1746,7 +1712,7 @@ async def settings(ctx: lightbulb.SlashContext) -> None:
 # ----------------------------------
 @bot.command()
 @lightbulb.option("value", "(optional if no key) value to change it to", required=False, type=str)
-@lightbulb.option("setting", "(optional) which setting to change", required=False, choices=["EnableNsfwDetector", "NsfwMessage", "NsfwChannelIDs", "ShowDefaultPrompts", "NewUserNegativePrompt", "NewUserQualityPrompt", "AdminList", "TodoString", "MaxSteps", "AllowNonAdminChangeModel", "AllowNonAdminGenerateGif", "AutoLoadedModel","LoadingGif", "LoadingThumbnail", "BusyThumbnail", "NsfwFilters","SfwFilters", "ChangeModelChannelsToNotify"], type=str)
+@lightbulb.option("setting", "(optional) which setting to change", required=False, choices=["NsfwChannelIDs", "ShowDefaultPrompts", "NewUserNegativePrompt", "NewUserQualityPrompt", "AdminList", "TodoString", "MaxSteps", "AllowNonAdminChangeModel", "AllowNonAdminGenerateGif", "AutoLoadedModel","LoadingGif", "LoadingThumbnail", "BusyThumbnail", "NsfwFilters","SfwFilters", "ChangeModelChannelsToNotify"], type=str)
 @lightbulb.command("adminsettings", "View or modify settings")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def adminsettings(ctx: lightbulb.SlashContext) -> None:
@@ -1761,11 +1727,11 @@ async def adminsettings(ctx: lightbulb.SlashContext) -> None:
         pass
     else:
         # Update the config with the provided setting and value
-        if ctx.options.setting in ["ShowDefaultPrompts", "EnableNsfwDetector", "AllowNonAdminChangeModel", "AllowNonAdminGenerateGif"]:
+        if ctx.options.setting in ["ShowDefaultPrompts", "AllowNonAdminChangeModel", "AllowNonAdminGenerateGif"]:
             config[ctx.options.setting] = string_to_bool(ctx.options.value)
         elif ctx.options.setting in ["MaxSteps"]:
             config[ctx.options.setting] = min(max(int(ctx.options.value), 1), 500)
-        elif ctx.options.setting in ["NsfwMessage", "NsfwChannelIDs", "AdminList", "NewUserNegativePrompt", "NewUserQualityPrompt", "TodoString", "AutoLoadedModel", "LoadingGif", "LoadingThumbnail", "BusyThumbnail", "NsfwFilters", "SfwFilters", "ChangeModelChannelsToNotify"]:
+        elif ctx.options.setting in ["NsfwChannelIDs", "AdminList", "NewUserNegativePrompt", "NewUserQualityPrompt", "TodoString", "AutoLoadedModel", "LoadingGif", "LoadingThumbnail", "BusyThumbnail", "NsfwFilters", "SfwFilters", "ChangeModelChannelsToNotify"]:
             config[ctx.options.setting] = ctx.options.value
         else:
             await respond_with_autodelete("I don't understand that setting...", ctx)

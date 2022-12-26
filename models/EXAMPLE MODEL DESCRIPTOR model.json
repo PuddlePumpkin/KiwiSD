@@ -5,5 +5,6 @@
 	"ModelColor":"0xfb7aff",
 	"DefaultGuidanceScale":7,
 	"DefaultSteps": 25,
-	"DefaultSampler": "DPM++"
+	"DefaultSampler": "DPM++",
+	"UsesSD2":false
 }
