@@ -289,7 +289,8 @@ class threadManager(object):
         awaitingRequest = request
         awaitingEmbed = data
         requestQueue.pop(0)
-
+if not os.path.exists("./results"):
+    os.makedirs("./results")
 outputDirectory = "./results/"
 # ----------------------------------
 # Filecount Function
