@@ -616,9 +616,9 @@ def convert_model(ckpt_path:str = None, vae_path:str = None, config_path:str = N
         inputDict["vae_path"] = vae_path
         inputDict["dump_path"] = dump_path
         if inputDict["original_config_path"] is None:
-            if not os.path.exists("v1-inference.yaml"):
-                wget.download("https://raw.githubusercontent.com/CompVis/stable-diffusion/main/configs/stable-diffusion/v1-inference.yaml",out="v1-inference.yaml")
-            inputDict["original_config_path"] = "v1-inference.yaml"
+            if not os.path.exists("src/v1-inference.yaml"):
+                wget.download("https://raw.githubusercontent.com/CompVis/stable-diffusion/main/configs/stable-diffusion/v1-inference.yaml",out="src/v1-inference.yaml")
+            inputDict["original_config_path"] = "src/v1-inference.yaml"
 
         original_config = OmegaConf.load(inputDict["original_config_path"])
         checkpoint = torch.load(inputDict["original_ckpt_path"])

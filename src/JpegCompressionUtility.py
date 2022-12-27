@@ -3,7 +3,7 @@ import os
 from io import BytesIO
 from PIL import Image
 from PIL import ImageOps
-os.chdir(str(os.path.abspath(os.path.dirname(__file__))))
+os.chdir(str(os.path.abspath(os.path.dirname(os.path.dirname(__file__)))))
 filelist = list(Path("./results/").rglob("*.png"))
 
 #for file in filelist:

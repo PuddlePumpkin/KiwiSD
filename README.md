@@ -44,9 +44,9 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - go to the discord applications page [Here](https://discord.com/developers/applications), create a new application, give it a unique name
 - Go to the "bot" section -> click "add bot" -> click "reset token", this token can only be viewed once without having to reset it so take note of it. **disable public bot unless you know what you're doing**, tick the intent switches on
 - Go to "OAuth2" section -> URL Generator -> click "bot" -> click administrator permission, or specific permissions if you know them -> copy and paste generated link into your browser or message it to who has permission to invite the bot to your discord.
-- paste your token into the bottoken field of kiwitoken.json *or* set a kiwitoken environment variable to the token
-- Enter your discord's ID into the "guildID" field of kiwitoken.json (id's can usually be accessed via right click in discord)
-- copy your user id to the AdminList field of kiwiconfig.json or kiwiconfigdefault.json to allow you access to change **/adminsettings** options
+- paste your token into the bottoken field of config/kiwitoken.json *or* set a kiwitoken environment variable to the token
+- Enter your discord's ID into the "guildID" field of config/kiwitoken.json (id's can usually be accessed via right click in discord)
+- copy your user id to the AdminList field of config/kiwiconfig.json or config/kiwiconfigdefault.json to allow you access to change **/adminsettings** options
 - start the bot with **start.bat**
 - Enter **/changemodel** and select your model to load
 - Enter **/generate** to start prompting
@@ -64,7 +64,7 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - **If you're using linux, you're probably smarter than me and will be able to figure it out.**
 - Clone kiwi to a directory on your machine.
 - Create a venv or pip install straight on your main python install
-- pip install -r requirements.txt
+- pip install -r src/requirements.txt
 - Place model weights .ckpt file or the repository folder containing a diffusers format model in the kiwi/models folder, .ckpt models will take a moment to convert the first time.
 - go to the discord applications page [Here](https://discord.com/developers/applications), create a new application, give it a unique name
 - Go to the "bot" section -> click "add bot" -> click "reset token", this token can only be viewed once without having to reset it so take note of it. **disable public bot unless you know what you're doing**, tick the intent switches on
@@ -91,7 +91,7 @@ You can reduce focus in line like negative prompts with square brackets eg: **[*
 - **/settings:** displays a list of settings and optionally change them
 ### Admin Only
 - **/generategif:** Generates a gif given input options, if file is too big to upload to discord, is saved in kiwi/animation, also attempts to save video if ffmpeg is installed in path, can allow non admin to generate gif in adminsettings.
-- **/adminsettings:** displays a list of admin settings and optionally changes them. **Your discord user id (just a bunch of numbers) must be in kiwiconfig.json to modify these.**
+- **/adminsettings:** displays a list of admin settings and optionally changes them. **Your discord user id (just a bunch of numbers) must be in config/kiwiconfig.json to modify these.**
 - **/adminupdatecommands:** refreshes commands
 ### Other
 - **/help:** displays command list
@@ -111,6 +111,6 @@ Hikari|pip|https://github.com/hikari-py/hikari/|MIT
 Hikari-Lightbulb|pip|https://github.com/tandemdude/hikari-lightbulb|LGPLv3
 [Pytorch](https://pytorch.org/) (CUDA)|pip|https://github.com/pytorch/pytorch|[Custom](https://github.com/pytorch/pytorch/blob/master/LICENSE)
 
-See requirements.txt to view other used packages and find their licenses.
+See src/requirements.txt to view other used packages and find their licenses.
 
 **This project is not endorsed by or affiliated with any third party entity.**

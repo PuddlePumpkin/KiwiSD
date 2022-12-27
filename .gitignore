@@ -179,3 +179,4 @@ kiwitoken.json
 tmp/stderr.txt
 tmp/stdout.txt
 *.jpeg
+start.sh

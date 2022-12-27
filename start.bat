@@ -35,7 +35,7 @@ goto :reqs
 if not defined KIWIREQDONE (set KIWIREQDONE=FALSE)
 if %KIWIREQDONE% == TRUE goto :launch
 
-%PIP% install -r %~dp0/requirements.txt --upgrade
+%PIP% install -r %~dp0/src/requirements.txt --upgrade
 setx KIWIREQDONE TRUE 
 goto :launch
 :launch

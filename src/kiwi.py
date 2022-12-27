@@ -50,9 +50,9 @@ def load_config():
     global loadingThumbnail
     global loadingGif
     global busyThumbnail
-    if not os.path.exists(str("kiwiconfig.json")):
-        shutil.copy2("kiwiconfigdefault.json", "kiwiconfig.json")
-    with open('kiwiconfig.json', 'r') as openfile:
+    if not os.path.exists(str("config/kiwiconfig.json")):
+        shutil.copy2("config/kiwiconfigdefault.json", "config/kiwiconfig.json")
+    with open('config/kiwiconfig.json', 'r') as openfile:
         config = json.load(openfile)
         loadingThumbnail = config["LoadingThumbnail"]
         loadingGif = config["LoadingGif"]
@@ -63,7 +63,7 @@ def load_config():
 def save_config():
     '''Saves admin config file'''
     global config
-    with open("kiwiconfig.json", "w") as outfile:
+    with open("config/kiwiconfig.json", "w") as outfile:
         json.dump(config, outfile, indent=4)
         outfile.close()
 
@@ -517,7 +517,7 @@ class genImgThreadClass(Thread):
             if self.request.doLabel:
                 if self.request.labelKey!=None:
                     drawobj = ImageDraw.Draw(image)
-                    font = ImageFont.truetype('Gidole-Regular.ttf', self.request.fontsize)
+                    font = ImageFont.truetype('src/Gidole-Regular.ttf', self.request.fontsize)
                     if self.request.labelKey == "guidescale":
                         drawobj.text((10, 10), "Guidance Scale: " + str(round(self.request.guideScale,2)),font=font, fill =(255, 255, 255),stroke_width=2,stroke_fill=(0,0,0))
                     if self.request.labelKey == "steps":
@@ -547,9 +547,9 @@ def get_admin_list() -> list:
 def load_user_config(userid: str) -> dict:
     '''Load a user config from the specified user id'''
     global config
-    if not os.path.exists(str("usersettings.json")):
-        shutil.copy2("usersettingsdefault.json", "usersettings.json")
-    with open('usersettings.json', 'r') as openfile:
+    if not os.path.exists(str("config/usersettings.json")):
+        shutil.copy2("config/usersettingsdefault.json", "config/usersettings.json")
+    with open('config/usersettings.json', 'r') as openfile:
         userconfig = json.load(openfile)
         openfile.close()
     if str(userid) in userconfig:
@@ -572,11 +572,11 @@ def load_user_config(userid: str) -> dict:
 
 def save_user_config(userid: str, saveconfig):
     '''Saves a user setting to the json file'''
-    with open('usersettings.json', 'r') as openfile:
+    with open('config/usersettings.json', 'r') as openfile:
         userconfigs = json.load(openfile)
         userconfigs[str(userid)] = saveconfig
         openfile.close()
-    with open("usersettings.json", "w") as outfile:
+    with open("config/usersettings.json", "w") as outfile:
         json.dump(userconfigs, outfile, indent=4)
         outfile.close()
 
@@ -878,9 +878,9 @@ def setup():
             changemodel(config["AutoLoadedModel"])
         else:
             print("Auto loaded model not found...")
-    if not os.path.exists("Gidole-Regular.ttf"):
+    if not os.path.exists("src/Gidole-Regular.ttf"):
         print("Downloading Gidole Regular font credit: https://github.com/larsenwork/Gidole/")
-        wget.download("https://github.com/larsenwork/Gidole/raw/master/Resources/GidoleFont/Gidole-Regular.ttf",out="Gidole-Regular.ttf")
+        wget.download("https://github.com/larsenwork/Gidole/raw/master/Resources/GidoleFont/Gidole-Regular.ttf",out="src/Gidole-Regular.ttf")
 
 
 # ----------------------------------
@@ -888,7 +888,7 @@ def setup():
 # ----------------------------------
 bottoken = ""
 HFToken = ""
-with open('kiwitoken.json', 'r') as openfile:
+with open('config/kiwitoken.json', 'r') as openfile:
     tokendict = json.load(openfile)
     if tokendict["huggingFaceReadToken"] != "" and tokendict["huggingFaceReadToken"] != None:
         HFToken = tokendict["huggingFaceReadToken"]
@@ -902,7 +902,7 @@ with open('kiwitoken.json', 'r') as openfile:
     if tokendict["guildID"] != None and tokendict["guildID"] != "":
         guildId = int(tokendict["guildID"])
     else: 
-        warnings.warn("Commands will not update quickly without a guild ID in kiwitoken.json",UserWarning)
+        warnings.warn("Commands will not update quickly without a guild ID in config/kiwitoken.json",UserWarning)
         guildId = None
     openfile.close()
 if bottoken == None or bottoken == "":
@@ -1467,22 +1467,23 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
             for tag in config["SfwFilters"].replace(", ",",").split(","):
                 filteredPrompt = filteredPrompt.replace(tag,"")
         pp = postprocess()
-        try:
-            pp.ContrastOffset = userconfig["ContrastOffset"]
-        except:
-            pass
-        try:
-            pp.SaturationOffset = userconfig["SaturationOffset"]
-        except:
-            pass
-        try:
-            pp.LightnessOffset = userconfig["LightnessOffset"]
-        except:
-            pass
-        try:
-            pp.SharpnessOffset = userconfig["SharpnessOffset"]
-        except:
-            pass
+        if not ctx.options.ignore_postprocess:
+            try:
+                pp.ContrastOffset = userconfig["ContrastOffset"]
+            except:
+                pass
+            try:
+                pp.SaturationOffset = userconfig["SaturationOffset"]
+            except:
+                pass
+            try:
+                pp.LightnessOffset = userconfig["LightnessOffset"]
+            except:
+                pass
+            try:
+                pp.SharpnessOffset = userconfig["SharpnessOffset"]
+            except:
+                pass
         requestObject = imageRequest(filteredPrompt, filteredNegativePrompt, steps, ctx.options.seed, guidance_scale, url, ctx.options.strength, ctx.options.width,
                                      ctx.options.height, respProxy, scheduler=sampler, userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=regenerate, overProcess=overProcess, context=ctx,postprocess=pp)
         requestQueue.append(requestObject)
@@ -1497,6 +1498,7 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
 # Generate Command
 # ----------------------------------
 @bot.command
+@lightbulb.option("ignore_postprocess", "(Optional) Runs generation without user post processing settings", required=False, type=bool, default=False, choices=[True,False])
 @lightbulb.option("height", "(Optional) height of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("width", "(Optional) width of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("sampler", "(Optional) Which scheduler to use", required=False, type=str, choices=["DPM++", "PNDM", "KLMS", "Euler", "DDIM"])
@@ -1671,7 +1673,19 @@ async def generategif(ctx: lightbulb.SlashContext) -> None:
             pp.SharpnessOffset = userconfig["SharpnessOffset"]
         except:
             pass
-        activeAnimRequest = animationRequest(ctx.options.prompt, ctx.options.negative_prompt, ctx.options.steps, ctx.options.seed, ctx.options.guidance_scale, url, ctx.options.strength, ctx.options.width, ctx.options.height, respProxy, scheduler=ctx.options.sampler,
+        if ctx.options.negative_prompt == None:
+            filteredNegativePrompt:str = ""
+        else:
+            filteredNegativePrompt:str = str(ctx.options.negative_prompt)
+        filteredPrompt:str = str(ctx.options.prompt)
+        if str(ctx.channel_id) in config["NsfwChannelIDs"].replace(", ",",").split(","):
+            for tag in config["NsfwFilters"].replace(", ",",").split(","):
+                filteredPrompt = filteredPrompt.replace(tag,"")
+        else:
+            filteredNegativePrompt = config["SfwNegativePrompt"] + ", " + filteredNegativePrompt
+            for tag in config["SfwFilters"].replace(", ",",").split(","):
+                filteredPrompt = filteredPrompt.replace(tag,"")
+        activeAnimRequest = animationRequest(filteredPrompt, filteredNegativePrompt, ctx.options.steps, ctx.options.seed, ctx.options.guidance_scale, url, ctx.options.strength, ctx.options.width, ctx.options.height, respProxy, scheduler=ctx.options.sampler,
                                              userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=False, overProcess=False, startframe=ctx.options.animation_start, endframe=ctx.options.animation_end, animkey=ctx.options.animation_key, animation_step=ctx.options.animation_step, ingif=ctx.options.input_gif,LabelFrames=ctx.options.animation_label,fontsize=ctx.options.animation_label_font_size,fps=ctx.options.animation_fps, context=ctx, postprocess=pp)
         global startbool
         startbool = True
