@@ -11,6 +11,8 @@ def png_to_jpeg(png_file_path:Path):
     print(png_file_path)
     with Image.open(png_file_path) as img:
         file_name = png_file_path.stem
+        if not os.path.exists("./jpegresults"):
+            os.makedirs("./jpegresults")
         img.save(f'./jpegresults/{file_name}.jpeg', 'JPEG', quality = 90)
 
 for file in filelist:

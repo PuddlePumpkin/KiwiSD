@@ -1390,6 +1390,8 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
     if ctx.options.width == 768 and ctx.options.height == 768:
         await respond_with_autodelete("Sorry, only one dimension can be 768!", ctx)
         return
+    if not os.path.exists("./results"):
+        os.makedirs("./results")
     outputDirectory = "./results/"
     try:
         if (ctx.options.image != None):
@@ -1632,6 +1634,8 @@ async def generategif(ctx: lightbulb.SlashContext) -> None:
     #    pass
 
     botBusy = True
+    if not os.path.exists("./animation"):
+        os.makedirs("./animation")
     outputDirectory = "./animation/"
     try:
         if (ctx.options.image != None):
