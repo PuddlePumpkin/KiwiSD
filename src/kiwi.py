@@ -27,6 +27,7 @@ from PIL.PngImagePlugin import PngInfo
 from PIL import ImageDraw
 from PIL import ImageFont
 from PIL import ImageOps
+from PIL import ImageEnhance
 from torch import autocast
 from transformers import CLIPTextModel, CLIPTokenizer
 
@@ -139,8 +140,15 @@ populate_model_list()
 # ----------------------------------
 # Classes
 # ----------------------------------
+class postprocess(object):
+    def __init__(self, ContrastOffset = 0, SaturationOffset = 0, LightnessOffset = 0, SharpnessOffset = 0):
+        self.LightnessOffset = LightnessOffset
+        self.SaturationOffset = SaturationOffset
+        self.ContrastOffset = ContrastOffset
+        self.SharpnessOffset = SharpnessOffset
+
 class imageRequest(object):
-    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=False, gifFrame=None, doLabel = False, labelKey = None, fontsize = None, success = True, context:lightbulb.SlashContext = None):
+    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=False, gifFrame=None, doLabel = False, labelKey = None, fontsize = None, success = True, context:lightbulb.SlashContext = None, postprocess:postprocess = None):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
@@ -165,10 +173,11 @@ class imageRequest(object):
         self.fontsize = fontsize
         self.success = success
         self.context = context
+        self.postprocess = postprocess
 
 
 class animationRequest(object):
-    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=True, startframe=None, endframe=None, animkey=None, animation_step=None, ingif=None, LabelFrames=False, fontsize = None, fps = 10, context:lightbulb.SlashContext = None):
+    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=True, startframe=None, endframe=None, animkey=None, animation_step=None, ingif=None, LabelFrames=False, fontsize = None, fps = 10, context:lightbulb.SlashContext = None, postprocess = None):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
@@ -196,6 +205,7 @@ class animationRequest(object):
         self.fontsize = fontsize
         self.fps = fps
         self.context = context
+        self.postprocess = postprocess
 
 
 class changeModelThreadManager(object):
@@ -474,6 +484,32 @@ class genImgThreadClass(Thread):
                 else:
                     image = pipe.text2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, image=init_image,
                                             negative_prompt=self.request.negativePrompt, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps).images[0]
+            #Post Processing
+            try:
+                if self.request.postprocess.ContrastOffset != 0:
+                    filter = ImageEnhance.Contrast(image)
+                    image = filter.enhance(self.request.postprocess.ContrastOffset+1)
+            except:
+                pass
+            try:
+                if self.request.postprocess.SaturationOffset != 0:
+                    filter = ImageEnhance.Color(image)
+                    image = filter.enhance(self.request.postprocess.SaturationOffset+1)
+            except:
+                pass
+            try:
+                if self.request.postprocess.LightnessOffset != 0:
+                    filter = ImageEnhance.Brightness(image)
+                    image = filter.enhance(self.request.postprocess.LightnessOffset+1)
+            except:
+                pass
+            try:
+                if self.request.postprocess.SharpnessOffset != 0:
+                    filter = ImageEnhance.Sharpness(image)
+                    image = filter.enhance(self.request.postprocess.SharpnessOffset+1)
+            except:
+                pass
+            #End Post Processing
             
             while os.path.exists(outputDirectory + str(countStr) + ".png"):
                 countStr = int(countStr)+1
@@ -521,10 +557,18 @@ def load_user_config(userid: str) -> dict:
     else:
         # write a default config to the userid
         load_config()
-        userconfig[str(userid)] = {"UseDefaultQualityPrompt": True, "DefaultQualityPrompt": config["NewUserQualityPrompt"],"UseDefaultNegativePrompt": False, "DefaultNegativePrompt": config["NewUserNegativePrompt"]}
+        userconfig[str(userid)] = {
+        "UseDefaultQualityPrompt": True,
+        "DefaultQualityPrompt": config["NewUserQualityPrompt"],
+        "UseDefaultNegativePrompt": False, 
+        "DefaultNegativePrompt": config["NewUserNegativePrompt"],		
+        "ContrastOffset":0,
+		"SaturationOffset":0,
+		"LightnessOffset":0,
+		"SharpnessOffset":0
+        }
         save_user_config(str(userid),userconfig[str(userid)])
         return userconfig[str(userid)]
-
 
 def save_user_config(userid: str, saveconfig):
     '''Saves a user setting to the json file'''
@@ -1111,7 +1155,7 @@ async def ThreadCompletionLoop():
                     load_config()
                     loadedgif.seek(loadedgif.tell()+1)
                     requestObject = imageRequest(activeAnimRequest.prompt, activeAnimRequest.negativePrompt, activeAnimRequest.infSteps, activeAnimRequest.seed, activeAnimRequest.currentstep, activeAnimRequest.imgUrl, activeAnimRequest.strength, activeAnimRequest.width, activeAnimRequest.height, activeAnimRequest.proxy,
-                                                 scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True, gifFrame=loadedgif, context=activeAnimRequest.context)
+                                                 scheduler=activeAnimRequest.scheduler, userconfig=activeAnimRequest.userconfig, author=activeAnimRequest.author, InpaintUrl=activeAnimRequest.inpaintUrl, regenerate=activeAnimRequest.regenerate, overProcess=activeAnimRequest.overProcess, isAnimation=True, gifFrame=loadedgif, context=activeAnimRequest.context,postprocess=activeAnimRequest.postprocess)
                     thread = threadmanager.New_Thread(
                         requestObject)
                     thread.start()
@@ -1422,9 +1466,25 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
             filteredNegativePrompt = config["SfwNegativePrompt"] + ", " + filteredNegativePrompt
             for tag in config["SfwFilters"].replace(", ",",").split(","):
                 filteredPrompt = filteredPrompt.replace(tag,"")
-
+        pp = postprocess()
+        try:
+            pp.ContrastOffset = userconfig["ContrastOffset"]
+        except:
+            pass
+        try:
+            pp.SaturationOffset = userconfig["SaturationOffset"]
+        except:
+            pass
+        try:
+            pp.LightnessOffset = userconfig["LightnessOffset"]
+        except:
+            pass
+        try:
+            pp.SharpnessOffset = userconfig["SharpnessOffset"]
+        except:
+            pass
         requestObject = imageRequest(filteredPrompt, filteredNegativePrompt, steps, ctx.options.seed, guidance_scale, url, ctx.options.strength, ctx.options.width,
-                                     ctx.options.height, respProxy, scheduler=sampler, userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=regenerate, overProcess=overProcess, context=ctx)
+                                     ctx.options.height, respProxy, scheduler=sampler, userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=regenerate, overProcess=overProcess, context=ctx,postprocess=pp)
         requestQueue.append(requestObject)
     except Exception:
         print("Error")
@@ -1468,11 +1528,11 @@ async def generate(ctx: lightbulb.SlashContext) -> None:
 async def help(ctx: lightbulb.SlashContext) -> None:
     embedtext1 = (
         "**~~                   ~~ Generation ~~                   ~~**"
+        "\n> **/changemodel**: Loads a different model"
         "\n> **/generate**: Generates a image from a detailed description, or booru tags separated by commas"
         "\n> **/generategif**: Generates a gif given entered parameters"
         "\n**~~                      ~~ Settings ~~                         ~~**"
-        "\n> **/changemodel**: Loads a different model"
-        "\n> **/settings**: displays a list of settings and optionally change them"
+        "\n> **/settings**: displays a list of settings and optionally change them, post process settings: -1 to 1, 0 being no affect, range is unclamped."
         "\n> **/adminsettings**: displays a list of admin settings and optionally changes them"
         "\n**~~                        ~~ Other ~~                        ~~**"
         "\n> **/styles**: displays a list of loaded textual inversions"
@@ -1594,8 +1654,25 @@ async def generategif(ctx: lightbulb.SlashContext) -> None:
         userconfig = load_user_config(str(ctx.author.id))
         load_config()
         global activeAnimRequest
+        pp = postprocess()
+        try:
+            pp.ContrastOffset = userconfig["ContrastOffset"]
+        except:
+            pass
+        try:
+            pp.SaturationOffset = userconfig["SaturationOffset"]
+        except:
+            pass
+        try:
+            pp.LightnessOffset = userconfig["LightnessOffset"]
+        except:
+            pass
+        try:
+            pp.SharpnessOffset = userconfig["SharpnessOffset"]
+        except:
+            pass
         activeAnimRequest = animationRequest(ctx.options.prompt, ctx.options.negative_prompt, ctx.options.steps, ctx.options.seed, ctx.options.guidance_scale, url, ctx.options.strength, ctx.options.width, ctx.options.height, respProxy, scheduler=ctx.options.sampler,
-                                             userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=False, overProcess=False, startframe=ctx.options.animation_start, endframe=ctx.options.animation_end, animkey=ctx.options.animation_key, animation_step=ctx.options.animation_step, ingif=ctx.options.input_gif,LabelFrames=ctx.options.animation_label,fontsize=ctx.options.animation_label_font_size,fps=ctx.options.animation_fps, context=ctx)
+                                             userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=False, overProcess=False, startframe=ctx.options.animation_start, endframe=ctx.options.animation_end, animkey=ctx.options.animation_key, animation_step=ctx.options.animation_step, ingif=ctx.options.input_gif,LabelFrames=ctx.options.animation_label,fontsize=ctx.options.animation_label_font_size,fps=ctx.options.animation_fps, context=ctx, postprocess=pp)
         global startbool
         startbool = True
         lastpnglist = list(Path("./animation/").rglob("*.png"))
@@ -1676,7 +1753,7 @@ async def todo(ctx: lightbulb.SlashContext) -> None:
 # ----------------------------------
 @bot.command()
 @lightbulb.option("value", "(optional if no setting) value to change it to", required=False, type=str)
-@lightbulb.option("setting", "(optional) which setting to change", required=False, choices=["UseDefaultQualityPrompt", "DefaultQualityPrompt", "UseDefaultNegativePrompt", "DefaultNegativePrompt", ], type=str)
+@lightbulb.option("setting", "(optional) which setting to change", required=False, choices=["UseDefaultQualityPrompt", "DefaultQualityPrompt", "UseDefaultNegativePrompt", "DefaultNegativePrompt", "SaturationOffset","LightnessOffset","ContrastOffset","SharpnessOffset"], type=str)
 @lightbulb.command("settings", "View or modify your personal user settings")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def settings(ctx: lightbulb.SlashContext) -> None:
@@ -1689,9 +1766,18 @@ async def settings(ctx: lightbulb.SlashContext) -> None:
         # Bool settings
         if ctx.options.setting in ["UseDefaultNegativePrompt", "UseDefaultQualityPrompt"]:
             userconfig[ctx.options.setting] = string_to_bool(ctx.options.value)
+        # String settings
         elif ctx.options.setting in ["DefaultNegativePrompt", "DefaultQualityPrompt"]:
             userconfig[ctx.options.setting] = ctx.options.value
+        # Number settings
+        elif ctx.options.setting in ["SaturationOffset","LightnessOffset","ContrastOffset","SharpnessOffset"]:
+            try:
+                userconfig[ctx.options.setting] = float(ctx.options.value)
+            except:
+                await respond_with_autodelete("Sorry, something went wrong!", ctx)
+                return
         else:
+            await respond_with_autodelete("Sorry, something went wrong!", ctx)
             return
         save_user_config(str(ctx.author.id), userconfig)
     embed = hikari.Embed(title="User Settings:", colour=ctx.author.accent_color)
@@ -1704,7 +1790,7 @@ async def settings(ctx: lightbulb.SlashContext) -> None:
             embed.add_field(str(key), str(value))
         else:
             embed.add_field(str(key), str("None"))
-    response = await ctx.respond(embed, flags=hikari.MessageFlag.EPHEMERAL)
+    await ctx.respond(embed, flags=hikari.MessageFlag.EPHEMERAL)
 
 
 # ----------------------------------
