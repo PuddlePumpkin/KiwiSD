@@ -8,6 +8,11 @@ import sys
 import traceback
 import datetime
 import re
+try:
+    noxformers = False
+    import xformers
+except:
+    noxformers = True
 from io import BytesIO
 from pathlib import Path
 from threading import Thread
@@ -30,7 +35,6 @@ from PIL import ImageOps
 from PIL import ImageEnhance
 from torch import autocast
 from transformers import CLIPTextModel, CLIPTokenizer
-
 import convertckpt
 from diffusers import (DDIMScheduler, DDPMScheduler, DiffusionPipeline,
                        DPMSolverMultistepScheduler, EulerDiscreteScheduler,
@@ -270,6 +274,8 @@ class changeModelThreadClass(Thread):
         torch.cuda.reset_peak_memory_stats()
         print("\n" + self.modelname + " loaded.\n")
         pipe.enable_attention_slicing()
+        if not noxformers:
+            pipe.enable_xformers_memory_efficient_attention()
         self.parent and self.parent.on_thread_finished(self, self.context)
 
         
