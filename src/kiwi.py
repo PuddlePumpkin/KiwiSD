@@ -276,6 +276,7 @@ class changeModelThreadClass(Thread):
         pipe.enable_attention_slicing()
         if not noxformers:
             pipe.enable_xformers_memory_efficient_attention()
+            print("xformers enabled")
         self.parent and self.parent.on_thread_finished(self, self.context)
 
         

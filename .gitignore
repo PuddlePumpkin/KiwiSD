@@ -179,3 +179,4 @@ tmp/stderr.txt
 tmp/stdout.txt
 *.jpeg
 start.sh
+startconda.bat
