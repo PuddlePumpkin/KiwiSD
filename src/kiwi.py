@@ -1875,8 +1875,9 @@ async def styles(ctx: lightbulb.SlashContext) -> None:
         fileOpened = open(str(file), "r")
         embedliststr = embedliststr + fileOpened.readline() + "\n"
         fileOpened.close()
-    embed = hikari.Embed(title="Style list:", colour=hikari.Colour(
-        0xabaeff), description="These embeddings trained via textual inversion are currently loaded, add them exactly as listed in your prompt to have an effect on the output, styles may work best at beginning of the prompt, and characters/objects after.")
+    embed = hikari.Embed(title="Style list:", colour=hikari.Colour(0xabaeff), description="These embeddings trained via textual inversion are currently loaded, add them exactly as listed in your prompt to have an effect on the output, styles may work best at beginning of the prompt, and characters/objects after.")
+    if embedliststr == None or embedliststr == "":
+        embedliststr = "No embeds loaded."
     embed.add_field("Embeds:",embedliststr)
     rows = await generate_rows(ctx.bot)
     response = await ctx.respond(embed, components=rows)
