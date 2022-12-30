@@ -997,7 +997,7 @@ async def image_to_depthmap(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("image_link", "image link", required=False, type=str)
 @lightbulb.option("image", "input image", required=False, type=hikari.Attachment)
 @lightbulb.option("blur_kernel_size", "(optional) Size of the blur kernel", required=False, max_value=100, min_value=1, type=int)
-@lightbulb.command("filter_depth_of_field", "Run dense prediction transformer model to get depth from an image")
+@lightbulb.command("filter_depth_of_field", "Use DPT model or supply depth map to apply depth blur to image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def filter_depth_of_field(ctx: lightbulb.SlashContext) -> None:
     global botBusy
@@ -1062,6 +1062,81 @@ async def filter_depth_of_field(ctx: lightbulb.SlashContext) -> None:
     except Exception:
         traceback.print_exc()
         botBusy = False
+        await respond_with_autodelete("Sorry, something went wrong...",ctx)
+
+# ----------------------------------
+# Depth to alpha Command
+# ----------------------------------
+@bot.command
+@lightbulb.option("show_depth", "(optional) show the depthmap in the thumbnail for adjusting settings", required=False, default=False, type=bool)
+@lightbulb.option("depth_brightness_offset", "(optional) lightness offset to apply to depthmap", required=False, default=0, type=int)
+@lightbulb.option("depth_contrast_offset", "(optional) contrast offset to apply to depthmap", required=False, default=0, type=int)
+@lightbulb.option("depthmap_link", "(optional) use a previously generated depth map", required=False, type=str)
+@lightbulb.option("image_link", "image link", required=False, type=str)
+@lightbulb.option("image", "input image", required=False, type=hikari.Attachment)
+@lightbulb.command("filter_depth_to_alpha", "Use DPT model or supply depth map to cut out image by depth")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def filter_depth_to_alpha(ctx: lightbulb.SlashContext) -> None:
+    global botBusy
+    try:
+        if not os.path.exists("./imageprocessing"):
+            os.makedirs("./imageprocessing")
+        embed = hikari.Embed(title="Working on it...", colour=hikari.Colour(0x09ff00)).set_thumbnail(loadingThumbnail)
+        await ctx.respond(embed)
+        if ctx.options.image == None and ctx.options.image_link == None:
+            await respond_with_autodelete("Please include an image link or file", ctx)
+            return
+        if ctx.options.image_link != None:
+            url = ctx.options.image_link
+        elif ctx.options.image != None:
+            url = ctx.options.image.url
+        if botBusy:
+            await respond_with_autodelete("Sorry, Kiwi is busy, please try again later!", ctx)
+            return
+        botBusy = True
+        #await ctx.respond(embed)
+        if ctx.options.depthmap_link == None:
+            depthPath = Path("./src/ImageToDepth.py")
+            pathStr = depthPath.absolute()
+            process: Process = await asyncio.create_subprocess_exec("python",pathStr,url)
+            await process.wait()
+            try:
+                process.kill()
+            except:pass
+            depthmask = Image.open("./imageprocessing/depth.png").convert("L")
+        else:
+            response = requests.get(ctx.options.depthmap_link)
+            depthmask = Image.open(BytesIO(response.content)).convert("L")
+        if ctx.options.image_link != None:
+            response = requests.get(ctx.options.image_link)
+            image = Image.open(BytesIO(response.content)).convert("RGB")
+        else:
+            response = requests.get(ctx.options.image.url)
+            image = Image.open(BytesIO(response.content)).convert("RGB")
+        filter = ImageEnhance.Contrast(depthmask)
+        depthmask = filter.enhance(ctx.options.depth_contrast_offset+1)
+        filter = ImageEnhance.Brightness(depthmask)
+        depthmask = filter.enhance(ctx.options.depth_brightness_offset+1)
+        depthmask = crop_and_resize(depthmask,image.width,image.height)
+        depthmask.save("./imageprocessing/depthmask.png")
+        image.save("./imageprocessing/baseimg.png")
+        image.putalpha(depthmask)
+        image.save("./imageprocessing/final_composite.png")
+        embed = hikari.Embed(title="Result:", colour=hikari.Colour(0x09ff00))
+        if ctx.options.show_depth:
+            embed.set_thumbnail("./imageprocessing/depthmask.png")
+        else:
+            embed.set_thumbnail(url)
+        embed.set_image("./imageprocessing/final_composite.png")
+        await ctx.edit_last_response(embed)
+        botBusy = False
+    except Exception:
+        traceback.print_exc()
+        botBusy = False
+        try:
+            ctx.delete_last_response()
+        except:
+            pass
         await respond_with_autodelete("Sorry, something went wrong...",ctx)
 
 # ----------------------------------
