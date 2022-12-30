@@ -35,6 +35,8 @@ try:
     formatted = (output * 255 / np.max(output)).astype("uint8")
     depth = Image.fromarray(formatted)
     os.chdir(str(os.path.abspath(os.path.dirname(os.path.dirname(__file__)))))
-    depth.save("depth.png")
+    if not os.path.exists("./imageprocessing"):
+        os.makedirs("./imageprocessing")
+    depth.save("./imageprocessing/depth.png")
 except Exception:
     traceback.print_exc()
