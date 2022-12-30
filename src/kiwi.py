@@ -1,4 +1,5 @@
 import asyncio
+from asyncio.subprocess import Process
 import gc
 import json
 import os
@@ -8,6 +9,7 @@ import sys
 import traceback
 import datetime
 import re
+import subprocess
 try:
     noxformers = False
     import xformers
@@ -70,7 +72,6 @@ def save_config():
     with open("config/kiwiconfig.json", "w") as outfile:
         json.dump(config, outfile, indent=4)
         outfile.close()
-
 
 def string_to_bool(option) -> bool:
     '''Converts string to bool from various wordings'''
@@ -942,6 +943,43 @@ async def ready_listener(_):
 async def ping(ctx: lightbulb.SlashContext) -> None:
     await respond_with_autodelete("Pong!", ctx, 0x00ff1a)
 
+@bot.command
+@lightbulb.option("image_link", "image link", required=False, type=str)
+@lightbulb.option("image", "input image", required=False, type=hikari.Attachment)
+@lightbulb.command("image_to_depthmap", "Run dense prediction transformer model to get depth from an image")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def image_to_depthmap(ctx: lightbulb.SlashContext) -> None:
+    global botBusy
+    try:
+        if ctx.options.image != None:
+            url = ctx.options.image.url
+        elif ctx.options.image_link != None:
+            url = ctx.options.image_link
+        else:
+            await respond_with_autodelete("Please include an image link or file", ctx)
+            return
+        if botBusy:
+            await respond_with_autodelete("Sorry, Kiwi is busy, please try again later!", ctx)
+            return
+        botBusy = True
+        embed = hikari.Embed(title="Generating Depth...", colour=hikari.Colour(0x09ff00)).set_thumbnail(loadingThumbnail)
+        await ctx.respond(embed)
+        depthPath = Path("./src/ImageToDepth.py")
+        pathStr = depthPath.absolute()
+        process: Process = await asyncio.create_subprocess_exec("python",pathStr,url)
+        await process.wait()
+        try:
+            process.kill()
+        except:pass
+        embed.title = "Depth Result:"
+        embed.set_image("./depth.png")
+        embed.set_thumbnail(url)
+        await ctx.edit_last_response(embed)
+        botBusy = False
+    except:
+        botBusy = False
+        await respond_with_autodelete("Sorry, something went wrong...",ctx)
+
 # ----------------------------------
 # Pause Generation Command
 # ----------------------------------
@@ -1311,9 +1349,9 @@ async def firehandleresponses(bot, ath, message):
 @bot.command
 @lightbulb.option("image", "input image", required=False, type=hikari.Attachment)
 @lightbulb.option("image_link", "image link or message ID", required=False, type=str)
-@lightbulb.command("imagetocommand", "parses metadata to a command to send to get the same image")
+@lightbulb.command("image_to_command", "parses metadata to a command to send to get the same image")
 @lightbulb.implements(lightbulb.SlashCommand)
-async def imagetocommand(ctx: lightbulb.SlashContext) -> None:
+async def image_to_command(ctx: lightbulb.SlashContext) -> None:
     try:
         if (ctx.options.image != None):
             datas = await hikari.Attachment.read(ctx.options.image)

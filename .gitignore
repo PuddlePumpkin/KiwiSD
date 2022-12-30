@@ -180,3 +180,4 @@ tmp/stdout.txt
 *.jpeg
 start.sh
 startconda.bat
+depth.png
