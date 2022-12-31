@@ -17,5 +17,6 @@
     "BusyThumbnail": "https://i.imgur.com/neR3ggx.gif",
     "LoadingGif": "https://i.imgur.com/ZCalIbz.gif",
     "LoadingThumbnail": "https://i.imgur.com/21reOYm.gif",
-    "FileCountOffset":0
+    "FileCountOffset":0,
+    "ModelTimeoutSeconds":600
 }
