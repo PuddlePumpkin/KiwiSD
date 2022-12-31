@@ -995,8 +995,8 @@ async def image_to_depthmap(ctx: lightbulb.SlashContext) -> None:
 # ----------------------------------
 @bot.command
 @lightbulb.option("show_depth", "(optional) show the depthmap in the thumbnail for adjusting settings", required=False, default=False, type=bool)
-@lightbulb.option("depth_brightness_offset", "(optional) lightness offset to apply to depthmap", required=False, default=0, type=int)
-@lightbulb.option("depth_contrast_offset", "(optional) contrast offset to apply to depthmap", required=False, default=0, type=int)
+@lightbulb.option("depth_brightness_offset", "(optional) lightness offset to apply to depthmap", required=False, default=0, type=float)
+@lightbulb.option("depth_contrast_offset", "(optional) contrast offset to apply to depthmap", required=False, default=0, type=float)
 @lightbulb.option("depthmap_link", "(optional) use a previously generated depth map", required=False, type=str)
 @lightbulb.option("image_link", "image link", required=False, type=str)
 @lightbulb.option("image", "input image", required=False, type=hikari.Attachment)
@@ -1073,8 +1073,8 @@ async def filter_depth_of_field(ctx: lightbulb.SlashContext) -> None:
 # ----------------------------------
 @bot.command
 @lightbulb.option("show_depth", "(optional) show the depthmap in the thumbnail for adjusting settings", required=False, default=False, type=bool)
-@lightbulb.option("depth_brightness_offset", "(optional) lightness offset to apply to depthmap", required=False, default=0, type=int)
-@lightbulb.option("depth_contrast_offset", "(optional) contrast offset to apply to depthmap", required=False, default=0, type=int)
+@lightbulb.option("depth_brightness_offset", "(optional) lightness offset to apply to depthmap", required=False, default=0, type=float)
+@lightbulb.option("depth_contrast_offset", "(optional) contrast offset to apply to depthmap", required=False, default=0, type=float)
 @lightbulb.option("depthmap_link", "(optional) use a previously generated depth map", required=False, type=str)
 @lightbulb.option("image_link", "image link", required=False, type=str)
 @lightbulb.option("image", "input image", required=False, type=hikari.Attachment)
