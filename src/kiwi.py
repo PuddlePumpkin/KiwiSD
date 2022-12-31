@@ -948,6 +948,7 @@ async def ping(ctx: lightbulb.SlashContext) -> None:
 # Image to Depthmap Command
 # ----------------------------------
 @bot.command
+@lightbulb.option("model", "which model to use, (default dpt)", required=False, default="dpt-large", type=str, choices=["dpt-large", "glpn-nyu"])
 @lightbulb.option("image_link", "image link", required=False, type=str)
 @lightbulb.option("image", "input image", required=False, type=hikari.Attachment)
 @lightbulb.command("image_to_depthmap", "Run dense prediction transformer model to get depth from an image")
@@ -970,7 +971,10 @@ async def image_to_depthmap(ctx: lightbulb.SlashContext) -> None:
         botBusy = True
         embed = hikari.Embed(title="Generating Depth...", colour=hikari.Colour(0x09ff00)).set_thumbnail(loadingThumbnail)
         await ctx.respond(embed)
-        depthPath = Path("./src/ImageToDepth.py")
+        if ctx.options.model != "dpt-large":
+            depthPath = Path("./src/ImageToDepthGlpn.py")
+        else:
+            depthPath = Path("./src/ImageToDepth.py")
         pathStr = depthPath.absolute()
         process: Process = await asyncio.create_subprocess_exec("python",pathStr,url)
         await process.wait()
