@@ -1003,7 +1003,7 @@ def apply_post_process(image:Image,contrast:float=0,brightness:float=0)->Image:
 @lightbulb.option("model", "which model to use, (default dpt)", required=False, default="dpt-large", type=str, choices=["dpt-large", "glpn-nyu"])
 @lightbulb.option("image_link", "image link", required=False, type=str)
 @lightbulb.option("image", "input image", required=False, type=hikari.Attachment)
-@lightbulb.command("image_to_depth", "Run a dense prediction transformer model or a global-local path network model to get depth from an image")
+@lightbulb.command("image_to_depth", "Run DPT or GLPN model to get depth from an image")
 @lightbulb.implements(lightbulb.SlashSubCommand)
 async def image_to_depthmap(ctx: lightbulb.SlashContext) -> None:
     global botBusy
