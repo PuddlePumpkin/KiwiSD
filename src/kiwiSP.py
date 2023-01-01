@@ -1229,6 +1229,52 @@ async def depth_composite(ctx: lightbulb.SlashContext) -> None:
         botBusy = False
         await respond_with_autodelete("Sorry, something went wrong...",ctx)
 
+# ----------------------------------
+# Filter post process
+# ----------------------------------
+@filter.child
+@lightbulb.option("sharpness", "sharpness offset", required=False, type=float)
+@lightbulb.option("contrast", "contrast offset", required=False, type=float)
+@lightbulb.option("brightness", "brightness offset", required=False, type=float)
+@lightbulb.option("saturation", "saturation offset (-1 = grayscale, 1 = double saturation)", required=False, type=float)
+@lightbulb.option("image_link", "image link", required=False, type=str)
+@lightbulb.option("image", "input image", required=False, type=hikari.Attachment)
+@lightbulb.command("post_process", "runs post processing effects on an image")
+@lightbulb.implements(lightbulb.SlashSubCommand)
+async def post_process(ctx: lightbulb.SlashContext) -> None:
+    global botBusy
+    try:
+        if not os.path.exists("./imageprocessing"):
+                os.makedirs("./imageprocessing")
+        if ctx.options.image_link:
+            image = image_from_link(ctx.options.image_link)
+        elif ctx.options.image.url:
+            image = image_from_link(ctx.options.image.url)
+        else:
+            await respond_with_autodelete("Please include an image link or file", ctx)
+            return
+        embed = hikari.Embed(title="Working on it...", colour=hikari.Colour(0x09ff00)).set_thumbnail(loadingThumbnail)
+        await ctx.respond(embed)
+        if ctx.options.saturation:
+            filter = ImageEnhance.Color(image)
+            image = filter.enhance(ctx.options.saturation+1)
+        if ctx.options.brightness:
+            filter = ImageEnhance.Brightness(image)
+            image = filter.enhance(ctx.options.brightness+1)
+        if ctx.options.contrast:
+            filter = ImageEnhance.Contrast(image)
+            image = filter.enhance(ctx.options.contrast+1)
+        if ctx.options.sharpness:
+            filter = ImageEnhance.Sharpness(image)
+            image = filter.enhance(ctx.options.sharpness+1)
+        image.save("./imageprocessing/final_composite.png")
+        embed = hikari.Embed(title="Result:", colour=hikari.Colour(0x09ff00))
+        embed.set_image("./imageprocessing/final_composite.png")
+        await ctx.edit_last_response(embed)
+        botBusy = False
+    except Exception:
+        traceback.print_exc()
+        botBusy = False
         await respond_with_autodelete("Sorry, something went wrong...",ctx)
 # ----------------------------------
 # Halt / Pause Command
