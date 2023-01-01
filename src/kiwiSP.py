@@ -935,13 +935,13 @@ else:
         bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None,logs= "ERROR",force_color=True,banner = "banner")
     except:
         bot = lightbulb.BotApp(token=bottoken,intents=hikari.Intents.ALL_UNPRIVILEGED,help_class=None,logs= "ERROR",force_color=True)
+
 # ----------------------------------
 # Bot ready event
 # ----------------------------------
 @bot.listen(hikari.ShardReadyEvent)
 async def ready_listener(_):
     pass
-
 
 # ----------------------------------
 # Ping Command
@@ -951,52 +951,6 @@ async def ready_listener(_):
 @lightbulb.implements(lightbulb.SlashCommand)
 async def ping(ctx: lightbulb.SlashContext) -> None:
     await respond_with_autodelete("Pong!", ctx, 0x00ff1a)
-
-# ----------------------------------
-# Image to Depthmap Command
-# ----------------------------------
-@bot.command
-@lightbulb.option("model", "which model to use, (default dpt)", required=False, default="dpt-large", type=str, choices=["dpt-large", "glpn-nyu"])
-@lightbulb.option("image_link", "image link", required=False, type=str)
-@lightbulb.option("image", "input image", required=False, type=hikari.Attachment)
-@lightbulb.command("image_to_depthmap", "Run dense prediction transformer model to get depth from an image")
-@lightbulb.implements(lightbulb.SlashCommand)
-async def image_to_depthmap(ctx: lightbulb.SlashContext) -> None:
-    global botBusy
-    try:
-        if not os.path.exists("./imageprocessing"):
-            os.makedirs("./imageprocessing")
-        if ctx.options.image != None:
-            url = ctx.options.image.url
-        elif ctx.options.image_link != None:
-            url = ctx.options.image_link
-        else:
-            await respond_with_autodelete("Please include an image link or file", ctx)
-            return
-        if botBusy:
-            await respond_with_autodelete("Sorry, Kiwi is busy, please try again later!", ctx)
-            return
-        botBusy = True
-        embed = hikari.Embed(title="Generating Depth...", colour=hikari.Colour(0x09ff00)).set_thumbnail(loadingThumbnail)
-        await ctx.respond(embed)
-        if ctx.options.model != "dpt-large":
-            depthPath = Path("./src/ImageToDepthGlpn.py")
-        else:
-            depthPath = Path("./src/ImageToDepth.py")
-        pathStr = depthPath.absolute()
-        process: Process = await asyncio.create_subprocess_exec("python",pathStr,url)
-        await process.wait()
-        try:
-            process.kill()
-        except:pass
-        embed.title = "Depth Result:"
-        embed.set_image("./imageprocessing/depth.png")
-        embed.set_thumbnail(url)
-        await ctx.edit_last_response(embed)
-        botBusy = False
-    except:
-        botBusy = False
-        await respond_with_autodelete("Sorry, something went wrong...",ctx)
 
 # ----------------------------------
 # Filter command group
@@ -1041,6 +995,53 @@ def apply_post_process(image:Image,contrast:float=0,brightness:float=0)->Image:
         filter = ImageEnhance.Contrast(image)
         image = filter.enhance(contrast+1)
     return image
+
+# ----------------------------------
+# Image to Depth Filter
+# ----------------------------------
+@filter.child
+@lightbulb.option("model", "which model to use, (default dpt)", required=False, default="dpt-large", type=str, choices=["dpt-large", "glpn-nyu"])
+@lightbulb.option("image_link", "image link", required=False, type=str)
+@lightbulb.option("image", "input image", required=False, type=hikari.Attachment)
+@lightbulb.command("image_to_depth", "Run a dense prediction transformer model or a global-local path network model to get depth from an image")
+@lightbulb.implements(lightbulb.SlashSubCommand)
+async def image_to_depthmap(ctx: lightbulb.SlashContext) -> None:
+    global botBusy
+    try:
+        if not os.path.exists("./imageprocessing"):
+            os.makedirs("./imageprocessing")
+        if ctx.options.image != None:
+            url = ctx.options.image.url
+        elif ctx.options.image_link != None:
+            url = ctx.options.image_link
+        else:
+            await respond_with_autodelete("Please include an image link or file", ctx)
+            return
+        if botBusy:
+            await respond_with_autodelete("Sorry, Kiwi is busy, please try again later!", ctx)
+            return
+        botBusy = True
+        embed = hikari.Embed(title="Generating Depth...", colour=hikari.Colour(0x09ff00)).set_thumbnail(loadingThumbnail)
+        await ctx.respond(embed)
+        if ctx.options.model != "dpt-large":
+            depthPath = Path("./src/ImageToDepthGlpn.py")
+        else:
+            depthPath = Path("./src/ImageToDepth.py")
+        pathStr = depthPath.absolute()
+        process: Process = await asyncio.create_subprocess_exec("python",pathStr,url)
+        await process.wait()
+        try:
+            process.kill()
+        except:pass
+        embed.title = "Depth Result:"
+        embed.set_image("./imageprocessing/depth.png")
+        embed.set_thumbnail(url)
+        await ctx.edit_last_response(embed)
+        botBusy = False
+    except:
+        botBusy = False
+        await respond_with_autodelete("Sorry, something went wrong...",ctx)
+        
 # ----------------------------------
 # Depth of field Command
 # ----------------------------------
