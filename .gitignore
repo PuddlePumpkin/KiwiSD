@@ -3,6 +3,7 @@ results/*.png
 results/*.gif
 animation/*.png
 animation/*.gif
+config/prevmodel.txt
 lpw_stable_diffusion/
 sd/
 wd/
