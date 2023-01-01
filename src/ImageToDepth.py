@@ -1,4 +1,5 @@
 from transformers import DPTImageProcessor, DPTForDepthEstimation
+from transformers.utils import logging
 import torch
 import numpy as np
 from PIL import Image
@@ -7,6 +8,7 @@ import os
 from io import BytesIO
 import sys
 import traceback
+logging.set_verbosity(40)
 try:
     url = str(sys.argv[1])
     print("Generating depth from url: "+url)
