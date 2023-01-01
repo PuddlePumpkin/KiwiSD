@@ -1,9 +1,0 @@
-{
-	"ModelCommandName":"Waifu Diffusion v1.3",
-	"ModelDetailedName":"Waifu Diffusion v1.3",
-	"HuggingFacePath":"hakurei/waifu-diffusion",
-	"ModelColor":"0xe12885",
-	"DefaultGuidanceScale":7,
-	"DefaultSteps": 15,
-	"DefaultSampler": "DPM++"
-}

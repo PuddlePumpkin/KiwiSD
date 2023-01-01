@@ -1,0 +1,10 @@
+{
+	"ModelCommandName":"Waifu Diffusion v1.4",
+	"ModelDetailedName":"Waifu Diffusion v1.4",
+	"HuggingFacePath":"hakurei/waifu-diffusion",
+	"ModelColor":"0xe12885",
+	"DefaultGuidanceScale":7,
+	"DefaultSteps": 20,
+	"DefaultSampler": "PNDM",
+	"RequireFP32": true
+}
