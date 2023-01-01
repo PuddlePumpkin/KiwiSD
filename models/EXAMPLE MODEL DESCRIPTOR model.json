@@ -6,5 +6,6 @@
 	"DefaultGuidanceScale":7,
 	"DefaultSteps": 25,
 	"DefaultSampler": "DPM++",
-	"UsesSD2":false
+	"UsesSD2":false,
+	"RequireFP32": false
 }
