@@ -1327,30 +1327,35 @@ async def ThreadCompletionLoop():
     if curmodel == None or curmodel == "":
             TimeSinceGen = 0
     if TimeSinceGen > config["ModelTimeoutSeconds"]:
+            with open('./config/prevmodel.txt', 'w') as fp:
+                fp.write(curmodel["ModelCommandName"])
             await bot.close()
             await asyncio.sleep(1)
             await quit(1)
     #handle model changes
     if AwaitingModelChangeFinished:
-        embed = hikari.Embed(
-        title="Loading " + model_list[AwaitingModelChangeContext.options.model]["ModelDetailedName"], colour=hikari.Colour(0xff1100))
-        embed.color = hikari.Colour(0x00ff1a)
-        embed.title = "Loaded " + \
-        model_list[AwaitingModelChangeContext.options.model]["ModelDetailedName"]
-        await AwaitingModelChangeContext.edit_last_response(embed)
-        for channel in config["ChangeModelChannelsToNotify"].replace(", ",",").split(","):
-            if channel != str(AwaitingModelChangeContext.channel_id):
-                messages = await bot.rest.fetch_messages(int(channel)).take_until(lambda m: datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1) > m.created_at).limit(1)
-                try:
-                    if messages[0].author.id == bot.get_me().id:
-                        if messages[0].embeds[0].title.startswith("Loaded"):
-                            await bot.rest.edit_message(int(channel),messages[0].id,embed)
+        try:
+            embed = hikari.Embed(
+            title="Loading " + model_list[AwaitingModelChangeContext.options.model]["ModelDetailedName"], colour=hikari.Colour(0xff1100))
+            embed.color = hikari.Colour(0x00ff1a)
+            embed.title = "Loaded " + \
+            model_list[AwaitingModelChangeContext.options.model]["ModelDetailedName"]
+            await AwaitingModelChangeContext.edit_last_response(embed)
+            for channel in config["ChangeModelChannelsToNotify"].replace(", ",",").split(","):
+                if channel != str(AwaitingModelChangeContext.channel_id):
+                    messages = await bot.rest.fetch_messages(int(channel)).take_until(lambda m: datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1) > m.created_at).limit(1)
+                    try:
+                        if messages[0].author.id == bot.get_me().id:
+                            if messages[0].embeds[0].title.startswith("Loaded"):
+                                await bot.rest.edit_message(int(channel),messages[0].id,embed)
+                            else:
+                                await bot.rest.create_message(int(channel),embed)
                         else:
                             await bot.rest.create_message(int(channel),embed)
-                    else:
+                    except:
                         await bot.rest.create_message(int(channel),embed)
-                except:
-                    await bot.rest.create_message(int(channel),embed)
+        except:
+            pass
         botBusy = False
         AwaitingModelChangeContext = None
         AwaitingModelChangeFinished = False
@@ -1598,9 +1603,21 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
     global outputDirectory
     global botBusy
     global requestQueue
+    resume = False
     if curmodel == None or curmodel == "":
-        await respond_with_autodelete("Please load a model with /changemodel", ctx)
-        return
+        if os.path.exists("./config/prevmodel.txt"):
+            with open('./config/prevmodel.txt', 'r') as fp:
+                threadmanager = changeModelThreadManager()
+                md = fp.readline()
+                thread = threadmanager.New_Thread(md,ctx)
+                thread.start()
+                curmodel = model_list[md]
+                botBusy = True
+                resume = True
+            os.remove("./config/prevmodel.txt")
+        else:
+            await respond_with_autodelete("Please load a model with /changemodel", ctx)
+            return
     if ctx.options.width == 768 and ctx.options.height == 768:
         await respond_with_autodelete("Sorry, only one dimension can be 768!", ctx)
         return
@@ -1665,7 +1682,10 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
 
             respProxy = await ctx.respond(embed)
         else:
-            embed = hikari.Embed(title="We're waiting in line!", colour=hikari.Colour(0x56aaf8)).set_thumbnail(busyThumbnail)
+            if not resume:
+                embed = hikari.Embed(title="We're waiting in line!", colour=hikari.Colour(0x56aaf8)).set_thumbnail(busyThumbnail)
+            else:
+                embed = hikari.Embed(title="Reloading the last model!", description = "And generating...", colour=hikari.Colour(0x56aaf8)).set_thumbnail(busyThumbnail)
             respProxy = await ctx.respond(embed)
         # -------
         userconfig = load_user_config(str(ctx.author.id))
@@ -1939,6 +1959,8 @@ async def changemodel(ctx: lightbulb.SlashContext) -> None:
     global paused
     global TimeSinceGen
     TimeSinceGen = 0
+    if os.path.exists("./config/prevmodel.txt"):
+        os.remove("./config/prevmodel.txt")
     if paused:
         await respond_with_autodelete("Sorry, generation is currently paused!",ctx)
         return
@@ -2182,13 +2204,13 @@ async def styleinfo(ctx: lightbulb.SlashContext) -> None:
 
 
 # ----------------------------------
-# Restart Command
+# Reboot Command
 # ----------------------------------
 @bot.command()
 @lightbulb.add_checks(lightbulb.owner_only)
-@lightbulb.command("restart", "Force reboot kiwi")
+@lightbulb.command("reboot", "Force reboot kiwi")
 @lightbulb.implements(lightbulb.SlashCommand)
-async def restart(ctx: lightbulb.SlashContext) -> None:
+async def reboot(ctx: lightbulb.SlashContext) -> None:
     await ctx.respond("Rebooting",flags=hikari.MessageFlag.EPHEMERAL)
     await bot.close()
     await asyncio.sleep(1)
