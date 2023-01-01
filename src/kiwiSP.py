@@ -1038,10 +1038,11 @@ async def image_to_depthmap(ctx: lightbulb.SlashContext) -> None:
         embed.set_thumbnail(url)
         await ctx.edit_last_response(embed)
         botBusy = False
-    except:
+    except Exception:
+        traceback.print_exc()
         botBusy = False
         await respond_with_autodelete("Sorry, something went wrong...",ctx)
-        
+
 # ----------------------------------
 # Depth of field Command
 # ----------------------------------
@@ -1049,9 +1050,9 @@ async def image_to_depthmap(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("depth_brightness_offset", "(optional) lightness offset to apply to depthmap", required=False, default=0, type=float)
 @lightbulb.option("depth_contrast_offset", "(optional) contrast offset to apply to depthmap", required=False, default=0, type=float)
 @lightbulb.option("depthmap_link", "(optional) use a previously generated depth map", required=False, type=str)
+@lightbulb.option("blur_kernel_size", "(optional) Size of the blur kernel", required=False, max_value=100, min_value=1, type=int)
 @lightbulb.option("image_link", "image link", required=False, type=str)
 @lightbulb.option("image", "input image", required=False, type=hikari.Attachment)
-@lightbulb.option("blur_kernel_size", "(optional) Size of the blur kernel", required=False, max_value=100, min_value=1, type=int)
 @lightbulb.command("depth_of_field", "Use DPT model or supply depth map to apply depth blur to image")
 @lightbulb.implements(lightbulb.SlashSubCommand)
 async def depth_of_field(ctx: lightbulb.SlashContext) -> None:
@@ -1059,8 +1060,6 @@ async def depth_of_field(ctx: lightbulb.SlashContext) -> None:
     try:
         if not os.path.exists("./imageprocessing"):
             os.makedirs("./imageprocessing")
-        embed = hikari.Embed(title="Working on it...", colour=hikari.Colour(0x09ff00)).set_thumbnail(loadingThumbnail)
-        await ctx.respond(embed)
         if ctx.options.image == None and ctx.options.image_link == None:
             await respond_with_autodelete("Please include an image link or file", ctx)
             return
@@ -1071,6 +1070,8 @@ async def depth_of_field(ctx: lightbulb.SlashContext) -> None:
         if botBusy:
             await respond_with_autodelete("Sorry, Kiwi is busy, please try again later!", ctx)
             return
+        embed = hikari.Embed(title="Working on it...", colour=hikari.Colour(0x09ff00)).set_thumbnail(loadingThumbnail)
+        await ctx.respond(embed)
         botBusy = True
         #await ctx.respond(embed)
         if ctx.options.depthmap_link == None:
@@ -1121,8 +1122,6 @@ async def depth_to_alpha(ctx: lightbulb.SlashContext) -> None:
     try:
         if not os.path.exists("./imageprocessing"):
             os.makedirs("./imageprocessing")
-        embed = hikari.Embed(title="Working on it...", colour=hikari.Colour(0x09ff00)).set_thumbnail(loadingThumbnail)
-        await ctx.respond(embed)
         if ctx.options.image == None and ctx.options.image_link == None:
             await respond_with_autodelete("Please include an image link or file", ctx)
             return
@@ -1133,6 +1132,8 @@ async def depth_to_alpha(ctx: lightbulb.SlashContext) -> None:
         if botBusy:
             await respond_with_autodelete("Sorry, Kiwi is busy, please try again later!", ctx)
             return
+        embed = hikari.Embed(title="Working on it...", colour=hikari.Colour(0x09ff00)).set_thumbnail(loadingThumbnail)
+        await ctx.respond(embed)
         botBusy = True
         #await ctx.respond(embed)
         if ctx.options.depthmap_link == None:
@@ -1159,10 +1160,6 @@ async def depth_to_alpha(ctx: lightbulb.SlashContext) -> None:
     except Exception:
         traceback.print_exc()
         botBusy = False
-        try:
-            ctx.delete_last_response()
-        except:
-            pass
         await respond_with_autodelete("Sorry, something went wrong...",ctx)
 
 # ----------------------------------
@@ -1183,8 +1180,6 @@ async def depth_composite(ctx: lightbulb.SlashContext) -> None:
     try:
         if not os.path.exists("./imageprocessing"):
             os.makedirs("./imageprocessing")
-        embed = hikari.Embed(title="Working on it...", colour=hikari.Colour(0x09ff00)).set_thumbnail(loadingThumbnail)
-        await ctx.respond(embed)
         if ctx.options.image == None and ctx.options.image_link == None:
             await respond_with_autodelete("Please include an image link or file", ctx)
             return
@@ -1198,6 +1193,8 @@ async def depth_composite(ctx: lightbulb.SlashContext) -> None:
         if botBusy:
             await respond_with_autodelete("Sorry, Kiwi is busy, please try again later!", ctx)
             return
+        embed = hikari.Embed(title="Working on it...", colour=hikari.Colour(0x09ff00)).set_thumbnail(loadingThumbnail)
+        await ctx.respond(embed)
         botBusy = True
         #await ctx.respond(embed)
         if ctx.options.depthmap_link == None:
@@ -1230,10 +1227,8 @@ async def depth_composite(ctx: lightbulb.SlashContext) -> None:
     except Exception:
         traceback.print_exc()
         botBusy = False
-        try:
-            ctx.delete_last_response()
-        except:
-            pass
+        await respond_with_autodelete("Sorry, something went wrong...",ctx)
+
         await respond_with_autodelete("Sorry, something went wrong...",ctx)
 # ----------------------------------
 # Halt / Pause Command
