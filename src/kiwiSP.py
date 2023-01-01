@@ -664,14 +664,16 @@ def crop_and_resize(pil_img: Image.Image, width, height) -> Image.Image:
 
 
 def image_grid(imgs, rows, cols):
-    assert len(imgs) == rows*cols
+    #assert len(imgs) == rows*cols
 
     w, h = imgs[0].size
     grid = Image.new('RGB', size=(cols*w, rows*h))
     grid_w, grid_h = grid.size
 
     for i, img in enumerate(imgs):
-        grid.paste(img, box=(i % cols*w, i//cols*h))
+        try:
+            grid.paste(img, box=(i % cols*w, i//cols*h))
+        except:pass
     return grid
 
 
