@@ -1135,10 +1135,10 @@ async def depth_of_field(ctx: lightbulb.SlashContext) -> None:
         depthmask.save("./imageprocessing/depthmask.png")
         blurredimg.save("./imageprocessing/blurredimg.png")
         image.save("./imageprocessing/baseimg.png")
-        images = [image,blurredimg,depthmask]
-        image_grid(images,2,2).save("./imageprocessing/compositegrid.png")
         final_composite = Image.composite(image,blurredimg,depthmask)
         final_composite.save("./imageprocessing/final_composite.png")
+        images = [image,blurredimg,depthmask,final_composite]
+        image_grid(images,2,2).save("./imageprocessing/compositegrid.png")
         embed = hikari.Embed(title="Result:", colour=hikari.Colour(0x09ff00))
         embed.set_thumbnail("./imageprocessing/compositegrid.png")
         embed.set_image("./imageprocessing/final_composite.png")
@@ -1258,10 +1258,10 @@ async def depth_composite(ctx: lightbulb.SlashContext) -> None:
         depthmask.save("./imageprocessing/depthmask.png")
         image.save("./imageprocessing/baseimg.png")
         image2.save("./imageprocessing/baseimg2.png")
-        images = [image,image2,depthmask]
-        image_grid(images,2,2).save("./imageprocessing/compositegrid.png")
         final_composite = Image.composite(image,image2,depthmask)
         final_composite.save("./imageprocessing/final_composite.png")
+        images = [image,image2,depthmask,final_composite]
+        image_grid(images,2,2).save("./imageprocessing/compositegrid.png")
         embed = hikari.Embed(title="Result:", colour=hikari.Colour(0x09ff00))
         embed.set_image("./imageprocessing/final_composite.png")
         embed.set_thumbnail("./imageprocessing/compositegrid.png")
