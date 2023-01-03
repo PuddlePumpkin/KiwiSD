@@ -10,11 +10,13 @@ import sys
 from RealESRGAN import RealESRGAN
 try:
     url = str(sys.argv[1])
-    print("Esrgan upscaling from url: " + url)
+    print("ESRGAN upscaling from url: " + url)
     response = requests.get(url)
     image = Image.open(BytesIO(response.content)).convert("RGB")
-    if (image.width * image.height) > 580644: #limit to 762 x 762
-        image = ImageOps.fit(image,(762,762),Image.Resampling.LANCZOS)
+    if (image.width > 1024):
+        image = image.resize((1024,image.height/(image.width/1024)),Image.Resampling.LANCZOS)
+    if (image.height > 1024):
+        image = image.resize((image.width/(image.height/1024),1024),Image.Resampling.LANCZOS)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     os.chdir(str(os.path.abspath(os.path.dirname(__file__))))
