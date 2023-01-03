@@ -183,3 +183,5 @@ tmp/stdout.txt
 start.sh
 startconda.bat
 depth.png
+src/thirdparty/ESRGAN/weights/RealESRGAN_x2.pth
+src/weights/RealESRGAN_x2.pth

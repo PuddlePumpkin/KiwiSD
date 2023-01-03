@@ -997,6 +997,49 @@ def apply_post_process(image:Image,contrast:float=0,brightness:float=0)->Image:
     return image
 
 # ----------------------------------
+# Upscale Command
+# ----------------------------------
+@bot.command
+@lightbulb.option("image_link", "image link", required=False, type=str)
+@lightbulb.option("image", "input image", required=False, type=hikari.Attachment)
+@lightbulb.command("upscale", "Run Real-ESRGAN to upscale an image 2x")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def upscale(ctx: lightbulb.SlashContext) -> None:
+    global botBusy
+    try:
+        if not os.path.exists("./imageprocessing"):
+            os.makedirs("./imageprocessing")
+        if ctx.options.image != None:
+            url = ctx.options.image.url
+        elif ctx.options.image_link != None:
+            url = ctx.options.image_link
+        else:
+            await respond_with_autodelete("Please include an image link or file", ctx)
+            return
+        if botBusy:
+            await respond_with_autodelete("Sorry, Kiwi is busy, please try again later!", ctx)
+            return
+        botBusy = True
+        embed = hikari.Embed(title="Upscaling...", colour=hikari.Colour(0x09ff00)).set_thumbnail(loadingThumbnail)
+        await ctx.respond(embed)
+        ESRGANPath = Path("./src/Esrgan.py")
+        pathStr = ESRGANPath.absolute()
+        process: Process = await asyncio.create_subprocess_exec("python",pathStr,url)
+        await process.wait()
+        try:
+            process.kill()
+        except:pass
+        embed.title = "Upscale Result:"
+        embed.set_image("./imageprocessing/upscaled.png")
+        embed.set_thumbnail(url)
+        await ctx.edit_last_response(embed)
+        botBusy = False
+    except Exception:
+        traceback.print_exc()
+        botBusy = False
+        await respond_with_autodelete("Sorry, something went wrong...",ctx)
+
+# ----------------------------------
 # Image to Depth Filter
 # ----------------------------------
 @filter.child
@@ -1239,7 +1282,7 @@ async def depth_composite(ctx: lightbulb.SlashContext) -> None:
 @lightbulb.option("saturation", "saturation offset (-1 = grayscale, 1 = double saturation)", required=False, type=float)
 @lightbulb.option("image_link", "image link", required=False, type=str)
 @lightbulb.option("image", "input image", required=False, type=hikari.Attachment)
-@lightbulb.command("post_process", "runs post processing effects on an image")
+@lightbulb.command("post_process", "Runs post processing effects on an image")
 @lightbulb.implements(lightbulb.SlashSubCommand)
 async def post_process(ctx: lightbulb.SlashContext) -> None:
     global botBusy

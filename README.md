@@ -3,7 +3,7 @@ Kiwi
 </h1>
 
 <p align=center><img width="200" height="200" src="/docs/kiwipfp.png"></p><p align=center>Kiwi is a <a href=https://github.com/hikari-py/hikari>Hikari</a> <a href=https://github.com/tandemdude/hikari-lightbulb>Lightbulb</a> discord bot for prompting stable diffusion models through <a href=https://huggingface.co>Hugging Face's</a> <a href=https://github.com/huggingface/diffusers>Diffusers library</a>.</p><p align=center>I created Kiwi because I wanted to have a <i>"multiplayer"</i> alternative to <a href=https://github.com/AUTOMATIC1111/stable-diffusion-webui>AUTOMATIC1111's webui</a></p>
-<p align=center><a href="https://github.com/PuddlePumpkin/KiwiSD/blob/main/license"><img src=https://img.shields.io/badge/License-MIT-green></a> <a href=https://www.python.org/downloads/release/python-3109><img src=https://img.shields.io/pypi/pyversions/torch></a><a href=https://discord.gg/q2ZRjJTERV> <img src=https://img.shields.io/badge/Discord-Kiwi-ff69b4></a>
+<p align=center><a href="https://github.com/PuddlePumpkin/KiwiSD/blob/main/license"><img src=https://img.shields.io/badge/License-MIT-green></a> <a href=https://www.python.org/downloads/release/python-3104><img src=https://img.shields.io/badge/Python-3.10.4-blue></a><a href=https://discord.gg/q2ZRjJTERV> <img src=https://img.shields.io/badge/Discord-Kiwi-ff69b4></a>
 
 # Features
 - **Models:**
@@ -104,11 +104,13 @@ This project abides by all exteral package licenses and makes use of multiple th
 #### Heavily used resources:
 |Package|Usage|Link|License|
 |----|----|----|----|
-Kiwi|This Project|https://github.com/PuddlePumpkin/KiwiSD|MIT
-[Hugging Face](https://huggingface.co/) Diffusers|Modified conversion script|https://github.com/huggingface/diffusers|Apache 2.0
-Gidole Font|Loads via WGET|https://github.com/larsenwork/Gidole/|MIT
-Hikari|pip|https://github.com/hikari-py/hikari/|MIT
-Hikari-Lightbulb|pip|https://github.com/tandemdude/hikari-lightbulb|LGPLv3
+Kiwi|This Project|https://github.com/PuddlePumpkin/KiwiSD|[MIT](https://github.com/PuddlePumpkin/KiwiSD/blob/main/license)
+[Hugging Face](https://huggingface.co/) Diffusers|Modified conversion script, pip-git|https://github.com/huggingface/diffusers|[Apache 2.0](https://github.com/huggingface/diffusers/blob/main/LICENSE)
+Gidole Font|Loads via WGET|https://github.com/larsenwork/Gidole/|[OFL/MIT](https://github.com/larsenwork/Gidole/blob/master/Resources/GidoleFont/License.txt)
+Hikari|pip|https://github.com/hikari-py/hikari/|[MIT](https://github.com/hikari-py/hikari/blob/master/LICENSE)
+Hikari-Lightbulb|pip|https://github.com/tandemdude/hikari-lightbulb|[LGPLv3](https://choosealicense.com/licenses/lgpl-3.0/)
+Real ESRGAN|pip-git|https://github.com/ai-forever/Real-ESRGAN|[BSD 3-Clause](https://github.com/ai-forever/Real-ESRGAN/blob/main/LICENSE)
+Real ESRGAN|ai-forever implementation is derivative|https://github.com/xinntao/Real-ESRGAN|[BSD 3-Clause](https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE)
 [Pytorch](https://pytorch.org/) (CUDA)|pip|https://github.com/pytorch/pytorch|[Custom](https://github.com/pytorch/pytorch/blob/master/LICENSE)
 
 See src/requirements.txt to view other used packages and find their licenses.

@@ -13,6 +13,7 @@ ffmpeg-python
 scikit-image
 opencv-python
 git+https://github.com/huggingface/diffusers.git
+git+https://github.com/sberbank-ai/Real-ESRGAN.git
 
 --extra-index-url https://download.pytorch.org/whl/cu117
 torch
