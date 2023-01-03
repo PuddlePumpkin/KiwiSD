@@ -1031,7 +1031,7 @@ async def upscale(ctx: lightbulb.SlashContext) -> None:
         except:pass
         embed.title = "Upscale Result:"
         embed.set_image("./imageprocessing/upscaled.png")
-        embed.set_thumbnail(url)
+        embed.set_thumbnail(None)
         await ctx.edit_last_response(embed)
         botBusy = False
     except Exception:

@@ -14,9 +14,9 @@ try:
     response = requests.get(url)
     image = Image.open(BytesIO(response.content)).convert("RGB")
     if (image.width > 1024):
-        image = image.resize((1024,image.height/(image.width/1024)),Image.Resampling.LANCZOS)
+        image = image.resize((1024,int(image.height/(image.width/1024))),Image.Resampling.LANCZOS)
     if (image.height > 1024):
-        image = image.resize((image.width/(image.height/1024),1024),Image.Resampling.LANCZOS)
+        image = image.resize((int(image.width/(image.height/1024)),1024),Image.Resampling.LANCZOS)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     os.chdir(str(os.path.abspath(os.path.dirname(__file__))))
@@ -29,5 +29,10 @@ try:
     if not os.path.exists("./imageprocessing"):
         os.makedirs("./imageprocessing")
     sr_image.save("./imageprocessing/upscaled.png")
+    file_stats = os.stat("./imageprocessing/upscaled.png")
+    if ((file_stats.st_size / (1024 * 1024)) >= 8):
+        image = Image.open("./imageprocessing/upscaled.png")
+        image.save("./imageprocessing/upscaled.png", 'JPEG', quality = 95)
+
 except Exception:
     traceback.print_exc()
