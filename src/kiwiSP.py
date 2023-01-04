@@ -48,6 +48,9 @@ model_list = {}
 def convert_model(ckptpath, vaepath=None, dump_path=None):
     convertckpt.convert_model(ckptpath, vaepath, dump_path=dump_path)
 pipe = None
+
+
+
 # ----------------------------------
 # Configs
 # ----------------------------------
@@ -154,7 +157,7 @@ class postprocess(object):
         self.SharpnessOffset = SharpnessOffset
 
 class imageRequest(object):
-    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=False, gifFrame=None, doLabel = False, labelKey = None, fontsize = None, success = True, context:lightbulb.SlashContext = None, postprocess:postprocess = None):
+    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=False, gifFrame=None, doLabel = False, labelKey = None, fontsize = None, success = True, context:lightbulb.SlashContext = None, postprocess:postprocess = None, tiling = False):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
@@ -180,10 +183,11 @@ class imageRequest(object):
         self.success = success
         self.context = context
         self.postprocess = postprocess
+        self.tiling = tiling
 
 
 class animationRequest(object):
-    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=True, startframe=None, endframe=None, animkey=None, animation_step=None, ingif=None, LabelFrames=False, fontsize = None, fps = 10, context:lightbulb.SlashContext = None, postprocess = None):
+    def __init__(self, Prompt=None, NegativePrompt=None, InfSteps=None, Seed=None, GuideScale=None, ImgUrl=None, Strength=None, Width=None, Height=None, Proxy=None, resultImage=None, regenerate=False, overProcess=False, scheduler=None, userconfig=None, author=None, InpaintUrl=None, isAnimation=True, startframe=None, endframe=None, animkey=None, animation_step=None, ingif=None, LabelFrames=False, fontsize = None, fps = 10, context:lightbulb.SlashContext = None, postprocess = None, tiling = False):
         self.prompt = Prompt
         self.negativePrompt = NegativePrompt
         self.infSteps = InfSteps
@@ -212,6 +216,7 @@ class animationRequest(object):
         self.fps = fps
         self.context = context
         self.postprocess = postprocess
+        self.tiling = tiling
 
 
 class changeModelThreadManager(object):
@@ -333,6 +338,18 @@ class genImgThreadClass(Thread):
         global botBusy
         global countStr
         try:
+            if self.request.tiling:
+                targets = [pipe.vae,pipe.text_encoder,pipe.unet]
+                for target in targets:
+                    for module in target.modules():
+                        if isinstance(module, torch.nn.Conv2d) or isinstance(module, torch.nn.ConvTranspose2d):
+                            module.padding_mode = "circular"
+            else:
+                targets = [pipe.vae,pipe.text_encoder,pipe.unet]
+                for target in targets:
+                    for module in target.modules():
+                        if isinstance(module, torch.nn.Conv2d) or isinstance(module, torch.nn.ConvTranspose2d):
+                            module.padding_mode = "zeros"
             # Handle Scheduler
             if (self.request.scheduler == None or self.request.scheduler == "0"):
                 self.request.scheduler = "KLMS"
@@ -1499,6 +1516,7 @@ async def ThreadCompletionLoop():
     if TimeSinceGen > config["ModelTimeoutSeconds"]:
             with open('./config/prevmodel.txt', 'w') as fp:
                 fp.write(curmodel["ModelCommandName"])
+            print("Restarting kiwi process to clear idle vram")
             await bot.close()
             await asyncio.sleep(1)
             await quit(1)
@@ -1891,7 +1909,7 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
             except:
                 pass
         requestObject = imageRequest(filteredPrompt, filteredNegativePrompt, steps, ctx.options.seed, guidance_scale, url, ctx.options.strength, ctx.options.width,
-                                     ctx.options.height, respProxy, scheduler=sampler, userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=regenerate, overProcess=overProcess, context=ctx,postprocess=pp)
+                                     ctx.options.height, respProxy, scheduler=sampler, userconfig=userconfig, author=ctx.author, InpaintUrl=inpainturl, regenerate=regenerate, overProcess=overProcess, context=ctx,postprocess=pp, tiling=ctx.options.tiling)
         requestQueue.append(requestObject)
     except Exception:
         print("Error")
@@ -1904,6 +1922,7 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
 # Generate Command
 # ----------------------------------
 @bot.command
+@lightbulb.option("tiling", "(Optional) generates a tiling texture, (hard to prompt properly)", required=False, type=bool, default=False, choices=[True,False])
 @lightbulb.option("ignore_postprocess", "(Optional) Runs generation without user post processing settings", required=False, type=bool, default=False, choices=[True,False])
 @lightbulb.option("height", "(Optional) height of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
 @lightbulb.option("width", "(Optional) width of result (Default:512)", required=False, type=int, default=512, choices=[128, 256, 384, 512, 640, 768])
