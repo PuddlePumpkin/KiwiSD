@@ -1017,9 +1017,10 @@ def apply_post_process(image:Image,contrast:float=0,brightness:float=0)->Image:
 # Upscale Command
 # ----------------------------------
 @bot.command
+@lightbulb.option("scale", "upscale multiplier", required=False, type=str, choices=["2x","4x"], default="2x")
 @lightbulb.option("image_link", "image link", required=False, type=str)
 @lightbulb.option("image", "input image", required=False, type=hikari.Attachment)
-@lightbulb.command("upscale", "Run Real-ESRGAN to upscale an image 2x")
+@lightbulb.command("upscale", "Run Real-ESRGAN to upscale an image")
 @lightbulb.implements(lightbulb.SlashCommand)
 async def upscale(ctx: lightbulb.SlashContext) -> None:
     global botBusy
@@ -1039,7 +1040,10 @@ async def upscale(ctx: lightbulb.SlashContext) -> None:
         botBusy = True
         embed = hikari.Embed(title="Upscaling...", colour=hikari.Colour(0x09ff00)).set_thumbnail(loadingThumbnail)
         await ctx.respond(embed)
-        ESRGANPath = Path("./src/Esrgan.py")
+        if ctx.options.scale == "2x":
+            ESRGANPath = Path("./src/Esrgan.py")
+        else:
+            ESRGANPath = Path("./src/Esrgan4x.py")
         pathStr = ESRGANPath.absolute()
         process: Process = await asyncio.create_subprocess_exec("python",pathStr,url)
         await process.wait()
