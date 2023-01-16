@@ -1935,7 +1935,7 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
 @lightbulb.option("strength", "(Optional) Strength of the input image or power of inpainting (Default:0.25)",max_value=1,min_value=0, required=False, type=float)
 @lightbulb.option("image_link", "(Optional) image link or message ID", required=False, type=str)
 @lightbulb.option("image", "(Optional) image to run diffusion on", required=False, type=hikari.Attachment)
-@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion", required=False, type=int, max_value=config["MaxSteps"], min_value=1)
+@lightbulb.option("steps", "(Optional) Number of inference steps to use for diffusion", required=False, type=int, min_value=1)
 @lightbulb.option("seed", "(Optional) Seed for diffusion. Enter \"0\" for random.", required=False, default=0, type=int, min_value=0)
 @lightbulb.option("guidance_scale", "(Optional) Guidance scale for diffusion", required=False, type=float, max_value=100, min_value=-100)
 @lightbulb.option("negative_prompt", "(Optional)Prompt for diffusion to avoid.", required=False)
@@ -1945,6 +1945,10 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
 async def generate(ctx: lightbulb.SlashContext) -> None:
     global paused
     global TimeSinceGen
+    if ctx.options.steps > config["MaxSteps"]:
+        if str(ctx.author.id) not in get_admin_list():
+            await respond_with_autodelete("Please use "+ str(config["MaxSteps"]) + " or fewer steps",ctx)
+            return
     TimeSinceGen = 0
     if paused:
         await respond_with_autodelete("Sorry, generation is currently paused!",ctx)
