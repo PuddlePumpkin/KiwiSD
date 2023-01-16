@@ -1945,10 +1945,13 @@ async def processRequest(ctx: lightbulb.SlashContext, regenerate: bool, overProc
 async def generate(ctx: lightbulb.SlashContext) -> None:
     global paused
     global TimeSinceGen
-    if ctx.options.steps > config["MaxSteps"]:
-        if str(ctx.author.id) not in get_admin_list():
-            await respond_with_autodelete("Please use "+ str(config["MaxSteps"]) + " or fewer steps",ctx)
-            return
+    try:
+        if ctx.options.steps > config["MaxSteps"]:
+            if str(ctx.author.id) not in get_admin_list():
+                await respond_with_autodelete("Please use "+ str(config["MaxSteps"]) + " or fewer steps",ctx)
+                return
+    except:
+        pass
     TimeSinceGen = 0
     if paused:
         await respond_with_autodelete("Sorry, generation is currently paused!",ctx)
