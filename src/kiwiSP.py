@@ -970,6 +970,47 @@ async def ping(ctx: lightbulb.SlashContext) -> None:
     await respond_with_autodelete("Pong!", ctx, 0x00ff1a)
 
 # ----------------------------------
+# CheckTiling Command
+# ----------------------------------
+@bot.command
+@lightbulb.option("amount", "how many to tile", required=False, type=str, choices=["2x2","3x3","4x4"], default="2x2")
+@lightbulb.option("image_link", "image link", required=False, type=str)
+@lightbulb.option("image", "input image", required=False, type=hikari.Attachment)
+@lightbulb.command("check_tiling", "checks a texture's tiling")
+@lightbulb.implements(lightbulb.SlashCommand)
+async def check_tiling(ctx: lightbulb.SlashContext) -> None:
+    if not os.path.exists("./imageprocessing"):
+        os.makedirs("./imageprocessing")
+    if ctx.options.image != None:
+        url = ctx.options.image.url
+    elif ctx.options.image_link != None:
+        url = ctx.options.image_link
+    else:
+        await respond_with_autodelete("Please include an image link or file", ctx)
+        return
+    await ctx.respond("Tiling...")
+    try:
+        image = image_from_link(url,"RGB")
+        image.save("./imageprocessing/notile.png")
+        embed = hikari.Embed(title="Tiled " + ctx.options.amount + ":", colour=hikari.Colour(0x09ff00))
+        if ctx.options.amount == "2x2":
+            image = crop_and_resize(image,512,512)
+            image_grid([image,image,image,image],2,2).save("./imageprocessing/tilegrid.png")
+        elif ctx.options.amount == "3x3":
+            image = crop_and_resize(image,256,256)
+            image_grid([image,image,image,image,image,image,image,image,image],3,3).save("./imageprocessing/tilegrid.png")
+        elif ctx.options.amount == "4x4":
+            image = crop_and_resize(image,170,170)
+            image_grid([image,image,image,image,image,image,image,image,image,image,image,image,image,image,image,image,],4,4).save("./imageprocessing/tilegrid.png")
+        embed.set_thumbnail("./imageprocessing/notile.png")
+        embed.set_image("./imageprocessing/tilegrid.png")
+        await ctx.edit_last_response(embed)
+    except Exception:
+        traceback.print_exc()
+        await respond_with_autodelete("Sorry, something went wrong...",ctx)
+
+
+# ----------------------------------
 # Filter command group
 # ----------------------------------
 @bot.command
