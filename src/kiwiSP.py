@@ -515,7 +515,7 @@ class genImgThreadClass(Thread):
                     metadata.add_text("Img2Img Strength",
                                     str(self.request.strength))
                 else:
-                    image = pipe.text2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, image=init_image,
+                    image = pipe.text2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator,
                                             negative_prompt=self.request.negativePrompt, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps).images[0]
             #Post Processing
             try:
