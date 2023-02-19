@@ -507,10 +507,10 @@ class genImgThreadClass(Thread):
                 if self.request.strength != None:
                     if self.request.inpaintUrl == None:
                         print("Strength = " + str(1-self.request.strength))
-                        image = pipe.img2img(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, image=init_image,
+                        image = pipe.img2img(prompt=self.request.prompt, generator=generator, image=init_image,
                                                 negative_prompt=self.request.negativePrompt, strength=(1-(self.request.strength*0.89)), guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps).images[0]
                     else:
-                        image = pipe.inpaint(prompt=self.request.prompt, height=self.request.height, width=self.request.width, generator=generator, image=init_image, negative_prompt=self.request.negativePrompt, strength=(
+                        image = pipe.inpaint(prompt=self.request.prompt, generator=generator, image=init_image, negative_prompt=self.request.negativePrompt, strength=(
                             1-(self.request.strength*0.89)), mask_image=inpaint_image, guidance_scale=self.request.guideScale, num_inference_steps=self.request.infSteps).images[0]
                     metadata.add_text("Img2Img Strength",
                                     str(self.request.strength))
