@@ -12,6 +12,7 @@ OmegaConf
 ffmpeg-python
 scikit-image
 opencv-python
+safetensors
 git+https://github.com/huggingface/diffusers.git
 git+https://github.com/sberbank-ai/Real-ESRGAN.git
 
