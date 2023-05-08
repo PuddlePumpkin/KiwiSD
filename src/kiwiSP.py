@@ -41,6 +41,7 @@ from PIL import ImageEnhance
 from torch import autocast
 from transformers import CLIPTextModel, CLIPTokenizer
 import convertckpt
+import lpw_stable_diffusion
 from diffusers import (DDIMScheduler, DDPMScheduler, DiffusionPipeline,
                        DPMSolverMultistepScheduler, EulerDiscreteScheduler,
                        LMSDiscreteScheduler, PNDMScheduler)
@@ -273,11 +274,12 @@ class changeModelThreadClass(Thread):
         try:
             if curmodel["RequireFP32"]:
                 print("Model Requires FP32")
-                pipe = DiffusionPipeline.from_pretrained(model_list[self.modelname]["ModelPath"], custom_pipeline="lpw_stable_diffusion", use_auth_token=HFToken,torch_dtype=torch.float32, text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
+                
+                pipe = lpw_stable_diffusion.StableDiffusionLongPromptWeightingPipeline.from_pretrained(model_list[self.modelname]["ModelPath"], use_auth_token=HFToken,torch_dtype=torch.float32, text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
             else:
-                pipe = DiffusionPipeline.from_pretrained(model_list[self.modelname]["ModelPath"], custom_pipeline="lpw_stable_diffusion", use_auth_token=HFToken,torch_dtype=torch.float16, revision="fp16",text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
+                pipe = lpw_stable_diffusion.StableDiffusionLongPromptWeightingPipeline.from_pretrained(model_list[self.modelname]["ModelPath"], use_auth_token=HFToken,torch_dtype=torch.float16, revision="fp16",text_encoder=text_encoder, tokenizer=tokenizer, device_map="auto").to('cuda')
         except:
-            pipe = DiffusionPipeline.from_pretrained(model_list[self.modelname]["ModelPath"], custom_pipeline="lpw_stable_diffusion", use_auth_token=HFToken,torch_dtype=torch.float16, revision="fp16",text_encoder=text_encoder, tokenizer=tokenizer).to('cuda')    
+            pipe = lpw_stable_diffusion.StableDiffusionLongPromptWeightingPipeline.from_pretrained(model_list[self.modelname]["ModelPath"], use_auth_token=HFToken,torch_dtype=torch.float16, revision="fp16",text_encoder=text_encoder, tokenizer=tokenizer).to('cuda')    
         del tokenizer
         del text_encoder
         torch.cuda.empty_cache()
